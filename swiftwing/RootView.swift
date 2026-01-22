@@ -19,7 +19,7 @@ struct RootView: View {
                     set: { if $0 { cameraPermissionStatus = .authorized } }
                 ))
             case .authorized:
-                ContentView()
+                CameraView()
             }
         }
         .onAppear {

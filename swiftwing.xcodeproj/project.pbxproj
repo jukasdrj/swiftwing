@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */; };
 		297CACB39DDD705A8166A4A6 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */; };
+		2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B42B677D75020B244722F76 /* CameraPreviewView.swift */; };
+		369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5FA190CF9E5B8B778E942 /* CameraView.swift */; };
 		7F0000010000000000000001 /* SwiftwingApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000020000000000000001 /* SwiftwingApp.swift */; };
 		7F0000030000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000040000000000000001 /* ContentView.swift */; };
 		7F0000050000000000000001 /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000060000000000000001 /* Book.swift */; };
@@ -19,12 +21,15 @@
 		7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000210000000000000001 /* CameraPermissionPrimerView.swift */; };
 		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
 		C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */; };
+		DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733AF8F390562E0E6977AD18 /* CameraManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
+		2B42B677D75020B244722F76 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CameraPreviewView.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		518C6845C092FC50A655B339 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HelloWorldView.swift; sourceTree = "<group>"; };
+		733AF8F390562E0E6977AD18 /* CameraManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CameraManager.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		7F0000020000000000000001 /* SwiftwingApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftwingApp.swift; sourceTree = "<group>"; };
 		7F0000040000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7F0000060000000000000001 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
@@ -35,6 +40,7 @@
 		7F00001F0000000000000001 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		7F0000210000000000000001 /* CameraPermissionPrimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPermissionPrimerView.swift; sourceTree = "<group>"; };
 		8F38536DACB936224AB7F798 /* Theme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		8FF5FA190CF9E5B8B778E942 /* CameraView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CameraView.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -73,6 +79,9 @@
 				8F38536DACB936224AB7F798 /* Theme.swift */,
 				CCCC1CE7E505514299320EBC /* Fonts */,
 				05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */,
+				733AF8F390562E0E6977AD18 /* CameraManager.swift */,
+				2B42B677D75020B244722F76 /* CameraPreviewView.swift */,
+				8FF5FA190CF9E5B8B778E942 /* CameraView.swift */,
 			);
 			path = swiftwing;
 			sourceTree = "<group>";
@@ -191,6 +200,9 @@
 				08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */,
 				7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */,
 				C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */,
+				DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */,
+				2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */,
+				369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
