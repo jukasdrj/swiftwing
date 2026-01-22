@@ -7,20 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */; };
+		297CACB39DDD705A8166A4A6 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */; };
 		7F0000010000000000000001 /* SwiftwingApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000020000000000000001 /* SwiftwingApp.swift */; };
 		7F0000030000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000040000000000000001 /* ContentView.swift */; };
 		7F0000050000000000000001 /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000060000000000000001 /* Book.swift */; };
 		7F0000070000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F0000080000000000000001 /* Assets.xcassets */; };
 		7F0000090000000000000001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F00000A0000000000000001 /* Preview Assets.xcassets */; };
+		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		7F00000B0000000000000001 /* swiftwing.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = swiftwing.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		518C6845C092FC50A655B339 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HelloWorldView.swift; sourceTree = "<group>"; };
 		7F0000020000000000000001 /* SwiftwingApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftwingApp.swift; sourceTree = "<group>"; };
 		7F0000040000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7F0000060000000000000001 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
 		7F0000080000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7F00000A0000000000000001 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		7F00000B0000000000000001 /* swiftwing.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = swiftwing.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8F38536DACB936224AB7F798 /* Theme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -50,6 +57,10 @@
 				7F0000100000000000000001 /* Models */,
 				7F0000080000000000000001 /* Assets.xcassets */,
 				7F0000110000000000000001 /* Preview Content */,
+				518C6845C092FC50A655B339 /* Info.plist */,
+				59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */,
+				8F38536DACB936224AB7F798 /* Theme.swift */,
+				CCCC1CE7E505514299320EBC /* Fonts */,
 			);
 			path = swiftwing;
 			sourceTree = "<group>";
@@ -76,6 +87,15 @@
 				7F00000A0000000000000001 /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		CCCC1CE7E505514299320EBC /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */,
+			);
+			name = Fonts;
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -139,6 +159,7 @@
 			files = (
 				7F0000090000000000000001 /* Preview Assets.xcassets in Resources */,
 				7F0000070000000000000001 /* Assets.xcassets in Resources */,
+				297CACB39DDD705A8166A4A6 /* JetBrainsMono-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -152,6 +173,8 @@
 				7F0000030000000000000001 /* ContentView.swift in Sources */,
 				7F0000050000000000000001 /* Book.swift in Sources */,
 				7F0000010000000000000001 /* SwiftwingApp.swift in Sources */,
+				08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */,
+				7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,6 +310,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"swiftwing/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = swiftwing/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -316,6 +340,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"swiftwing/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = swiftwing/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

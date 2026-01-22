@@ -2,11 +2,11 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        Color.white
-            .ignoresSafeArea()
+        HelloWorldView()
     }
 }
 
 #Preview {
     ContentView()
+        .preferredColorScheme(.dark)
 }
