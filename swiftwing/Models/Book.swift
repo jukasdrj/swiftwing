@@ -3,13 +3,15 @@ import SwiftData
 
 @Model
 final class Book {
+    @Attribute(.unique) var isbn: String
+    var id: UUID
     var title: String
     var author: String
-    var publishedYear: Int
 
-    init(title: String = "", author: String = "", publishedYear: Int = 2024) {
+    init(id: UUID = UUID(), title: String, author: String, isbn: String) {
+        self.id = id
         self.title = title
         self.author = author
-        self.publishedYear = publishedYear
+        self.isbn = isbn
     }
 }
