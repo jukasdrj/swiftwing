@@ -10,6 +10,7 @@ struct CameraView: View {
     @State private var errorMessage: String?
     @State private var coldStartTime: CFAbsoluteTime = 0
     @State private var showFlash = false
+    @State private var processingQueue: [ProcessingItem] = []
 
     var body: some View {
         ZStack {
@@ -56,10 +57,15 @@ struct CameraView: View {
                     .transition(.opacity)
             }
 
-            // Shutter button (80x80px white ring at bottom center)
+            // Shutter button + Processing Queue
             VStack {
                 Spacer()
 
+                // Processing queue (40px height above shutter)
+                ProcessingQueueView(items: processingQueue)
+                    .padding(.bottom, 8)
+
+                // Shutter button (80x80px white ring at bottom center)
                 Button(action: captureImage) {
                     Circle()
                         .strokeBorder(.white, lineWidth: 4)
@@ -147,6 +153,9 @@ struct CameraView: View {
             let imageData = try await cameraManager.capturePhoto()
             print("📸 Image captured (\(imageData.count) bytes)")
 
+            // Add to processing queue immediately with thumbnail
+            let queueItem = await addToQueue(imageData: imageData)
+
             // Process image: resize + compress + save
             // This runs off main thread via Task.detached
             let fileURL = try await Self.processImage(imageData)
@@ -159,8 +168,43 @@ struct CameraView: View {
                 print("⚠️ WARNING: Image processing exceeded 0.5s target!")
             }
 
+            // Update to done state
+            await updateQueueItemState(id: queueItem.id, state: .done)
+
+            // Auto-remove after 5 seconds
+            await removeQueueItemAfterDelay(id: queueItem.id, delay: 5.0)
+
         } catch {
             print("❌ Image processing failed: \(error)")
+        }
+    }
+
+    /// Adds item to processing queue and returns the item
+    @MainActor
+    private func addToQueue(imageData: Data) -> ProcessingItem {
+        let item = ProcessingItem(imageData: imageData, state: .processing)
+        withAnimation(.spring(duration: 0.2)) {
+            processingQueue.append(item)
+        }
+        return item
+    }
+
+    /// Updates queue item state
+    @MainActor
+    private func updateQueueItemState(id: UUID, state: ProcessingItem.ProcessingState) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.spring(duration: 0.2)) {
+                processingQueue[index].state = state
+            }
+        }
+    }
+
+    /// Removes item from queue after delay
+    @MainActor
+    private func removeQueueItemAfterDelay(id: UUID, delay: TimeInterval) async {
+        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        withAnimation(.spring(duration: 0.2)) {
+            processingQueue.removeAll { $0.id == id }
         }
     }
 
