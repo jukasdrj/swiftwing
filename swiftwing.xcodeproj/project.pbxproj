@@ -15,6 +15,8 @@
 		7F0000070000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F0000080000000000000001 /* Assets.xcassets */; };
 		7F0000090000000000000001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F00000A0000000000000001 /* Preview Assets.xcassets */; };
 		7F00001C0000000000000001 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F00001D0000000000000001 /* LibraryView.swift */; };
+		7F00001E0000000000000001 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F00001F0000000000000001 /* RootView.swift */; };
+		7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000210000000000000001 /* CameraPermissionPrimerView.swift */; };
 		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
 		C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */; };
 /* End PBXBuildFile section */
@@ -30,6 +32,8 @@
 		7F00000A0000000000000001 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		7F00000B0000000000000001 /* swiftwing.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = swiftwing.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7F00001D0000000000000001 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		7F00001F0000000000000001 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		7F0000210000000000000001 /* CameraPermissionPrimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPermissionPrimerView.swift; sourceTree = "<group>"; };
 		8F38536DACB936224AB7F798 /* Theme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -59,6 +63,8 @@
 				7F0000020000000000000001 /* SwiftwingApp.swift */,
 				7F0000040000000000000001 /* ContentView.swift */,
 				7F00001D0000000000000001 /* LibraryView.swift */,
+				7F00001F0000000000000001 /* RootView.swift */,
+				7F0000210000000000000001 /* CameraPermissionPrimerView.swift */,
 				7F0000100000000000000001 /* Models */,
 				7F0000080000000000000001 /* Assets.xcassets */,
 				7F0000110000000000000001 /* Preview Content */,
@@ -180,6 +186,8 @@
 				7F0000050000000000000001 /* Book.swift in Sources */,
 				7F0000010000000000000001 /* SwiftwingApp.swift in Sources */,
 				7F00001C0000000000000001 /* LibraryView.swift in Sources */,
+				7F00001E0000000000000001 /* RootView.swift in Sources */,
+				7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */,
 				08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */,
 				7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */,
 				C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */,
