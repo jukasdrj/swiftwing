@@ -36,10 +36,10 @@ struct CameraPermissionPrimerView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.internationalOrange)
-                        .cornerRadius(12)
                 }
+                .padding(.vertical, 16)
+                .background(Color.internationalOrange)
+                .cornerRadius(12)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
             }

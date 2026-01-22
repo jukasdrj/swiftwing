@@ -24,11 +24,11 @@ struct ProcessingItem: Identifiable, Equatable {
         var borderColor: Color {
             switch self {
             case .processing:
-                return .yellow
+                return .swissProcessing
             case .uploading:
-                return .blue
+                return .swissUploading
             case .done:
-                return .green
+                return .swissDone
             }
         }
     }

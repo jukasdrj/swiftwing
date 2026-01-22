@@ -55,8 +55,7 @@ struct CameraView: View {
                         .padding(.horizontal, 24)
                 }
                 .padding()
-                .background(.ultraThinMaterial)
-                .cornerRadius(12)
+                .swissGlassCard()
                 .padding(24)
             }
 
@@ -80,12 +79,9 @@ struct CameraView: View {
                     Spacer()
 
                     Text(String(format: "%.1fx", cameraManager.currentZoomFactor))
-                        .font(.custom("JetBrainsMono-Regular", size: 16))
+                        .font(.jetBrainsMono)
                         .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(8)
+                        .swissGlassOverlay()
                         .padding(.top, 60)
                         .padding(.trailing, 16)
                 }
@@ -108,7 +104,7 @@ struct CameraView: View {
                         .frame(width: 80, height: 80)
                         .contentShape(Circle())
                 }
-                .sensoryFeedback(.impact, trigger: showFlash)
+                .haptic(.impact, trigger: showFlash)
                 .padding(.bottom, 40)
             }
         }
@@ -219,7 +215,7 @@ struct CameraView: View {
     @MainActor
     private func addToQueue(imageData: Data) -> ProcessingItem {
         let item = ProcessingItem(imageData: imageData, state: .processing)
-        withAnimation(.spring(duration: 0.2)) {
+        withAnimation(.swissSpring) {
             processingQueue.append(item)
         }
         return item
@@ -229,7 +225,7 @@ struct CameraView: View {
     @MainActor
     private func updateQueueItemState(id: UUID, state: ProcessingItem.ProcessingState) {
         if let index = processingQueue.firstIndex(where: { $0.id == id }) {
-            withAnimation(.spring(duration: 0.2)) {
+            withAnimation(.swissSpring) {
                 processingQueue[index].state = state
             }
         }
@@ -239,7 +235,7 @@ struct CameraView: View {
     @MainActor
     private func removeQueueItemAfterDelay(id: UUID, delay: TimeInterval) async {
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-        withAnimation(.spring(duration: 0.2)) {
+        withAnimation(.swissSpring) {
             processingQueue.removeAll { $0.id == id }
         }
     }
