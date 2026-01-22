@@ -8,6 +8,7 @@ struct CameraView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var coldStartTime: CFAbsoluteTime = 0
+    @State private var showFlash = false
 
     var body: some View {
         ZStack {
@@ -45,6 +46,27 @@ struct CameraView: View {
                 .background(.ultraThinMaterial)
                 .cornerRadius(12)
                 .padding(24)
+            }
+
+            // White flash overlay (full-screen)
+            if showFlash {
+                Color.white
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+            }
+
+            // Shutter button (80x80px white ring at bottom center)
+            VStack {
+                Spacer()
+
+                Button(action: captureImage) {
+                    Circle()
+                        .strokeBorder(.white, lineWidth: 4)
+                        .frame(width: 80, height: 80)
+                        .contentShape(Circle())
+                }
+                .sensoryFeedback(.impact, trigger: showFlash)
+                .padding(.bottom, 40)
             }
         }
         .statusBar(hidden: true) // Full immersion
@@ -90,6 +112,41 @@ struct CameraView: View {
             isLoading = false
             print("❌ Camera setup failed: \(error)")
         }
+    }
+
+    /// Captures image with non-blocking rapid-fire support
+    /// Each tap creates a new parallel task - button never blocks
+    private func captureImage() {
+        // Show flash immediately (100ms animation)
+        withAnimation(.easeOut(duration: 0.1)) {
+            showFlash = true
+        }
+
+        // Hide flash after 100ms
+        Task {
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            withAnimation(.easeOut(duration: 0.1)) {
+                showFlash = false
+            }
+        }
+
+        // Fire and forget - process capture in parallel (non-blocking)
+        Task.detached(priority: .userInitiated) {
+            await self.processCapture()
+        }
+    }
+
+    /// Processes the captured image (runs in parallel)
+    /// Performance target: < 500ms
+    private func processCapture() async {
+        let startTime = CFAbsoluteTimeGetCurrent()
+
+        // TODO: Actual image capture logic will be added in next story
+        // For now, just simulate processing
+        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms simulation
+
+        let duration = CFAbsoluteTimeGetCurrent() - startTime
+        print("📸 Image processed in \(String(format: "%.3f", duration))s")
     }
 }
 
