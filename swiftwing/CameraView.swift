@@ -11,13 +11,23 @@ struct CameraView: View {
     @State private var coldStartTime: CFAbsoluteTime = 0
     @State private var showFlash = false
     @State private var processingQueue: [ProcessingItem] = []
+    @State private var focusPoint: CGPoint?
+    @State private var showFocusIndicator = false
 
     var body: some View {
         ZStack {
             // Camera preview (edge-to-edge)
             if let session = cameraManager.captureSession {
-                CameraPreviewView(session: session)
-                    .ignoresSafeArea()
+                CameraPreviewView(
+                    session: session,
+                    onZoomChange: { zoomFactor in
+                        cameraManager.setZoom(zoomFactor)
+                    },
+                    onFocusTap: { devicePoint in
+                        handleFocusTap(devicePoint)
+                    }
+                )
+                .ignoresSafeArea()
             } else {
                 Color.black
                     .ignoresSafeArea()
@@ -55,6 +65,32 @@ struct CameraView: View {
                 Color.white
                     .ignoresSafeArea()
                     .transition(.opacity)
+            }
+
+            // Focus indicator (white brackets at tap location)
+            if showFocusIndicator, let point = focusPoint {
+                FocusIndicatorView()
+                    .position(point)
+                    .transition(.opacity)
+            }
+
+            // Zoom level display (top-right corner)
+            VStack {
+                HStack {
+                    Spacer()
+
+                    Text(String(format: "%.1fx", cameraManager.currentZoomFactor))
+                        .font(.custom("JetBrainsMono-Regular", size: 16))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(8)
+                        .padding(.top, 60)
+                        .padding(.trailing, 16)
+                }
+
+                Spacer()
             }
 
             // Shutter button + Processing Queue
@@ -234,6 +270,36 @@ struct CameraView: View {
         return fileURL
     }
 
+    /// Handles focus tap gesture
+    /// Shows focus indicator and sets camera focus point
+    @MainActor
+    private func handleFocusTap(_ devicePoint: CGPoint) {
+        // Set focus on camera
+        cameraManager.setFocusPoint(devicePoint)
+
+        // Convert device point back to screen coordinates for indicator
+        // Device coordinates are normalized (0.0-1.0), convert to screen space
+        let screenSize = UIScreen.main.bounds.size
+        let screenPoint = CGPoint(
+            x: devicePoint.x * screenSize.width,
+            y: devicePoint.y * screenSize.height
+        )
+
+        // Show focus indicator at tap location
+        focusPoint = screenPoint
+        withAnimation(.easeOut(duration: 0.2)) {
+            showFocusIndicator = true
+        }
+
+        // Hide focus indicator after 1 second
+        Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            withAnimation(.easeOut(duration: 0.3)) {
+                showFocusIndicator = false
+            }
+        }
+    }
+
     /// Resizes image to max dimension on longest side
     static func resizeImage(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
         let size = image.size
@@ -272,6 +338,52 @@ enum ImageProcessingError: LocalizedError {
         case .compressionFailed:
             return "Failed to compress image"
         }
+    }
+}
+
+// MARK: - Focus Indicator
+/// White square brackets [ ] that appear at tap location
+/// Shows for 1 second with fade out animation
+struct FocusIndicatorView: View {
+    var body: some View {
+        ZStack {
+            // Top-left bracket
+            Path { path in
+                path.move(to: CGPoint(x: 20, y: 0))
+                path.addLine(to: CGPoint(x: 0, y: 0))
+                path.addLine(to: CGPoint(x: 0, y: 20))
+            }
+            .stroke(Color.white, lineWidth: 2)
+            .frame(width: 60, height: 60, alignment: .topLeading)
+
+            // Top-right bracket
+            Path { path in
+                path.move(to: CGPoint(x: 40, y: 0))
+                path.addLine(to: CGPoint(x: 60, y: 0))
+                path.addLine(to: CGPoint(x: 60, y: 20))
+            }
+            .stroke(Color.white, lineWidth: 2)
+            .frame(width: 60, height: 60, alignment: .topLeading)
+
+            // Bottom-left bracket
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 40))
+                path.addLine(to: CGPoint(x: 0, y: 60))
+                path.addLine(to: CGPoint(x: 20, y: 60))
+            }
+            .stroke(Color.white, lineWidth: 2)
+            .frame(width: 60, height: 60, alignment: .topLeading)
+
+            // Bottom-right bracket
+            Path { path in
+                path.move(to: CGPoint(x: 60, y: 40))
+                path.addLine(to: CGPoint(x: 60, y: 60))
+                path.addLine(to: CGPoint(x: 40, y: 60))
+            }
+            .stroke(Color.white, lineWidth: 2)
+            .frame(width: 60, height: 60, alignment: .topLeading)
+        }
+        .frame(width: 60, height: 60)
     }
 }
 

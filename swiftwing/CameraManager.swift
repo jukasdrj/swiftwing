@@ -5,7 +5,9 @@ import AVFoundation
 @MainActor
 class CameraManager: ObservableObject {
     @Published private(set) var captureSession: AVCaptureSession?
+    @Published var currentZoomFactor: CGFloat = 1.0
     private var photoOutput: AVCapturePhotoOutput?
+    private var videoDevice: AVCaptureDevice?
     private var isConfigured = false
 
     /// Configures AVCaptureSession
@@ -29,6 +31,9 @@ class CameraManager: ObservableObject {
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
             throw CameraError.noCameraAvailable
         }
+
+        // Store reference for zoom/focus control
+        self.videoDevice = camera
 
         // Configure device input
         let input = try AVCaptureDeviceInput(device: camera)
@@ -102,6 +107,57 @@ class CameraManager: ObservableObject {
 
             // Keep delegate alive until capture completes
             photoOutput.capturePhoto(with: settings, delegate: delegate)
+        }
+    }
+
+    /// Sets zoom level (1.0x to 4.0x)
+    /// Persists zoom level during session
+    func setZoom(_ factor: CGFloat) {
+        guard let device = videoDevice else { return }
+
+        // Clamp zoom to 1.0x - 4.0x range
+        let clampedFactor = min(max(factor, 1.0), 4.0)
+
+        do {
+            try device.lockForConfiguration()
+            device.videoZoomFactor = clampedFactor
+            device.unlockForConfiguration()
+
+            // Update published property for UI
+            currentZoomFactor = clampedFactor
+        } catch {
+            print("❌ Failed to set zoom: \(error)")
+        }
+    }
+
+    /// Sets focus point at normalized coordinates (0.0-1.0)
+    /// Point is in camera coordinate space (not view coordinates)
+    func setFocusPoint(_ point: CGPoint) {
+        guard let device = videoDevice else { return }
+
+        // Check if device supports focus point of interest
+        guard device.isFocusPointOfInterestSupported,
+              device.isFocusModeSupported(.autoFocus) else {
+            return
+        }
+
+        do {
+            try device.lockForConfiguration()
+
+            // Set focus point (coordinates are normalized 0.0-1.0)
+            device.focusPointOfInterest = point
+            device.focusMode = .autoFocus
+
+            // Also set exposure point for better overall image
+            if device.isExposurePointOfInterestSupported,
+               device.isExposureModeSupported(.autoExpose) {
+                device.exposurePointOfInterest = point
+                device.exposureMode = .autoExpose
+            }
+
+            device.unlockForConfiguration()
+        } catch {
+            print("❌ Failed to set focus point: \(error)")
         }
     }
 }
