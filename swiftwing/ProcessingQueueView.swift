@@ -43,8 +43,8 @@ struct ProcessingThumbnailView: View {
 
     var body: some View {
         ZStack {
-            // Thumbnail image
-            if let uiImage = UIImage(data: item.imageData) {
+            // Thumbnail image (pre-processed to 40x60px for performance)
+            if let uiImage = UIImage(data: item.thumbnailData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)

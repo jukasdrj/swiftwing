@@ -10,6 +10,10 @@ class CameraManager: ObservableObject {
     private var videoDevice: AVCaptureDevice?
     private var isConfigured = false
 
+    /// Session preset for camera quality (default: .high for 30 FPS battery efficiency)
+    /// Can be overridden to .photo for higher quality or .medium for lower resource usage
+    var sessionPreset: AVCaptureSession.Preset = .high
+
     /// Configures AVCaptureSession
     /// Performance target: < 0.5s cold start
     func setupSession() throws {
@@ -24,8 +28,8 @@ class CameraManager: ObservableObject {
 
         let session = AVCaptureSession()
 
-        // Use 30 FPS preset for battery efficiency
-        session.sessionPreset = .high
+        // Use configurable preset (default: .high for 30 FPS battery efficiency)
+        session.sessionPreset = sessionPreset
 
         // Get back camera device
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {

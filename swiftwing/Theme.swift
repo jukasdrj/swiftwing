@@ -1,5 +1,9 @@
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 // MARK: - Swiss Glass Design System
 //
 // SwiftWing's design language: 60% Swiss Utility + 40% Liquid Glass
@@ -38,14 +42,34 @@ extension Color {
 extension Font {
     /// Default JetBrains Mono font scaled to body text style
     /// Respects Dynamic Type for accessibility
-    static let jetBrainsMono = Font.custom("JetBrainsMono-Regular", size: 16, relativeTo: .body)
+    /// Falls back to system monospaced font if JetBrains Mono is unavailable
+    static let jetBrainsMono: Font = {
+        #if canImport(UIKit)
+        // Check if custom font is actually loaded by testing against UIFont
+        let testFont = UIFont(name: "JetBrainsMono-Regular", size: 16)
+        if testFont == nil {
+            print("⚠️ JetBrains Mono not found, falling back to system monospaced font")
+            return Font.system(size: 16, design: .monospaced).weight(.regular)
+        }
+        #endif
+
+        return Font.custom("JetBrainsMono-Regular", size: 16, relativeTo: .body)
+    }()
 
     /// JetBrains Mono font with custom size, scaled relative to specified text style
+    /// Falls back to system monospaced font if JetBrains Mono is unavailable
     /// - Parameters:
     ///   - size: Base font size
     ///   - relativeTo: Text style to scale relative to (default: .body)
     /// - Returns: Dynamic Type-aware custom font
     static func jetBrainsMono(size: CGFloat, relativeTo textStyle: TextStyle = .body) -> Font {
+        #if canImport(UIKit)
+        let testFont = UIFont(name: "JetBrainsMono-Regular", size: size)
+        if testFont == nil {
+            return Font.system(size: size, design: .monospaced).weight(.regular)
+        }
+        #endif
+
         return Font.custom("JetBrainsMono-Regular", size: size, relativeTo: textStyle)
     }
 }
