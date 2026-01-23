@@ -24,9 +24,9 @@ struct ProcessingQueueView: View {
             // Count badge (only show if > 3 items)
             if items.count > 3 {
                 Text("\(items.count)")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.caption.bold())
                     .foregroundColor(.black)
-                    .frame(width: 24, height: 24)
+                    .frame(minWidth: 24, minHeight: 24)
                     .background(Color.white)
                     .clipShape(Circle())
                     .padding(.trailing, 16)

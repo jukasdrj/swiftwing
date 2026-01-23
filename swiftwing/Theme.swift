@@ -36,9 +36,17 @@ extension Color {
 
 // MARK: - Font Extensions
 extension Font {
-    static let jetBrainsMono = Font.custom("JetBrainsMono-Regular", size: 16)
-    static func jetBrainsMono(size: CGFloat) -> Font {
-        return Font.custom("JetBrainsMono-Regular", size: size)
+    /// Default JetBrains Mono font scaled to body text style
+    /// Respects Dynamic Type for accessibility
+    static let jetBrainsMono = Font.custom("JetBrainsMono-Regular", size: 16, relativeTo: .body)
+
+    /// JetBrains Mono font with custom size, scaled relative to specified text style
+    /// - Parameters:
+    ///   - size: Base font size
+    ///   - relativeTo: Text style to scale relative to (default: .body)
+    /// - Returns: Dynamic Type-aware custom font
+    static func jetBrainsMono(size: CGFloat, relativeTo textStyle: TextStyle = .body) -> Font {
+        return Font.custom("JetBrainsMono-Regular", size: size, relativeTo: textStyle)
     }
 }
 

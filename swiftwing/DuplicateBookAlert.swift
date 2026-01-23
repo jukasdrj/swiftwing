@@ -22,7 +22,8 @@ struct DuplicateBookAlert: View {
             VStack(spacing: 20) {
                 // Warning icon
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 48))
+                    .font(.largeTitle)
+                    .imageScale(.large)
                     .foregroundColor(.internationalOrange)
 
                 // Title
@@ -54,9 +55,10 @@ struct DuplicateBookAlert: View {
                     // View Existing button (primary action)
                     Button(action: onViewExisting) {
                         Text("View Existing")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.body.weight(.semibold))
                             .foregroundColor(.swissBackground)
                             .frame(maxWidth: .infinity)
+                            .frame(minHeight: 44)
                             .padding(.vertical, 14)
                             .background(Color.internationalOrange)
                             .cornerRadius(10)
@@ -65,9 +67,10 @@ struct DuplicateBookAlert: View {
                     // Add Anyway button (secondary action)
                     Button(action: onAddAnyway) {
                         Text("Add Anyway")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.body.weight(.medium))
                             .foregroundColor(.swissText)
                             .frame(maxWidth: .infinity)
+                            .frame(minHeight: 44)
                             .padding(.vertical, 14)
                             .background(Color.white.opacity(0.1))
                             .cornerRadius(10)
@@ -80,9 +83,10 @@ struct DuplicateBookAlert: View {
                     // Cancel button (tertiary action)
                     Button(action: onCancel) {
                         Text("Cancel")
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.body.weight(.regular))
                             .foregroundColor(.swissText.opacity(0.7))
                             .frame(maxWidth: .infinity)
+                            .frame(minHeight: 44)
                             .padding(.vertical, 12)
                     }
                 }

@@ -1,0 +1,156 @@
+{
+  "name": "Epic 1: Foundation & Walking Skeleton",
+  "description": "Build the minimal end-to-end skeleton connecting UI → Logic → Data → Network. Proves the architecture works without over-engineering. Goal: Get something visible on screen quickly to maintain momentum.",
+  "branchName": "epic/1-foundation",
+  "userStories": [
+    {
+      "id": "US-101",
+      "title": "Initialize Xcode Project with SwiftData",
+      "description": "As a developer, I want to scaffold a clean iOS 26 project with SwiftData so that I have a proven compilation target and modern persistence layer.",
+      "acceptanceCriteria": [
+        "Create new Xcode project with bundle ID com.ooheynerds.swiftwing",
+        "Set minimum deployment target to iOS 26.0",
+        "Configure SwiftData ModelContainer in App entry point",
+        "Create empty Models/ folder with placeholder Book.swift file",
+        "Run project on simulator - app launches to blank white screen",
+        "Zero compiler warnings or errors",
+        "SwiftLint and SwiftFormat configured (optional but recommended)"
+      ],
+      "priority": 1,
+      "estimate": "1 hour",
+      "passes": true,
+      "notes": "Keep it simple. Don't over-configure. Goal is a working build target.",
+      "dependsOn": [],
+      "technicalNotes": [
+        "Use @main App struct with WindowGroup",
+        "ModelContainer should use .inMemory for now (file persistence in Epic 3)",
+        "Folder structure: App/, Features/, Models/, Services/",
+        "Defer code signing and provisioning until ready to test on device"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-102",
+      "title": "Minimal Theme Constants (Not Full Design System)",
+      "description": "As a developer, I want basic color and font constants defined so that I can build UI without hard-coding values, but I don't need a full design system yet.",
+      "acceptanceCriteria": [
+        "Create Theme.swift file with Color extensions (swissBackground, swissText, internationalOrange)",
+        "Add custom font JetBrains Mono to project (1 weight only - Regular)",
+        "Create simple ViewModifier for .swissGlassCard() - black background + thin material",
+        "Force app to dark mode via preferredColorScheme(.dark)",
+        "Build a HelloWorldView using these constants to verify they work",
+        "No need for full component library or Figma designs yet"
+      ],
+      "priority": 2,
+      "estimate": "2 hours",
+      "passes": true,
+      "notes": "Resist urge to build a full design system. You'll iterate on this in Epic 2 when you build real UI.",
+      "dependsOn": [
+        "US-101"
+      ],
+      "technicalNotes": [
+        "Swiss Glass Hybrid: Black base + .ultraThinMaterial overlays",
+        "Typography: JetBrains Mono for data, SF Pro (system) for UI",
+        "Defer animations, haptics, and complex modifiers until Epic 2",
+        "Example ViewModifier: .background(.black).overlay(Material.ultraThin)"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-103",
+      "title": "Basic SwiftData Book Model (Dummy Data)",
+      "description": "As a developer, I want to create a minimal Book @Model and save one dummy record so that I prove SwiftData persistence works.",
+      "acceptanceCriteria": [
+        "Define Book class with @Model macro in Models/Book.swift",
+        "Properties: id (UUID), title (String), author (String), isbn (String, @Attribute(.unique))",
+        "Defer optional fields (coverUrl, format, confidence) until Epic 3",
+        "Create LibraryView with @Query to fetch all books",
+        "Add a Button that inserts a dummy book: Book(title: \"Test Book\", author: \"Test Author\", isbn: \"1234567890\")",
+        "Display count of books in a Text view: \"Books: \\(books.count)\"",
+        "Verify tapping button increments count (proves save works)"
+      ],
+      "priority": 3,
+      "estimate": "1.5 hours",
+      "passes": true,
+      "notes": "Don't build the full library grid yet. Just prove you can save and query. Grid comes in Epic 3.",
+      "dependsOn": [
+        "US-101",
+        "US-102"
+      ],
+      "technicalNotes": [
+        "Use @Query(sort: \\Book.title) in LibraryView",
+        "ModelContext is automatically injected via @Environment",
+        "Keep UI minimal - just a VStack with Text + Button",
+        "ISBN uniqueness will be important later but don't handle duplicates yet"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-104",
+      "title": "Basic Network Fetch (Prove Connectivity)",
+      "description": "As a developer, I want to fetch one JSON object from a test endpoint so that I prove URLSession async/await works before building the complex Talaria integration.",
+      "acceptanceCriteria": [
+        "Create NetworkService.swift with one async function: fetchTestData()",
+        "Use URLSession.shared.data(from:) to fetch from https://jsonplaceholder.typicode.com/posts/1",
+        "Decode JSON into a simple struct TestPost { let id: Int; let title: String }",
+        "Add a Button in ContentView that calls fetchTestData() in a Task",
+        "Display fetched title in a Text view",
+        "Handle errors with basic try/catch and print to console",
+        "NO offline queue, NO retry logic, NO actor isolation yet (Epic 4)"
+      ],
+      "priority": 4,
+      "estimate": "1.5 hours",
+      "passes": true,
+      "notes": "Defer all complexity. This is a smoke test for networking. Talaria integration comes in Epic 4.",
+      "dependsOn": [
+        "US-101"
+      ],
+      "technicalNotes": [
+        "Use async/await, not Combine or callbacks",
+        "Don't create NetworkActor yet - just a simple class with async funcs",
+        "Don't add device ID header yet (Epic 4)",
+        "Don't handle rate limits or offline mode (Epic 4)",
+        "JSONDecoder can be basic - no custom date formatters needed"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-105",
+      "title": "Camera Permission Primer Screen",
+      "description": "As a user, I want to see a primer screen explaining why camera access is needed so that I trust the app before granting permission.",
+      "acceptanceCriteria": [
+        "Create CameraPermissionPrimerView with black background",
+        "Display title: \"SwiftWing Needs Camera Access\"",
+        "Display body text: \"We use your camera to scan book spines. Images are processed and deleted immediately.\"",
+        "Add \"Continue\" button with international orange accent",
+        "On tap, request camera permission using AVCaptureDevice.requestAccess(for: .video)",
+        "Navigate to ContentView after permission granted",
+        "Handle denied case: Show alert with instructions to enable in Settings",
+        "Check permission status on app launch - skip primer if already granted"
+      ],
+      "priority": 5,
+      "estimate": "2 hours",
+      "passes": false,
+      "notes": "This is important for App Store approval. Don't skip permissions UX.",
+      "dependsOn": [
+        "US-102"
+      ],
+      "technicalNotes": [
+        "Use @State for permission status tracking",
+        "AVCaptureDevice.authorizationStatus(for: .video) returns .authorized, .denied, .notDetermined",
+        "Store primer shown status in UserDefaults (don't show every time)",
+        "Add NSCameraUsageDescription to Info.plist",
+        "Defer actual camera preview to Epic 2 - this story is just the primer"
+      ]
+    }
+  ],
+  "metadata": {
+    "created": "2026-01-22",
+    "epic_number": 1,
+    "total_epics": 6,
+    "estimated_duration": "1 week (solo dev, part-time)",
+    "dependencies": "None - this is the foundation",
+    "ralph_tui_notes": "Use this JSON to create Epic 1 in ralph-tui. Stories are intentionally small (1-2 hours each) for quick wins.",
+    "updatedAt": "2026-01-22T23:12:39.086Z"
+  }
+}

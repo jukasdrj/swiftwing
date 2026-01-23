@@ -54,11 +54,11 @@ struct CameraView: View {
             if let error = errorMessage {
                 VStack(spacing: 16) {
                     Text("Camera Error")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.title3.bold())
                         .foregroundColor(.swissText)
 
                     Text(error)
-                        .font(.system(size: 15))
+                        .font(.body)
                         .foregroundColor(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -86,15 +86,15 @@ struct CameraView: View {
             if showProcessingError, let error = processingErrorMessage {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 32))
+                        .font(.largeTitle)
                         .foregroundColor(.swissError)
 
                     Text("Processing Failed")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.headline.weight(.semibold))
                         .foregroundColor(.swissText)
 
                     Text(error)
-                        .font(.system(size: 14))
+                        .font(.subheadline)
                         .foregroundColor(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 16)

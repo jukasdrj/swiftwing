@@ -16,12 +16,12 @@ struct CameraPermissionPrimerView: View {
 
                 VStack(spacing: 16) {
                     Text("SwiftWing Needs Camera Access")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.title.bold())
                         .foregroundColor(.swissText)
                         .multilineTextAlignment(.center)
 
                     Text("We use your camera to scan book spines. Images are processed and deleted immediately.")
-                        .font(.system(size: 17))
+                        .font(.body)
                         .foregroundColor(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -33,9 +33,10 @@ struct CameraPermissionPrimerView: View {
                     requestCameraPermission()
                 } label: {
                     Text("Continue")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
                 }
                 .padding(.vertical, 16)
                 .background(Color.internationalOrange)

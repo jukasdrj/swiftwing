@@ -89,7 +89,7 @@ struct AsyncImageWithLoading: View {
             // Error icon and retry button
             VStack(spacing: 8) {
                 Image(systemName: "photo.badge.exclamationmark")
-                    .font(.system(size: 24))
+                    .font(.title2)
                     .foregroundColor(.gray)
 
                 Button {
@@ -97,13 +97,14 @@ struct AsyncImageWithLoading: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10))
+                            .font(.caption2)
                         Text("Retry")
-                            .font(.system(size: 10))
+                            .font(.caption2)
                     }
                     .foregroundColor(Color.swissText)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
+                    .frame(minHeight: 28)
                     .background(.ultraThinMaterial)
                     .cornerRadius(6)
                     .overlay(

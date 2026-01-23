@@ -1,0 +1,187 @@
+{
+  "name": "Epic 2: The Viewfinder (Camera Experience)",
+  "description": "Build the core camera scanning experience - from zero-lag camera feed to capturing book spine images. This epic is a VERTICAL SLICE through the entire scan workflow, making the app feel like a real scanner.",
+  "branchName": "epic/2-viewfinder",
+  "userStories": [
+    {
+      "id": "US-201",
+      "title": "Zero-Lag Camera Preview",
+      "description": "As a user, I want to see the camera feed instantly when opening the app so that I can capture book spines without delay.",
+      "acceptanceCriteria": [
+        "Create CameraView with AVCaptureSession wrapped in UIViewRepresentable",
+        "Camera preview fills entire screen (edge-to-edge)",
+        "Cold start to live feed measures < 0.5s (use performance logging)",
+        "Hide status bar for full immersion",
+        "Use 30 FPS preset (balance quality vs battery)",
+        "Camera initializes on background thread (not main thread)",
+        "Show loading spinner only if camera takes > 200ms"
+      ],
+      "priority": 1,
+      "estimate": "4 hours",
+      "passes": true,
+      "notes": "This is the 'wow' moment. Users need to feel speed immediately.",
+      "dependsOn": [
+        "US-105"
+      ],
+      "technicalNotes": [
+        "Use AVCaptureSession with .high preset",
+        "Pixel format: kCVPixelBufferPixelFormatType_420YpCbCr8BiPlanarVideoRange for efficiency",
+        "Wrap in UIViewRepresentable since SwiftUI has no native camera view",
+        "Use Task.detached for session.startRunning() to avoid blocking main thread",
+        "Add performance instrumentation: CFAbsoluteTimeGetCurrent() before/after"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-202",
+      "title": "Non-Blocking Shutter Button (Rapid Fire)",
+      "description": "As a user, I want to tap the shutter repeatedly without waiting so that I can scan an entire shelf in seconds.",
+      "acceptanceCriteria": [
+        "Shutter button renders as 80x80px white ring at bottom center",
+        "On tap: Trigger .sensoryFeedback(.impact) immediately",
+        "On tap: Flash full-screen white overlay (100ms opacity animation)",
+        "Shutter remains tappable during image processing (no disabled state)",
+        "Rapid taps (5+ per second) all register successfully",
+        "Each tap creates a new capture task - runs in parallel"
+      ],
+      "priority": 2,
+      "estimate": "3 hours",
+      "passes": true,
+      "notes": "Non-blocking is CRITICAL. This is what makes the app feel fast.",
+      "dependsOn": [
+        "US-201"
+      ],
+      "technicalNotes": [
+        "Use Circle().stroke(.white, lineWidth: 4) with ZStack for inner glow effect",
+        "Flash overlay: ZStack with Color.white.opacity(isFlashing ? 1.0 : 0.0) animated",
+        "DO NOT await image processing in button action - fire and forget",
+        "Use Task.detached { } for each capture to avoid blocking",
+        "Store capture tasks in @State array for potential cancellation"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-203",
+      "title": "Background Image Processing (Async)",
+      "description": "As a system, I want to compress and resize images off the main thread so that the UI never drops frames.",
+      "acceptanceCriteria": [
+        "Use Task.detached with .userInitiated priority for processing",
+        "Resize captured image to max 1920px on longest dimension",
+        "Compress to JPEG with 0.85 quality",
+        "Save to FileManager.default.temporaryDirectory with unique UUID filename",
+        "Processing completes in < 500ms (add performance logging)",
+        "UI maintains 60 FPS during processing (verify with Instruments)",
+        "Return file URL to caller for upload"
+      ],
+      "priority": 3,
+      "estimate": "4 hours",
+      "passes": true,
+      "notes": "This is where poor architecture kills performance. Get it right.",
+      "dependsOn": [
+        "US-202"
+      ],
+      "technicalNotes": [
+        "Use CGImageSourceCreateWithData + CGImageSourceCreateThumbnailAtIndex for resize",
+        "Create actor ImageProcessor to isolate mutable state",
+        "Don't use UIImage for processing - work with CGImage directly (faster)",
+        "Example: let url = temporaryDirectory.appendingPathComponent(UUID().uuidString + \".jpg\")",
+        "Clean up temp files after 24 hours (add cleanup task in Epic 4)"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-204",
+      "title": "Processing Queue UI (Live Status)",
+      "description": "As a user, I want to see active scans as thumbnails so that I know the system is working on my captures.",
+      "acceptanceCriteria": [
+        "Horizontal ScrollView above shutter button (40px height)",
+        "LazyHStack of 40x60px thumbnails (book spine aspect ratio)",
+        "Each thumbnail shows miniature of captured image",
+        "Border colors indicate state: Yellow (Processing), Blue (Uploading - placeholder), Green (Done)",
+        "Items auto-remove after 5 seconds in Green state with .transition(.scale)",
+        "Show count badge if > 3 items in queue",
+        "Tapping thumbnail shows larger preview (optional stretch goal)"
+      ],
+      "priority": 4,
+      "estimate": "5 hours",
+      "passes": true,
+      "notes": "Visual feedback prevents user anxiety. They need to see progress.",
+      "dependsOn": [
+        "US-203"
+      ],
+      "technicalNotes": [
+        "Create @Observable class ScanQueueManager to track active scans",
+        "enum ScanState { case processing, uploading, done }",
+        "Use Image(uiImage:) to display thumbnails from captured UIImage",
+        "Animate with .transition(.scale.combined(with: .opacity))",
+        "Remove completed items with Task.sleep(for: .seconds(5)) then filter"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-205",
+      "title": "Manual Focus & Zoom (Camera Controls)",
+      "description": "As a user, I want to pinch to zoom and tap to focus so that I can capture small or distant book spines clearly.",
+      "acceptanceCriteria": [
+        "Pinch gesture controls zoom from 1.0x to 4.0x",
+        "Zoom level persists during session (doesn't reset)",
+        "Tap gesture sets focus point on camera feed",
+        "Show focus indicator: white square brackets [ ] at tap location for 1 second",
+        "Display current zoom level in top-right corner (e.g., '2.5x' in JetBrains Mono)",
+        "Smooth zoom animation (not jumpy)",
+        "Focus indicator fades out with opacity animation"
+      ],
+      "priority": 5,
+      "estimate": "3 hours",
+      "passes": true,
+      "notes": "Nice-to-have for Epic 2 but can defer if behind schedule. Focus is more important than zoom.",
+      "dependsOn": [
+        "US-201"
+      ],
+      "technicalNotes": [
+        "Use MagnificationGesture and bind to AVCaptureDevice.videoZoomFactor",
+        "Clamp zoom: min(max(zoomFactor, 1.0), device.activeFormat.videoMaxZoomFactor)",
+        "Tap gesture converts screen coords to device point: device.focusPointOfInterest",
+        "Focus indicator: Canvas or custom Shape with .stroke() at tap location",
+        "Use withAnimation(.easeOut(duration: 0.2)) for smooth transitions"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-206",
+      "title": "Enhance Theme with Swiss Glass Components",
+      "description": "As a developer, I want to formalize the Swiss Glass design system so that all camera UI uses consistent styling.",
+      "acceptanceCriteria": [
+        "Create ViewModifiers: .swissGlassOverlay(), .swissGlassButton(), .swissGlassCard()",
+        "Add spring animation helpers: .swissSpring() wraps .spring(duration: 0.2)",
+        "Create custom Color extensions for state colors (processing yellow, done green, etc.)",
+        "Document each modifier with code example in Theme.swift comments",
+        "Refactor camera UI to use these modifiers (remove ad-hoc styling)",
+        "Add haptic feedback extension: .haptic(.impact) as shorthand"
+      ],
+      "priority": 6,
+      "estimate": "2 hours",
+      "passes": true,
+      "notes": "NOW you can build the design system - you have real UI to apply it to. This is when abstractions are useful.",
+      "dependsOn": [
+        "US-204"
+      ],
+      "technicalNotes": [
+        "Example: .swissGlassCard() = .background(.black).overlay(.ultraThinMaterial.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: 12))",
+        "State colors: Color.processingYellow = Color(hex: \"#FFD60A\")",
+        "Haptic extension: .sensoryFeedback(.impact, trigger: value) wrapper",
+        "Keep it lightweight - don't over-engineer. Just standardize what you're already using."
+      ],
+      "completionNotes": "Completed by agent"
+    }
+  ],
+  "metadata": {
+    "created": "2026-01-22",
+    "epic_number": 2,
+    "total_epics": 6,
+    "estimated_duration": "1-2 weeks (solo dev, part-time)",
+    "dependencies": "Epic 1 (US-105 camera permission)",
+    "ralph_tui_notes": "This is your first REAL feature. After this, you have a working scanner app (just no AI yet).",
+    "updatedAt": "2026-01-22T23:52:08.310Z"
+  }
+}

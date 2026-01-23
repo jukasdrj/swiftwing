@@ -443,22 +443,23 @@ struct BookGridCell: View {
                 if let onDelete = onDelete {
                     Button(action: onDelete) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.title3)
                             .foregroundStyle(.white, .red)
                             .shadow(radius: 2)
                     }
-                    .padding(4)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
                     .accessibilityLabel("Delete \(book.title)")
                 }
             }
 
             // Title (2 lines max, truncated)
             Text(book.title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.caption.weight(.medium))
                 .foregroundColor(.swissText)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
-                .frame(height: 32, alignment: .top)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityHidden(true) // Parent VStack has combined label
         }
     }
@@ -740,7 +741,8 @@ struct StatCard: View {
         VStack(spacing: 8) {
             // Icon
             Image(systemName: icon)
-                .font(.system(size: 24))
+                .font(.title2)
+                .imageScale(.medium)
                 .foregroundColor(.internationalOrange)
 
             // Value

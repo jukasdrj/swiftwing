@@ -1,0 +1,855 @@
+{
+  "name": "Epic 3: The Library (Browse, Search & Manage)",
+  "description": "Build the complete library experience - from browsing your collection to searching, editing, and managing books. This epic transforms captured images into a usable digital library with full SwiftData integration and rich UI interactions.",
+  "branchName": "epic/3-library",
+  "userStories": [
+    {
+      "id": "US-301",
+      "title": "Expand Book Schema (Full Metadata)",
+      "description": "As a developer, I want to extend the Book model with all metadata fields so that the library can display rich book information from Epic 4 AI results.",
+      "acceptanceCriteria": [
+        "Add optional fields to Book @Model: coverUrl (URL?), format (String?), publisher (String?), publishedDate (Date?), pageCount (Int?)",
+        "Add spineConfidence (Double?) for AI confidence scoring",
+        "Add addedDate (Date) with default value of Date()",
+        "Add rawJSON (String?) for debugging AI responses",
+        "Keep isbn as @Attribute(.unique) to prevent duplicates",
+        "Add computed property: var needsReview: Bool { spineConfidence ?? 1.0 < 0.8 }",
+        "Create migration strategy (SwiftData auto-migration should handle this)",
+        "Test adding a book with all fields populated vs minimal fields"
+      ],
+      "priority": 1,
+      "estimate": "2 hours",
+      "passes": true,
+      "notes": "Foundation for all library features. Must complete before US-302.",
+      "dependsOn": [
+        "US-103"
+      ],
+      "technicalNotes": [
+        "SwiftData will auto-migrate schema changes (new optional fields are safe)",
+        "Use URL? for coverUrl to leverage AsyncImage later",
+        "spineConfidence range: 0.0 (no confidence) to 1.0 (perfect match)",
+        "rawJSON stores full Talaria response for debugging (Epic 4)",
+        "Example: Book(title: \"1984\", author: \"Orwell\", isbn: \"123\", coverUrl: URL(string: \"...\"), format: \"Hardcover\", spineConfidence: 0.95)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test Book creation with minimal fields (title, author, isbn)",
+          "Test Book creation with all fields populated",
+          "Test needsReview computed property (< 0.8 returns true)",
+          "Test ISBN uniqueness constraint (duplicate insert fails)",
+          "Test addedDate defaults to current date"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-302",
+      "title": "Library Grid View (LazyVGrid with Covers)",
+      "description": "As a user, I want to see my books in a scrollable grid with cover images so that I can browse my collection visually.",
+      "acceptanceCriteria": [
+        "Replace placeholder LibraryView with LazyVGrid layout",
+        "Use 3 columns on iPhone portrait (adaptive sizing)",
+        "Each cell: 100x150px aspect ratio (book cover proportions)",
+        "Display AsyncImage for coverUrl with gray placeholder if nil",
+        "Show book title below cover (2 lines max, truncated)",
+        "Grid scrolls smoothly at 60 FPS with 100+ books",
+        "Pull-to-refresh gesture (placeholder for Epic 4 sync)",
+        "Empty state: \"No books yet. Start scanning!\" with camera icon"
+      ],
+      "priority": 2,
+      "estimate": "4 hours",
+      "passes": true,
+      "notes": "Core library UI. Users need to see their collection to feel progress.",
+      "dependsOn": [
+        "US-301"
+      ],
+      "technicalNotes": [
+        "Use LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))]) for responsive layout",
+        "AsyncImage automatically handles loading states and caching",
+        "Empty state: ContentUnavailableView(\"No Books\", systemImage: \"camera\", description: Text(\"Tap the camera tab to start scanning\"))",
+        "Pull-to-refresh: .refreshable { } modifier (placeholder for now)",
+        "Test with mock data: Create 100+ dummy books to verify scroll performance",
+        "Gray placeholder: Color.gray.opacity(0.2) as background"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test grid layout with 0 books (shows empty state)",
+          "Test grid layout with 1 book",
+          "Test grid layout with 100 books (performance)",
+          "Test AsyncImage placeholder rendering",
+          "Test title truncation (long titles clip to 2 lines)"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-303",
+      "title": "Real-Time List Updates (@Query Reactive)",
+      "description": "As a user, I want the library to update automatically when I scan new books so that I see results immediately without refreshing.",
+      "acceptanceCriteria": [
+        "Use @Query(sort: \\Book.addedDate, order: .reverse) to display newest first",
+        "Grid updates automatically when new Book inserted (no manual refresh needed)",
+        "Smooth animations when items appear (.transition(.scale.combined(with: .opacity)))",
+        "Test: Add book from camera tab, switch to library → book appears instantly",
+        "No flickering or UI jank during updates",
+        "Sort order persists across app launches"
+      ],
+      "priority": 3,
+      "estimate": "2 hours",
+      "passes": true,
+      "notes": "SwiftData reactive queries make this easy. Critical for UX flow.",
+      "dependsOn": [
+        "US-302"
+      ],
+      "technicalNotes": [
+        "@Query automatically observes SwiftData changes - no manual refresh needed",
+        "Sort by addedDate descending shows most recent scans first",
+        "Animations: .animation(.spring(duration: 0.2), value: books) on LazyVGrid",
+        "Test with rapid scanning: 5 books in 10 seconds should all appear smoothly",
+        "Alternative sort options (future): title, author, addedDate (add UI toggle in Epic 5)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test @Query sorting (newest books first)",
+          "Test reactive update (insert book, verify grid updates)",
+          "Test animation triggers (no crashes on rapid inserts)"
+        ],
+        "required": false,
+        "estimatedTests": 3
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-304",
+      "title": "Full-Text Search with SwiftData Predicates",
+      "description": "As a user, I want to search my library by title or author so that I can quickly find specific books.",
+      "acceptanceCriteria": [
+        "Add .searchable(text: $searchText, prompt: \"Search title or author\") to library view",
+        "Search is case-insensitive and matches partial strings",
+        "Update @Query predicate dynamically based on searchText",
+        "Show \"No results for 'query'\" when search returns empty",
+        "Clear button in search field resets to full library",
+        "Search performs instantly (<100ms for 1000+ books)",
+        "Debounce search input (300ms delay to avoid excessive filtering)"
+      ],
+      "priority": 4,
+      "estimate": "3 hours",
+      "passes": true,
+      "notes": "Essential for large libraries. Users with 500+ books need this.",
+      "dependsOn": [
+        "US-303"
+      ],
+      "technicalNotes": [
+        "Use #Predicate: #Predicate<Book> { book in searchText.isEmpty || book.title.localizedStandardContains(searchText) || book.author.localizedStandardContains(searchText) }",
+        "Debounce: @State private var searchTextDebounced = \"\" + Task.sleep in onChange",
+        "SwiftData predicate syntax: localizedStandardContains() for case-insensitive",
+        "Example: \"tolkien\" matches \"The Hobbit by J.R.R. Tolkien\" and \"Tolkien: A Biography\"",
+        "Performance: SwiftData indexes automatically, should handle 1000+ books easily"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test search by title (partial match)",
+          "Test search by author (case-insensitive)",
+          "Test search with no results",
+          "Test empty search (shows all books)",
+          "Test debounce behavior (rapid typing doesn't crash)"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-305",
+      "title": "Book Detail Sheet (View & Edit Metadata)",
+      "description": "As a user, I want to tap a book to see full details and edit metadata so that I can correct AI mistakes or add custom notes.",
+      "acceptanceCriteria": [
+        "Tap book in grid → presents .sheet() with book details",
+        "Sheet layout: AsyncImage (200x300px) on left, metadata VStack on right",
+        "Display fields: Title, Author, ISBN, Format, Publisher, Published Date, Page Count",
+        "Show spineConfidence as \"AI Confidence: 95%\" with color coding (green >80%, yellow 60-80%, red <60%)",
+        "Edit mode toggle: Switch between read-only and editable TextFields",
+        "Save button commits changes to SwiftData modelContext",
+        "Cancel button dismisses sheet without saving",
+        "Sheet uses .medium detent (shows grid behind)"
+      ],
+      "priority": 5,
+      "estimate": "5 hours",
+      "passes": true,
+      "notes": "Users WILL need to fix AI errors. Make editing easy.",
+      "dependsOn": [
+        "US-302"
+      ],
+      "technicalNotes": [
+        "Use @Bindable var book: Book to enable two-way binding in edit mode",
+        "Sheet presentation: .sheet(item: $selectedBook) { book in BookDetailSheet(book: book) }",
+        "Detents: .presentationDetents([.medium, .large])",
+        "Color coding: confidence >= 0.8 ? .green : (confidence >= 0.6 ? .yellow : .red)",
+        "Save: modelContext.save() is automatic when binding changes @Bindable properties",
+        "Add \"View Raw JSON\" toggle for developers (shows rawJSON field)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test sheet presentation (tap book, sheet appears)",
+          "Test edit mode toggle (fields become editable)",
+          "Test save button (changes persist to SwiftData)",
+          "Test cancel button (changes discarded)",
+          "Test confidence color coding (green/yellow/red)"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-306",
+      "title": "Swipe to Delete (Context Menu)",
+      "description": "As a user, I want to swipe to delete books so that I can remove duplicates or unwanted entries.",
+      "acceptanceCriteria": [
+        "Long-press book in grid → shows context menu with \"Delete\" option",
+        "Swipe actions on grid items: .swipeActions() with destructive delete button",
+        "Delete shows confirmation alert: \"Delete [Title]? This cannot be undone.\"",
+        "Confirm deletes from SwiftData with modelContext.delete(book)",
+        "Deletion animates out with .transition(.asymmetric(insertion: .scale, removal: .opacity))",
+        "Grid reflows smoothly after deletion",
+        "Undo not required (Epic 5 feature)"
+      ],
+      "priority": 6,
+      "estimate": "3 hours",
+      "passes": true,
+      "notes": "Users will scan duplicates. Make deletion easy but safe.",
+      "dependsOn": [
+        "US-302"
+      ],
+      "technicalNotes": [
+        "Context menu: .contextMenu { Button(role: .destructive) { deleteBook(book) } label: { Label(\"Delete\", systemImage: \"trash\") } }",
+        "Swipe actions: .swipeActions(edge: .trailing) { Button(role: .destructive) { deleteBook(book) } label: { Label(\"Delete\", systemImage: \"trash\") } }",
+        "Confirmation alert: .alert(\"Delete \\(bookToDelete.title)?\", isPresented: $showDeleteAlert) { Button(\"Cancel\", role: .cancel) { }; Button(\"Delete\", role: .destructive) { modelContext.delete(bookToDelete) } }",
+        "Animation: SwiftUI handles automatically with @Query updates"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test context menu appears on long-press",
+          "Test swipe action shows delete button",
+          "Test confirmation alert appears",
+          "Test delete commits to SwiftData (book removed)",
+          "Test grid updates after deletion"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-307",
+      "title": "Empty State Design (First-Run Experience)",
+      "description": "As a new user, I want to see helpful guidance when my library is empty so that I know what to do next.",
+      "acceptanceCriteria": [
+        "When books.count == 0, show ContentUnavailableView",
+        "Title: \"No Books Yet\"",
+        "Icon: SF Symbol \"books.vertical\" (large, white)",
+        "Description: \"Tap the camera tab to scan your first book spine. SwiftWing will identify it automatically.\"",
+        "Optional: \"Add Sample Book\" button for testing (creates dummy book)",
+        "Empty state uses Swiss Glass styling (black bg, white text, subtle glow)",
+        "Transitions smoothly to grid when first book added"
+      ],
+      "priority": 7,
+      "estimate": "2 hours",
+      "passes": true,
+      "notes": "First impressions matter. Guide users to their first scan.",
+      "dependsOn": [
+        "US-302"
+      ],
+      "technicalNotes": [
+        "ContentUnavailableView is iOS 17+ native component",
+        "Example: if books.isEmpty { ContentUnavailableView(\"No Books Yet\", systemImage: \"books.vertical\", description: Text(\"Tap the camera tab...\")) } else { LazyVGrid... }",
+        "Sample book button (testing only): Button(\"Add Sample\") { let sample = Book(...); modelContext.insert(sample) }",
+        "Transition: .animation(.spring(duration: 0.3), value: books.isEmpty)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test empty state appears when books.count == 0",
+          "Test sample book button creates book",
+          "Test transition to grid when first book added"
+        ],
+        "required": false,
+        "estimatedTests": 3
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-308",
+      "title": "Book Count Badge (Tab Bar Indicator)",
+      "description": "As a user, I want to see my total book count on the library tab so that I can track my collection size at a glance.",
+      "acceptanceCriteria": [
+        "Library tab shows badge with book count (e.g., \"127\")",
+        "Badge updates in real-time as books are added/deleted",
+        "Badge uses .badge() modifier on TabView item",
+        "Count displayed with JetBrains Mono font for consistency",
+        "Badge hidden when count == 0 (empty library)",
+        "Badge color: white on black background (Swiss styling)"
+      ],
+      "priority": 8,
+      "estimate": "1 hour",
+      "passes": true,
+      "notes": "Gamification element. Users love seeing their collection grow.",
+      "dependsOn": [
+        "US-303"
+      ],
+      "technicalNotes": [
+        "TabView item: .badge(books.count > 0 ? \"\\(books.count)\" : nil)",
+        "Real-time update: @Query automatically triggers badge refresh",
+        "Font: Apply .font(.custom(\"JetBrainsMono-Regular\", size: 12)) if badge supports custom fonts (check iOS 17 docs)",
+        "Alternative: Use badgeProminence(.increased) for visibility"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test badge appears with correct count",
+          "Test badge updates when book added",
+          "Test badge updates when book deleted",
+          "Test badge hidden when count == 0"
+        ],
+        "required": false,
+        "estimatedTests": 4
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-309",
+      "title": "Sort & Filter Options (Toolbar Menu)",
+      "description": "As a user, I want to sort my library by title, author, or date added so that I can organize my collection my way.",
+      "acceptanceCriteria": [
+        "Add toolbar button in library view (top-right, SF Symbol \"arrow.up.arrow.down\")",
+        "Tapping shows menu with sort options: \"Newest First\", \"Oldest First\", \"Title A-Z\", \"Author A-Z\"",
+        "Selected sort option updates @Query sort descriptor",
+        "Grid re-sorts smoothly with animation",
+        "Sort preference persists via @AppStorage",
+        "Default: \"Newest First\" (addedDate descending)"
+      ],
+      "priority": 9,
+      "estimate": "3 hours",
+      "passes": true,
+      "notes": "Power users want control. Simple but valuable feature.",
+      "dependsOn": [
+        "US-303"
+      ],
+      "technicalNotes": [
+        "Toolbar: .toolbar { ToolbarItem(placement: .topBarTrailing) { Menu { ... } label: { Label(\"Sort\", systemImage: \"arrow.up.arrow.down\") } } }",
+        "Sort options enum: enum SortOption: String, CaseIterable { case newestFirst, oldestFirst, titleAZ, authorAZ }",
+        "@AppStorage: @AppStorage(\"librarySortOption\") private var sortOption: SortOption = .newestFirst",
+        "Dynamic @Query: Use init() to configure query based on sortOption",
+        "Example: @Query(sort: \\Book.addedDate, order: .reverse) for newestFirst"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test sort menu appears",
+          "Test each sort option (4 options)",
+          "Test sort preference persists across app launches",
+          "Test grid re-sorts correctly"
+        ],
+        "required": true,
+        "estimatedTests": 7
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-310",
+      "title": "Cover Image Loading States (Skeleton Shimmer)",
+      "description": "As a user, I want to see loading indicators while cover images download so that I know the app is working.",
+      "acceptanceCriteria": [
+        "AsyncImage shows gray shimmer effect while loading",
+        "Shimmer animation: Gradient moves left-to-right repeatedly",
+        "Failed loads show broken image icon (SF Symbol \"photo.badge.exclamationmark\")",
+        "Retry button appears on failed loads (tap to retry AsyncImage)",
+        "Loading state uses .ultraThinMaterial for glass effect",
+        "Shimmer matches Swiss Glass aesthetic (white glow on black)"
+      ],
+      "priority": 10,
+      "estimate": "3 hours",
+      "passes": true,
+      "notes": "Professional touch. Makes slow networks feel intentional.",
+      "dependsOn": [
+        "US-302"
+      ],
+      "technicalNotes": [
+        "AsyncImage placeholder: .placeholder { ShimmerView() }",
+        "Shimmer: Use LinearGradient with .animation(.linear(duration: 1.5).repeatForever(autoreverses: false))",
+        "Failed state: .onFailure { _ in show error icon }",
+        "Retry: Wrap AsyncImage in custom view with @State var retryID = UUID(), invalidate on tap",
+        "Example shimmer: LinearGradient(colors: [.gray.opacity(0.2), .white.opacity(0.3), .gray.opacity(0.2)], startPoint: .leading, endPoint: .trailing)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test shimmer appears during load",
+          "Test failed state shows error icon",
+          "Test retry button re-triggers load"
+        ],
+        "required": false,
+        "estimatedTests": 3
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-311",
+      "title": "Duplicate Detection Warning",
+      "description": "As a user, I want to be warned when I'm about to add a duplicate book so that I don't clutter my library with repeats.",
+      "acceptanceCriteria": [
+        "When Epic 4 AI result arrives, check if book.isbn already exists in SwiftData",
+        "If duplicate found, show alert: \"[Title] is already in your library. Add anyway?\"",
+        "Options: \"Cancel\" (discard result), \"Add Anyway\" (allow duplicate), \"View Existing\" (navigate to duplicate)",
+        "Non-blocking: Alert appears after scan completes (doesn't prevent scanning)",
+        "Duplicate check uses SwiftData predicate: #Predicate { $0.isbn == newISBN }",
+        "Alert uses Swiss Glass styling (if customizable)"
+      ],
+      "priority": 11,
+      "estimate": "3 hours",
+      "passes": true,
+      "notes": "Users WILL scan the same book twice. Save them frustration.",
+      "dependsOn": [
+        "US-301"
+      ],
+      "technicalNotes": [
+        "Predicate: let existingBooks = try modelContext.fetch(FetchDescriptor<Book>(predicate: #Predicate { $0.isbn == newBook.isbn }))",
+        "Alert: .alert(\"Duplicate Book\", isPresented: $showDuplicateAlert) { Button(\"Cancel\") { }; Button(\"Add Anyway\") { insertBook() }; Button(\"View Existing\") { navigateToDuplicate() } }",
+        "View Existing: Set selectedBook = existingBooks.first to trigger detail sheet",
+        "Defer to Epic 4: Integrate with SSE result handler"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test duplicate detection (same ISBN)",
+          "Test alert appears with correct title",
+          "Test \"Add Anyway\" inserts duplicate",
+          "Test \"View Existing\" navigates to existing book",
+          "Test \"Cancel\" discards result"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-312",
+      "title": "Library Stats Header (Collection Summary)",
+      "description": "As a user, I want to see my library stats (total books, authors, formats) so that I can understand my collection composition.",
+      "acceptanceCriteria": [
+        "Header section above grid shows 3 stats cards in HStack",
+        "Card 1: Total Books (books.count)",
+        "Card 2: Unique Authors (computed from Set(books.map { $0.author }))",
+        "Card 3: Most Common Format (e.g., \"Hardcover: 45%\")",
+        "Stats update in real-time as books added/deleted",
+        "Cards use .swissGlassCard() modifier for styling",
+        "Tapping stat card could filter library (stretch goal, defer to Epic 5)"
+      ],
+      "priority": 12,
+      "estimate": "4 hours",
+      "passes": true,
+      "notes": "Data nerds love stats. Low effort, high delight.",
+      "dependsOn": [
+        "US-303"
+      ],
+      "technicalNotes": [
+        "Computed stats: var uniqueAuthors: Int { Set(books.map { $0.author }).count }",
+        "Most common format: books.compactMap { $0.format }.reduce(into: [:]) { counts, format in counts[format, default: 0] += 1 }.max(by: { $0.value < $1.value })",
+        "Layout: HStack(spacing: 12) { StatCard(\"Books\", value: books.count); StatCard(\"Authors\", value: uniqueAuthors); StatCard(\"Top Format\", value: topFormat) }",
+        "StatCard: VStack { Text(label).font(.caption); Text(\"\\(value)\").font(.jetBrainsMono).font(.title2) }.swissGlassCard()"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test total books count",
+          "Test unique authors count",
+          "Test most common format calculation",
+          "Test stats update when book added"
+        ],
+        "required": false,
+        "estimatedTests": 4
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-313",
+      "title": "Reading Status Tags (Future-Proof Schema)",
+      "description": "As a developer, I want to add reading status fields to Book model so that Epic 5+ can support read/unread tracking.",
+      "acceptanceCriteria": [
+        "Add optional fields: readingStatus (String?), dateRead (Date?), userRating (Int?)",
+        "Create enum ReadingStatus: String { case toRead, reading, completed, dnf }",
+        "Add to Book model as stored property (SwiftData will auto-migrate)",
+        "Do NOT build UI for these fields yet (defer to Epic 5)",
+        "Add to BookDetailSheet in rawJSON view for visibility",
+        "Document in code comments: \"// Epic 5: Implement reading status UI\""
+      ],
+      "priority": 13,
+      "estimate": "1 hour",
+      "passes": true,
+      "notes": "Plant seeds for future features. Cheap now, valuable later.",
+      "dependsOn": [
+        "US-301"
+      ],
+      "technicalNotes": [
+        "Schema: @Model final class Book { var readingStatus: String? = nil; var dateRead: Date? = nil; var userRating: Int? = nil }",
+        "Enum: Store as String for SwiftData compatibility",
+        "Default values: All nil (books start unmarked)",
+        "Epic 5 will add UI to set these values (buttons, pickers, etc.)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test Book creation with reading status fields",
+          "Test fields default to nil",
+          "Test fields persist to SwiftData"
+        ],
+        "required": false,
+        "estimatedTests": 3
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-314",
+      "title": "Grid Layout Adaptivity (iPhone/iPad)",
+      "description": "As a user, I want the grid to adapt to my device size so that I see optimal column counts on iPhone and iPad.",
+      "acceptanceCriteria": [
+        "iPhone portrait: 3 columns (current implementation)",
+        "iPhone landscape: 5 columns",
+        "iPad portrait: 5 columns",
+        "iPad landscape: 7 columns",
+        "Use adaptive grid: GridItem(.adaptive(minimum: 100, maximum: 150))",
+        "Grid maintains aspect ratio on all devices",
+        "Test on iPhone SE, iPhone 15 Pro Max, iPad Pro"
+      ],
+      "priority": 14,
+      "estimate": "2 hours",
+      "passes": true,
+      "notes": "Future-proof for iPad support. Easy to do now with adaptive grid.",
+      "dependsOn": [
+        "US-302"
+      ],
+      "technicalNotes": [
+        "Adaptive grid automatically adjusts columns based on available width",
+        "LazyVGrid(columns: [GridItem(.adaptive(minimum: 100, maximum: 150), spacing: 12)])",
+        "No need for manual device detection or size classes",
+        "Test: Rotate device, grid should reflow smoothly"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test grid adapts to device width (visual test, not unit)",
+          "Test rotation updates grid (visual test)"
+        ],
+        "required": false,
+        "estimatedTests": 2
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-315",
+      "title": "Accessibility: VoiceOver Labels",
+      "description": "As a VoiceOver user, I want all library elements labeled so that I can navigate my collection with audio feedback.",
+      "acceptanceCriteria": [
+        "Grid items have .accessibilityLabel(\"[Title] by [Author]\")",
+        "Cover images have .accessibilityHidden(true) (title is redundant)",
+        "Search field has .accessibilityLabel(\"Search books by title or author\")",
+        "Sort button has .accessibilityLabel(\"Sort library\")",
+        "Delete buttons have .accessibilityLabel(\"Delete [Title]\")",
+        "Empty state has .accessibilityLabel(\"No books. Tap camera tab to scan.\")",
+        "Test with VoiceOver enabled on device"
+      ],
+      "priority": 15,
+      "estimate": "2 hours",
+      "passes": true,
+      "notes": "Accessibility is not optional. Low effort, huge impact.",
+      "dependsOn": [
+        "US-302",
+        "US-304",
+        "US-306"
+      ],
+      "technicalNotes": [
+        "Grid item: .accessibilityElement(children: .combine) .accessibilityLabel(\"\\(book.title) by \\(book.author)\")",
+        "VoiceOver testing: Settings → Accessibility → VoiceOver → Enable",
+        "Semantic labels > visual descriptions (\"Delete button\" not \"Red trash icon\")",
+        "Add .accessibilityHint() for non-obvious actions: .accessibilityHint(\"Double tap to view details\")"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Manual VoiceOver testing (not unit testable)"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-316",
+      "title": "Dynamic Type Support (Text Scaling)",
+      "description": "As a user with vision impairment, I want text to scale with my system font size so that I can read comfortably.",
+      "acceptanceCriteria": [
+        "All Text views respect Dynamic Type (default SwiftUI behavior)",
+        "Book titles, authors, and metadata scale with system settings",
+        "Test with largest accessibility size (Settings → Display & Brightness → Text Size)",
+        "Grid layout doesn't break with large text (cells expand vertically)",
+        "JetBrains Mono respects scaling: .font(.custom(\"...\", size: 16, relativeTo: .body))",
+        "Minimum touch target: 44x44pt maintained at all sizes"
+      ],
+      "priority": 16,
+      "estimate": "2 hours",
+      "passes": false,
+      "notes": "Legal requirement for App Store. Easy with SwiftUI defaults.",
+      "dependsOn": [
+        "US-302"
+      ],
+      "technicalNotes": [
+        "SwiftUI Text automatically scales unless fixed size is used",
+        "Custom fonts: Use relativeTo parameter: Font.custom(\"JetBrainsMono-Regular\", size: 16, relativeTo: .body)",
+        "Test: Settings → Accessibility → Display & Text Size → Larger Text → Enable and drag slider to max",
+        "Grid cells: Use .fixedSize(horizontal: false, vertical: true) to allow vertical expansion"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Manual testing with Dynamic Type enabled (not unit testable)"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-317",
+      "title": "Book Notes Field (User Annotations)",
+      "description": "As a user, I want to add personal notes to books so that I can remember why I own them or what I thought.",
+      "acceptanceCriteria": [
+        "Add notes (String?) field to Book model",
+        "Add TextEditor to BookDetailSheet for note editing",
+        "Notes display in detail sheet below metadata (expandable section)",
+        "Notes save automatically on sheet dismiss (via @Bindable)",
+        "Notes support multi-line text (no character limit)",
+        "Placeholder text: \"Add personal notes...\" when empty"
+      ],
+      "priority": 17,
+      "estimate": "2 hours",
+      "passes": false,
+      "notes": "Personal touch. Users love annotating their collections.",
+      "dependsOn": [
+        "US-305"
+      ],
+      "technicalNotes": [
+        "Schema: @Model final class Book { var notes: String? = nil }",
+        "UI: DisclosureGroup(\"Notes\") { TextEditor(text: $book.notes ?? \"\") .frame(minHeight: 100) }",
+        "Placeholder: Use .overlay() with Text(\"Add notes...\").foregroundColor(.gray) if notes.isEmpty",
+        "Auto-save: @Bindable automatically commits changes to SwiftData on sheet dismiss"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test notes field added to Book model",
+          "Test notes save on dismiss",
+          "Test multi-line text support"
+        ],
+        "required": false,
+        "estimatedTests": 3
+      }
+    },
+    {
+      "id": "US-318",
+      "title": "Library Export to CSV",
+      "description": "As a user, I want to export my library to CSV so that I can use my data in other tools (Goodreads, Excel, etc.).",
+      "acceptanceCriteria": [
+        "Add \"Export Library\" button in toolbar (SF Symbol \"square.and.arrow.up\")",
+        "Generate CSV with headers: ISBN, Title, Author, Format, Publisher, Date Added, Notes",
+        "Use comma-separated values, escape quotes in fields",
+        "Present UIActivityViewController to share CSV file",
+        "File name: \"SwiftWing_Library_[YYYY-MM-DD].csv\"",
+        "Empty library shows alert: \"No books to export\""
+      ],
+      "priority": 18,
+      "estimate": "3 hours",
+      "passes": false,
+      "notes": "Data ownership. Users should own their data, not us.",
+      "dependsOn": [
+        "US-303"
+      ],
+      "technicalNotes": [
+        "CSV generation: let csv = \"ISBN,Title,Author,...\\n\" + books.map { \"\\($0.isbn),\\\"\\($0.title)\\\",\\\"\\($0.author)\\\",...\" }.joined(separator: \"\\n\")",
+        "Share sheet: use UIActivityViewController wrapped in UIViewControllerRepresentable",
+        "File saving: Write to FileManager.default.temporaryDirectory, pass URL to share sheet",
+        "Escape quotes: Replace \" with \"\" in CSV fields",
+        "Date format: ISO 8601 (yyyy-MM-dd) for Excel compatibility"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test CSV generation with 1 book",
+          "Test CSV generation with 100 books",
+          "Test quote escaping in titles",
+          "Test empty library shows alert"
+        ],
+        "required": true,
+        "estimatedTests": 4
+      }
+    },
+    {
+      "id": "US-319",
+      "title": "Confidence Filter (Show Only Low Confidence)",
+      "description": "As a user, I want to filter books by AI confidence so that I can review and correct low-confidence scans.",
+      "acceptanceCriteria": [
+        "Add filter toggle in toolbar: \"Show Review Needed\" (SF Symbol \"exclamationmark.triangle\")",
+        "When enabled, filter to books with spineConfidence < 0.8",
+        "Badge on filter button shows count of review-needed books",
+        "Toggle state persists via @AppStorage",
+        "Combine with search: Filter applies AFTER search predicate",
+        "Empty state when filter active: \"No books need review\""
+      ],
+      "priority": 19,
+      "estimate": "3 hours",
+      "passes": false,
+      "notes": "Power user feature. Makes manual review efficient.",
+      "dependsOn": [
+        "US-304"
+      ],
+      "technicalNotes": [
+        "Predicate: #Predicate { book in (book.spineConfidence ?? 1.0) < 0.8 }",
+        "Combined predicate: Merge search and confidence filters with &&",
+        "@AppStorage: @AppStorage(\"showReviewNeeded\") private var showReviewNeeded = false",
+        "Badge: .badge(reviewNeededCount) on toolbar button",
+        "Count: let reviewNeededCount = books.filter { ($0.spineConfidence ?? 1.0) < 0.8 }.count"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test filter shows only low confidence books",
+          "Test badge shows correct count",
+          "Test filter persists across launches",
+          "Test combined with search"
+        ],
+        "required": true,
+        "estimatedTests": 4
+      }
+    },
+    {
+      "id": "US-320",
+      "title": "Bulk Delete (Select Mode)",
+      "description": "As a user, I want to select multiple books and delete them at once so that I can clean up my library efficiently.",
+      "acceptanceCriteria": [
+        "Add \"Select\" button in toolbar (edit mode toggle)",
+        "In select mode, grid items show checkboxes (overlay on top-left)",
+        "Tap items to toggle selection (visual feedback: blue border)",
+        "Bottom toolbar appears with \"Delete Selected ([count])\" button",
+        "Delete button shows confirmation: \"Delete [count] books?\"",
+        "Confirm deletes all selected books in one transaction",
+        "\"Cancel\" button exits select mode, \"Select All\" button selects all visible",
+        "Select mode disabled during active search (to avoid confusion)"
+      ],
+      "priority": 20,
+      "estimate": "5 hours",
+      "passes": false,
+      "notes": "Advanced feature. Nice for power users cleaning up bulk imports.",
+      "dependsOn": [
+        "US-306"
+      ],
+      "technicalNotes": [
+        "Edit mode: @State private var isSelecting = false; @State private var selectedBooks: Set<Book.ID> = []",
+        "Checkbox overlay: if isSelecting { Circle().fill(selectedBooks.contains(book.id) ? .blue : .clear).frame(width: 24, height: 24).overlay(Circle().stroke(.white, lineWidth: 2)) }",
+        "Bottom toolbar: .toolbar { ToolbarItemGroup(placement: .bottomBar) { if isSelecting { Button(\"Delete (\\(selectedBooks.count))\") { showDeleteConfirmation = true } } } }",
+        "Bulk delete: selectedBooks.forEach { id in if let book = books.first(where: { $0.id == id }) { modelContext.delete(book) } }",
+        "Select All: Button(\"Select All\") { selectedBooks = Set(books.map { $0.id }) }"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test select mode toggle",
+          "Test item selection (checkbox appears)",
+          "Test bulk delete confirmation",
+          "Test select all button",
+          "Test exit select mode (clears selection)"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      }
+    },
+    {
+      "id": "US-321",
+      "title": "Performance Optimization (Large Libraries)",
+      "description": "As a developer, I want to profile and optimize the library grid so that it performs smoothly with 1000+ books.",
+      "acceptanceCriteria": [
+        "Create test dataset of 1000 books with mock covers",
+        "Profile scroll performance with Instruments (Time Profiler + Core Animation)",
+        "Measure FPS during rapid scrolling (target: 60 FPS sustained)",
+        "Optimize AsyncImage caching (use URLCache with aggressive policy)",
+        "Implement prefetching for visible rows (load covers before scroll)",
+        "Add performance logging: \"Library rendered 1000 books in [X]ms\"",
+        "Document findings in code comments or findings.md"
+      ],
+      "priority": 21,
+      "estimate": "4 hours",
+      "passes": false,
+      "notes": "Don't guess performance. Measure and optimize with real data.",
+      "dependsOn": [
+        "US-302"
+      ],
+      "technicalNotes": [
+        "Test dataset: Create Book objects with random titles, authors, ISBNs, and cover URLs",
+        "Instruments: Xcode → Product → Profile → Time Profiler",
+        "URLCache config: URLCache.shared = URLCache(memoryCapacity: 50MB, diskCapacity: 100MB)",
+        "Prefetching: Use .onAppear on grid items to trigger AsyncImage loads early",
+        "LazyVGrid is already lazy-loaded, but verify with Instruments",
+        "Fallback: If FPS < 60, reduce cover image quality or implement image downsampling"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Performance test: Render 1000 books (Instruments only, not unit test)"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-322",
+      "title": "Fix Epic 2 Technical Debt (Code Review Findings)",
+      "description": "As a developer, I want to address the code review findings from Epic 2 so that the codebase is clean before Epic 4 integration.",
+      "acceptanceCriteria": [
+        "HIGH: Add error handling UI in CameraView.processCapture() - show toast/overlay for failures",
+        "HIGH: Implement automatic cleanup of temp JPEG files (5min delayed deletion)",
+        "MEDIUM: Optimize ProcessingQueueView thumbnail generation (pre-process at 40x60px)",
+        "MEDIUM: Add error state handling in CameraView (display user-facing errors)",
+        "LOW: Add fallback for JetBrains Mono font loading (use system monospaced)",
+        "LOW: Make AVCaptureSession preset configurable (not hardcoded to .high)",
+        "Document fixes in commit message"
+      ],
+      "priority": 22,
+      "estimate": "6 hours",
+      "passes": false,
+      "notes": "Clean up before building on top. Technical debt compounds.",
+      "dependsOn": [
+        "US-206"
+      ],
+      "technicalNotes": [
+        "Error UI: Add @State var processingError: String? to CameraView, show as .toast() or overlay",
+        "Temp cleanup: DispatchQueue.global().asyncAfter(deadline: .now() + 300) { try? FileManager.default.removeItem(at: fileURL) }",
+        "Thumbnail optimization: Generate thumbnails in addToQueue() before creating ProcessingItem",
+        "Font fallback: Font.custom(\"JetBrainsMono-Regular\", size: 16, relativeTo: .body) ?? Font.system(.body, design: .monospaced)",
+        "Configurable preset: Add @AppStorage(\"cameraPreset\") var preset: String = \"high\" to CameraManager"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test error overlay appears on processing failure",
+          "Test temp file cleanup (delayed deletion)",
+          "Test thumbnail generation (smaller file size)",
+          "Test font fallback (custom font fails gracefully)"
+        ],
+        "required": true,
+        "estimatedTests": 4
+      }
+    }
+  ],
+  "metadata": {
+    "created": "2026-01-22",
+    "epic_number": 3,
+    "total_epics": 6,
+    "estimated_duration": "2-3 weeks (solo dev, part-time)",
+    "dependencies": "Epic 1 (US-103 Book model), Epic 2 (US-206 Theme system)",
+    "ralph_tui_notes": "This epic has 22 user stories - mix of critical library features and quality improvements. Prioritize US-301 through US-310 for MVP. Stories 311-322 are polish/advanced features.",
+    "code_review_summary": "Epic 2 code review by grok-code-fast-1 found solid architecture with minor issues. Main findings: error handling needs UI feedback, temp file cleanup needed, thumbnail optimization opportunity. All addressable in US-322.",
+    "test_coverage_strategy": {
+      "unit_tests_required": 14,
+      "total_estimated_tests": 87,
+      "manual_tests": 3,
+      "performance_tests": 1,
+      "coverage_target": "70% (focus on critical paths: SwiftData operations, search, delete)"
+    },
+    "updatedAt": "2026-01-23T02:32:39.594Z"
+  }
+}
