@@ -30,8 +30,6 @@
 		BBFC697E2E23D044AC8EF131 /* ProcessingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */; };
 		C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */; };
 		DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733AF8F390562E0E6977AD18 /* CameraManager.swift */; };
-		671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90075E8758F64E3095FAE717 /* PerformanceTestData.swift */; };
-		DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -60,8 +58,6 @@
 		CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateDetection.swift; sourceTree = "<group>"; };
 		D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
-		90075E8758F64E3095FAE717 /* PerformanceTestData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTestData.swift; sourceTree = "<group>"; };
-		59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceLogger.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,8 +105,6 @@
 				55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */,
 				7F0000230000000000000001 /* AsyncImageWithLoading.swift */,
 				A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */,
-				90075E8758F64E3095FAE717 /* PerformanceTestData.swift */,
-				59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */,
 			);
 			path = swiftwing;
 			sourceTree = "<group>";
@@ -240,8 +234,6 @@
 				7F0000220000000000000001 /* AsyncImageWithLoading.swift in Sources */,
 				7B2A93E4D8FF47B0A02715CD /* DuplicateDetection.swift in Sources */,
 				AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */,
-				671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */,
-				DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

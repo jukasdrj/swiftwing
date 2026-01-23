@@ -77,17 +77,23 @@ struct PerformanceTestData {
     /// Generate a large dataset of books for performance testing
     /// - Parameters:
     ///   - count: Number of books to generate (default: 1000)
-    ///   - context: SwiftData model context to insert books into
+    ///   - container: SwiftData model container to create background context
     ///   - includeCovers: Whether to include cover URLs (affects image loading performance)
+    @MainActor
     static func generateTestDataset(
         count: Int = 1000,
-        context: ModelContext,
+        container: ModelContainer,
         includeCovers: Bool = true
-    ) {
+    ) async {
         print("🔧 US-321: Generating \(count) test books for performance testing...")
-        let startTime = CFAbsoluteTimeGetCurrent()
 
-        for i in 0..<count {
+        // Run on detached task to unblock MainActor
+        await Task.detached(priority: .userInitiated) {
+            let startTime = CFAbsoluteTimeGetCurrent()
+            let context = ModelContext(container)
+            context.autosaveEnabled = false // Optimization: Disable autosave
+
+            for i in 0..<count {
             let title = sampleTitles[i % sampleTitles.count]
             let author = sampleAuthors[i % sampleAuthors.count]
             let format = formats[i % formats.count]
@@ -149,38 +155,34 @@ struct PerformanceTestData {
             }
         }
 
-        // Final save
-        do {
-            try context.save()
-        } catch {
-            print("  ⚠️ Failed to save final batch: \(error)")
-        }
+            // Final save
+            do {
+                try context.save()
+            } catch {
+                print("  ⚠️ Failed to save final batch: \(error)")
+            }
 
-        let duration = CFAbsoluteTimeGetCurrent() - startTime
-        print("✅ Generated \(count) test books in \(String(format: "%.2f", duration * 1000))ms")
-        print("  Average: \(String(format: "%.2f", (duration * 1000) / Double(count)))ms per book")
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            print("✅ Generated \(count) test books in \(String(format: "%.2f", duration * 1000))ms")
+            print("  Average: \(String(format: "%.2f", (duration * 1000) / Double(count)))ms per book")
+        }.value
     }
 
     /// Clear all test data from the context
-    /// - Parameter context: SwiftData model context
-    static func clearTestData(context: ModelContext) {
+    /// - Parameter container: SwiftData model container
+    @MainActor
+    static func clearTestData(container: ModelContainer) async {
         print("🧹 Clearing test data...")
 
-        let descriptor = FetchDescriptor<Book>()
-        guard let allBooks = try? context.fetch(descriptor) else {
-            print("  No books to clear")
-            return
-        }
-
-        for book in allBooks {
-            context.delete(book)
-        }
-
-        do {
-            try context.save()
-            print("✅ Cleared \(allBooks.count) test books")
-        } catch {
-            print("⚠️ Failed to clear test data: \(error)")
-        }
+        await Task.detached {
+            let context = ModelContext(container)
+            do {
+                // Efficient batch delete
+                try context.delete(model: Book.self)
+                print("✅ Cleared all books")
+            } catch {
+                print("⚠️ Failed to clear test data: \(error)")
+            }
+        }.value
     }
 }

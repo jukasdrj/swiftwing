@@ -11,8 +11,15 @@ actor ImageCacheManager {
     static let shared = ImageCacheManager()
 
     // MARK: - Properties
-    nonisolated(unsafe) private(set) var urlSession: URLSession
+    // URLSession is Sendable and immutable after initialization, safe for non-isolated access
+    private let _urlSession: URLSession
     private var prefetchTasks: [URL: Task<Void, Never>] = [:]
+
+    // Nonisolated accessor for URLSession
+    // Safe because URLSession is Sendable and _urlSession is immutable after init
+    nonisolated var urlSession: URLSession {
+        _urlSession
+    }
 
     // MARK: - Initialization
     private init() {
@@ -34,7 +41,7 @@ actor ImageCacheManager {
         config.timeoutIntervalForRequest = 30                 // 30s timeout
         config.waitsForConnectivity = false                   // Don't wait for network
 
-        self.urlSession = URLSession(configuration: config)
+        self._urlSession = URLSession(configuration: config)
 
         print("📦 US-321: ImageCacheManager initialized")
         print("  Memory Cache: \(memoryCapacity / 1024 / 1024)MB")
@@ -44,7 +51,7 @@ actor ImageCacheManager {
     // MARK: - Cache Statistics
     /// Get current cache usage statistics (for debugging/logging)
     func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
-        let cache = urlSession.configuration.urlCache
+        let cache = _urlSession.configuration.urlCache
         return (
             memoryUsed: cache?.currentMemoryUsage ?? 0,
             diskUsed: cache?.currentDiskUsage ?? 0
@@ -86,7 +93,7 @@ actor ImageCacheManager {
 
         // Check if already in cache
         let request = URLRequest(url: url, cachePolicy: .returnCacheDataDontLoad)
-        if urlSession.configuration.urlCache?.cachedResponse(for: request) != nil {
+        if _urlSession.configuration.urlCache?.cachedResponse(for: request) != nil {
             // Already cached, no need to prefetch
             return
         }
@@ -95,7 +102,7 @@ actor ImageCacheManager {
         let task = Task {
             do {
                 // Fetch and cache image
-                let (_, _) = try await urlSession.data(from: url)
+                let (_, _) = try await self._urlSession.data(from: url)
                 // Data is now cached by URLCache automatically
             } catch {
                 // Silently fail - this is a prefetch, not critical
@@ -135,7 +142,7 @@ actor ImageCacheManager {
 
     /// Clear all cached images (memory + disk)
     func clearCache() {
-        urlSession.configuration.urlCache?.removeAllCachedResponses()
+        _urlSession.configuration.urlCache?.removeAllCachedResponses()
         print("🧹 Image cache cleared")
     }
 
@@ -143,7 +150,7 @@ actor ImageCacheManager {
     /// - Parameter url: URL to clear from cache
     func clearCachedImage(url: URL) {
         let request = URLRequest(url: url)
-        urlSession.configuration.urlCache?.removeCachedResponse(for: request)
+        _urlSession.configuration.urlCache?.removeCachedResponse(for: request)
     }
 }
 

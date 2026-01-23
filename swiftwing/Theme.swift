@@ -40,19 +40,28 @@ extension Color {
 
 // MARK: - Font Extensions
 extension Font {
+    /// Cached check for whether JetBrains Mono font is available
+    /// Performed once at app launch to avoid repeated file system checks
+    private static let isJetBrainsMonoAvailable: Bool = {
+        #if canImport(UIKit)
+        let testFont = UIFont(name: "JetBrainsMono-Regular", size: 16)
+        if testFont == nil {
+            print("⚠️ JetBrains Mono not found, falling back to system monospaced font")
+            return false
+        }
+        return true
+        #else
+        return true  // Assume available on non-UIKit platforms
+        #endif
+    }()
+
     /// Default JetBrains Mono font scaled to body text style
     /// Respects Dynamic Type for accessibility
     /// Falls back to system monospaced font if JetBrains Mono is unavailable
     static let jetBrainsMono: Font = {
-        #if canImport(UIKit)
-        // Check if custom font is actually loaded by testing against UIFont
-        let testFont = UIFont(name: "JetBrainsMono-Regular", size: 16)
-        if testFont == nil {
-            print("⚠️ JetBrains Mono not found, falling back to system monospaced font")
+        guard isJetBrainsMonoAvailable else {
             return Font.system(size: 16, design: .monospaced).weight(.regular)
         }
-        #endif
-
         return Font.custom("JetBrainsMono-Regular", size: 16, relativeTo: .body)
     }()
 
@@ -63,13 +72,9 @@ extension Font {
     ///   - relativeTo: Text style to scale relative to (default: .body)
     /// - Returns: Dynamic Type-aware custom font
     static func jetBrainsMono(size: CGFloat, relativeTo textStyle: TextStyle = .body) -> Font {
-        #if canImport(UIKit)
-        let testFont = UIFont(name: "JetBrainsMono-Regular", size: size)
-        if testFont == nil {
+        guard isJetBrainsMonoAvailable else {
             return Font.system(size: size, design: .monospaced).weight(.regular)
         }
-        #endif
-
         return Font.custom("JetBrainsMono-Regular", size: size, relativeTo: textStyle)
     }
 }

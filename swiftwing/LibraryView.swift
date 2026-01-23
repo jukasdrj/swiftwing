@@ -57,37 +57,31 @@ struct LibraryView: View {
     @State private var prefetchCoordinator = LibraryPrefetchCoordinator()
     @State private var renderStartTime: CFAbsoluteTime?
 
+    // Cached filtered books to avoid recomputation on every View render
+    @State private var cachedFilteredBooks: [Book] = []
+
     private var sortOption: LibrarySortOption {
         LibrarySortOption(rawValue: sortOptionRaw) ?? .newestFirst
     }
 
-    // Sorted books based on current sort option
+    // Sorted books based on current sort option (still computed but only used internally)
     private var sortedBooks: [Book] {
-        let descriptor = FetchDescriptor<Book>(sortBy: sortOption.sortDescriptors)
-        return (try? modelContext.fetch(descriptor)) ?? []
+        // Apply sort using simple array sorting (faster than fetch descriptor for in-memory data)
+        switch sortOption {
+        case .newestFirst:
+            return books.sorted { $0.addedDate > $1.addedDate }
+        case .oldestFirst:
+            return books.sorted { $0.addedDate < $1.addedDate }
+        case .titleAZ:
+            return books.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+        case .authorAZ:
+            return books.sorted { $0.author.localizedStandardCompare($1.author) == .orderedAscending }
+        }
     }
 
-    // Dynamic query based on search text and confidence filter
+    // Use cached filtered books
     private var filteredBooks: [Book] {
-        var result = sortedBooks
-
-        // Apply search filter first
-        if !searchText.isEmpty {
-            let lowercasedSearch = searchText.lowercased()
-            result = result.filter { book in
-                book.title.lowercased().contains(lowercasedSearch) ||
-                book.author.lowercased().contains(lowercasedSearch)
-            }
-        }
-
-        // Apply confidence filter (after search)
-        if showReviewNeeded {
-            result = result.filter { book in
-                (book.spineConfidence ?? 1.0) < 0.8
-            }
-        }
-
-        return result
+        cachedFilteredBooks
     }
 
     // Count of books that need review (for badge)
@@ -129,6 +123,11 @@ struct LibraryView: View {
             }
             .searchable(text: $searchText, prompt: "Search title or author")
             .accessibilityLabel("Search books by title or author")
+            .onChange(of: searchText) { updateFilteredBooks() }
+            .onChange(of: showReviewNeeded) { updateFilteredBooks() }
+            .onChange(of: sortOptionRaw) { updateFilteredBooks() }
+            .onChange(of: books) { updateFilteredBooks() }
+            .onAppear { updateFilteredBooks() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if isSelectionMode {
@@ -502,6 +501,31 @@ struct LibraryView: View {
     }
 
     // MARK: - Actions
+
+    /// Updates the cached filtered books based on search, confidence filter, and sort option
+    /// Called when any filtering/sorting criteria changes
+    private func updateFilteredBooks() {
+        var result = sortedBooks
+
+        // Apply search filter first
+        if !searchText.isEmpty {
+            let lowercasedSearch = searchText.lowercased()
+            result = result.filter { book in
+                book.title.lowercased().contains(lowercasedSearch) ||
+                book.author.lowercased().contains(lowercasedSearch)
+            }
+        }
+
+        // Apply confidence filter (after search)
+        if showReviewNeeded {
+            result = result.filter { book in
+                (book.spineConfidence ?? 1.0) < 0.8
+            }
+        }
+
+        cachedFilteredBooks = result
+    }
+
     private func performRefresh() async {
         isRefreshing = true
         // Placeholder for Epic 4 sync
@@ -667,57 +691,65 @@ struct LibraryView: View {
     private func testDuplicateDetection() {
         let testISBN = "9780134092669" // Test ISBN
 
-        // Test 1: Check for existing duplicate
-        if let existingBook = DuplicateDetection.findDuplicate(isbn: testISBN, in: modelContext) {
-            print("✅ US-311 Test 1: Found existing duplicate")
-            print("  - Title: \(existingBook.title)")
-            print("  - ISBN: \(existingBook.isbn)")
-        } else {
-            print("✅ US-311 Test 1: No duplicate found (adding test book)")
+        do {
+            // Test 1: Check for existing duplicate
+            if let existingBook = try DuplicateDetection.findDuplicate(isbn: testISBN, in: modelContext) {
+                print("✅ US-311 Test 1: Found existing duplicate")
+                print("  - Title: \(existingBook.title)")
+                print("  - ISBN: \(existingBook.isbn)")
+            } else {
+                print("✅ US-311 Test 1: No duplicate found (adding test book)")
 
-            // Add a test book
-            let testBook = Book(
-                title: "iOS Programming: The Big Nerd Ranch Guide",
-                author: "Christian Keur & Aaron Hillegass",
-                isbn: testISBN
-            )
+                // Add a test book
+                let testBook = Book(
+                    title: "iOS Programming: The Big Nerd Ranch Guide",
+                    author: "Christian Keur & Aaron Hillegass",
+                    isbn: testISBN
+                )
 
-            modelContext.insert(testBook)
-            try? modelContext.save()
-            print("  - Test book added with ISBN: \(testISBN)")
-        }
+                modelContext.insert(testBook)
+                try? modelContext.save()
+                print("  - Test book added with ISBN: \(testISBN)")
+            }
 
-        // Test 2: Try to find the duplicate again (should succeed after Test 1)
-        if let duplicate = DuplicateDetection.findDuplicate(isbn: testISBN, in: modelContext) {
-            print("✅ US-311 Test 2: Duplicate detection working correctly")
-            print("  - Found: \(duplicate.title)")
-            print("  - ISBN match: \(duplicate.isbn == testISBN)")
-        } else {
-            print("❌ US-311 Test 2: Duplicate detection failed")
-        }
+            // Test 2: Try to find the duplicate again (should succeed after Test 1)
+            if let duplicate = try DuplicateDetection.findDuplicate(isbn: testISBN, in: modelContext) {
+                print("✅ US-311 Test 2: Duplicate detection working correctly")
+                print("  - Found: \(duplicate.title)")
+                print("  - ISBN match: \(duplicate.isbn == testISBN)")
+            } else {
+                print("❌ US-311 Test 2: Duplicate detection failed")
+            }
 
-        // Test 3: Check non-existent ISBN
-        let nonExistentISBN = "9999999999999"
-        if DuplicateDetection.findDuplicate(isbn: nonExistentISBN, in: modelContext) == nil {
-            print("✅ US-311 Test 3: Correctly returns nil for non-existent ISBN")
-        } else {
-            print("❌ US-311 Test 3: Incorrectly found book with non-existent ISBN")
+            // Test 3: Check non-existent ISBN
+            let nonExistentISBN = "9999999999999"
+            if try DuplicateDetection.findDuplicate(isbn: nonExistentISBN, in: modelContext) == nil {
+                print("✅ US-311 Test 3: Correctly returns nil for non-existent ISBN")
+            } else {
+                print("❌ US-311 Test 3: Incorrectly found book with non-existent ISBN")
+            }
+        } catch {
+            print("❌ US-311 Test failed with error: \(error.localizedDescription)")
         }
     }
 
     /// US-321: Generate performance test dataset
     private func generatePerformanceTestData(count: Int) {
         print("📊 US-321: Generating \(count) test books...")
-        PerformanceTestData.generateTestDataset(
-            count: count,
-            context: modelContext,
-            includeCovers: true
-        )
+        Task {
+            await PerformanceTestData.generateTestDataset(
+                count: count,
+                container: modelContext.container,
+                includeCovers: true
+            )
+        }
     }
 
     /// US-321: Clear all books from library
     private func clearAllBooks() {
-        PerformanceTestData.clearTestData(context: modelContext)
+        Task {
+            await PerformanceTestData.clearTestData(container: modelContext.container)
+        }
     }
 
     /// US-321: Log image cache statistics
@@ -1039,13 +1071,6 @@ struct BookDetailSheet: View {
                         }
                         .foregroundColor(.internationalOrange)
                     }
-                }
-            }
-            .onDisappear {
-                // Auto-save notes on sheet dismiss (even if not in edit mode)
-                if editedNotes != (book.notes ?? "") {
-                    book.notes = editedNotes.isEmpty ? nil : editedNotes
-                    try? modelContext.save()
                 }
             }
         }

@@ -5,12 +5,25 @@ import SwiftData
 /// US-311: Duplicate Detection Warning
 @MainActor
 enum DuplicateDetection {
+    /// Error types for duplicate detection
+    enum DuplicateDetectionError: LocalizedError {
+        case fetchFailed(Error)
+
+        var errorDescription: String? {
+            switch self {
+            case .fetchFailed(let error):
+                return "Failed to check for duplicate books: \(error.localizedDescription)"
+            }
+        }
+    }
+
     /// Checks if a book with the given ISBN already exists in the library
     /// - Parameters:
     ///   - isbn: The ISBN to check
     ///   - context: SwiftData model context
     /// - Returns: The existing Book if found, nil otherwise
-    static func findDuplicate(isbn: String, in context: ModelContext) -> Book? {
+    /// - Throws: DuplicateDetectionError if the database query fails
+    static func findDuplicate(isbn: String, in context: ModelContext) throws -> Book? {
         let predicate = #Predicate<Book> { book in
             book.isbn == isbn
         }
@@ -22,7 +35,7 @@ enum DuplicateDetection {
             return results.first
         } catch {
             print("❌ Duplicate detection failed: \(error)")
-            return nil
+            throw DuplicateDetectionError.fetchFailed(error)
         }
     }
 }

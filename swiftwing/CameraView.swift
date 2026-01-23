@@ -366,8 +366,9 @@ struct CameraView: View {
 
         try jpegData.write(to: fileURL)
 
-        // Schedule automatic cleanup after 5 minutes
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 300) {
+        // Schedule automatic cleanup after 5 minutes using structured concurrency
+        Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .seconds(300))
             do {
                 try FileManager.default.removeItem(at: fileURL)
                 print("🗑️ Cleaned up temp file: \(filename)")
@@ -448,18 +449,27 @@ struct CameraView: View {
     ///   - isbn: Book ISBN from AI
     @MainActor
     private func handleBookResult(title: String, author: String, isbn: String) {
-        // Check for duplicate using SwiftData predicate
-        if let duplicate = DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
-            // Store pending book data for "Add Anyway" action
-            pendingBookData = (title: title, author: author, isbn: isbn)
-            duplicateBook = duplicate
+        do {
+            // Check for duplicate using SwiftData predicate
+            if let duplicate = try DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
+                // Store pending book data for "Add Anyway" action
+                pendingBookData = (title: title, author: author, isbn: isbn)
+                duplicateBook = duplicate
 
-            // Show duplicate alert (non-blocking)
-            withAnimation(.swissSpring) {
-                showDuplicateAlert = true
+                // Show duplicate alert (non-blocking)
+                withAnimation(.swissSpring) {
+                    showDuplicateAlert = true
+                }
+            } else {
+                // No duplicate - add directly to library
+                addBookToLibrary(title: title, author: author, isbn: isbn)
             }
-        } else {
-            // No duplicate - add directly to library
+        } catch {
+            // Show error to user if duplicate detection fails
+            Task {
+                await showProcessingErrorOverlay("Failed to check for duplicates: \(error.localizedDescription)")
+            }
+            // Add book anyway as a fallback (better to risk duplicate than lose data)
             addBookToLibrary(title: title, author: author, isbn: isbn)
         }
     }

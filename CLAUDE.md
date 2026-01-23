@@ -13,6 +13,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Building & Running
 
 ### Xcode Commands
+
+**CRITICAL: ALWAYS use xcsift, NEVER call xcodebuild directly**
+
 ```bash
 # Open project
 open swiftwing.xcodeproj
@@ -20,20 +23,20 @@ open swiftwing.xcodeproj
 # Build for simulator (Cmd+B in Xcode)
 # Run on simulator (Cmd+R in Xcode)
 
-# Build from command line (use xcsift - recommended)
-xcsift build
-
-# Build for specific simulator
-xcsift build -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max'
+# Build from command line - ONLY METHOD TO USE
+xcodebuild -project swiftwing.xcodeproj -scheme swiftwing -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' build 2>&1 | xcsift
 
 # Clean build
-# Cmd+Shift+K in Xcode, or:
-xcsift clean
+xcodebuild -project swiftwing.xcodeproj -scheme swiftwing -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' clean build 2>&1 | xcsift
 
-# Alternative: Direct xcodebuild (if xcsift unavailable)
-xcodebuild -project swiftwing.xcodeproj -scheme swiftwing -sdk iphonesimulator
-xcodebuild clean -project swiftwing.xcodeproj -scheme swiftwing
+# NEVER USE: xcodebuild without piping to xcsift
+# NEVER USE: xcsift build (command doesn't exist - xcsift is a formatter only)
 ```
+
+**Why xcsift?**
+- Formats xcodebuild output to structured JSON
+- Makes errors parseable and actionable
+- Essential for automated diagnosis
 
 ### Ralph-TUI Task Management
 Epic-based development workflow using ralph-tui:
@@ -155,40 +158,53 @@ Font.system()          // San Francisco Pro for UI (native)
 
 ## AI Collaboration Workflow
 
-### Planning for Complex Tasks
+### 🚨 MANDATORY: Planning-with-Files for Complex Tasks
 
-**CRITICAL RULE: Use planning-with-files skill for tasks requiring >4 tool calls**
+**ABSOLUTE REQUIREMENT: Use planning-with-files skill for tasks requiring >4 tool calls**
 
-Before starting any multi-step task, research project, or complex implementation:
-
+**You MUST invoke this skill BEFORE starting:**
 ```bash
-# Invoke the planning workflow
 /planning-with-files
 ```
 
-**Why Planning Files?**
-- **Persistent Memory:** Context doesn't evaporate between sessions
-- **Error Tracking:** Log what failed to avoid repetition
-- **Parallel Work:** Continue working while subagents execute
-- **Decision History:** Document architectural choices
+**This is NON-NEGOTIABLE for:**
+- ✅ Build failures requiring diagnosis (like the @Environment(\.modelContainer) issue)
+- ✅ Multi-step features (Epic 2+ camera integration)
+- ✅ Architecture decisions (actor design, concurrency patterns)
+- ✅ Performance optimization (profiling + fixes)
+- ✅ Integration work (Talaria SSE streaming setup)
+- ✅ Code review findings with multiple fixes
+- ✅ **Any task where you'll use >4 tools or make >3 decisions**
+- ✅ **Any time you find yourself going in circles or repeating fixes**
 
-**Planning Files Created:**
-- `task_plan.md` - Phases, progress tracking, decision log
-- `findings.md` - Research discoveries, API insights, patterns
-- `progress.md` - Session log, test results, errors encountered
+**Why This is Mandatory:**
+- **Persistent Memory:** Context doesn't evaporate - stops circular debugging
+- **Error Tracking:** Log what failed to avoid repeating same mistakes
+- **Decision History:** Document why approaches were chosen/rejected
+- **Structured Thinking:** Forces systematic problem-solving instead of random attempts
 
-**When to Use Planning:**
-- Multi-step features (Epic 2+ camera integration)
-- Architecture decisions (actor design, concurrency patterns)
-- Performance optimization (profiling + fixes)
-- Integration work (Talaria SSE streaming setup)
-- **Any task where you'll use >4 tools**
+**Planning Files You MUST Create:**
+- `{task_name}_task_plan.md` - Phases, progress tracking, decision log, error attempts
+- `{task_name}_findings.md` - Research discoveries, API insights, patterns, expert advice
+- `{task_name}_progress.md` - Session log, test results, errors encountered (optional)
 
-**When to Skip:**
-- Single-file edits
-- Quick bug fixes
-- Simple questions
-- Trivial refactors
+**Real Example from This Project:**
+- Issue: Build failures after code review fixes
+- Without planning: 8+ circular attempts fixing same issues
+- With planning-with-files + PAL thinkdeep: Root cause identified in 3 steps
+- Result: BUILD SUCCESSFUL after systematic diagnosis
+
+**Only Skip Planning For:**
+- ❌ Single-file edits (< 10 lines)
+- ❌ Quick bug fixes (obvious one-line changes)
+- ❌ Simple questions
+- ❌ Trivial refactors (rename, format)
+
+**If User Says "I keep failing" or You're Repeating Fixes:**
+→ STOP immediately
+→ Invoke /planning-with-files
+→ Use PAL tools for expert help
+→ Document everything systematically
 
 ### Epic-Based Vertical Slices
 
@@ -360,6 +376,30 @@ Button("Capture") {
 
 ## Common Pitfalls
 
+### ❌ NEVER Call xcodebuild Directly
+**ABSOLUTE RULE: ALWAYS pipe xcodebuild through xcsift**
+
+```bash
+# ✅ CORRECT - Always use this pattern
+xcodebuild -project swiftwing.xcodeproj -scheme swiftwing -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' build 2>&1 | xcsift
+
+# ❌ WRONG - Never call xcodebuild without xcsift
+xcodebuild -project swiftwing.xcodeproj -scheme swiftwing build
+
+# ❌ WRONG - xcsift is not a build command (it's a formatter)
+xcsift build
+```
+
+**Why This Matters:**
+- xcsift parses xcodebuild output into structured JSON
+- Makes errors machine-readable for diagnosis
+- Essential for automated problem-solving
+- Without xcsift, you're flying blind on build errors
+
+### ❌ Don't Skip planning-with-files for Complex Tasks
+If a task requires >4 tool calls or you're debugging build failures, you MUST use `/planning-with-files` first. No exceptions. Circular debugging wastes time and frustrates users.
+
 ### ❌ Don't Build Full Features in Epic 1
 Epic 1 is a **Walking Skeleton** - minimal code to prove architecture works. Defer design systems, offline logic, and complex state management to later epics.
 
@@ -368,6 +408,30 @@ Build features vertically (UI → Logic → Data → Network in one epic), not l
 
 ### ❌ Don't Fight Swift 6.2 Concurrency
 Compiler errors about data races are helping you. Use actors, don't bypass with `@unchecked Sendable`.
+
+### ✅ Do Verify Builds BEFORE Code Reviews
+**Critical Workflow: Build → Review → Fix → Build**
+
+**ABSOLUTE REQUIREMENT: ZERO WARNINGS**
+
+Never run code reviews on code that doesn't build cleanly. Always:
+1. First: `xcodebuild ... | xcsift` to verify **0 errors, 0 warnings**
+2. Then: Run static analysis / code review
+3. Finally: Apply fixes and re-verify **0 errors, 0 warnings**
+
+**Build Success Criteria:**
+```json
+{
+  "summary": {
+    "errors": 0,     // ✅ Required
+    "warnings": 0    // ✅ Required - NOT NEGOTIABLE
+  }
+}
+```
+
+**If warnings > 0:** Task is NOT complete. Fix all warnings before declaring done.
+
+**Lesson from this project:** Gemini Pro 3 and Grok reviewed code that had missing files and never built. Wasted hours debugging review fixes when the base code was broken. Later, declared build "successful" with 14 warnings - user rightfully rejected.
 
 ### ✅ Do Keep Stories Small
 Each user story should take 1-2 hours max. If larger, break it down.

@@ -38,6 +38,7 @@ struct ShimmerView: View {
 
 // MARK: - Async Image with Loading States
 /// AsyncImage wrapper with skeleton shimmer, error states, and retry functionality
+/// Uses ImageCacheManager's optimized URLSession for caching
 ///
 /// Usage:
 /// ```swift
@@ -47,25 +48,27 @@ struct ShimmerView: View {
 /// ```
 struct AsyncImageWithLoading: View {
     let url: URL?
+    @State private var loadedImage: UIImage?
+    @State private var isLoading = false
+    @State private var loadFailed = false
     @State private var retryTrigger = UUID()
 
     var body: some View {
-        AsyncImage(url: url, transaction: Transaction(animation: Animation.swissSpring)) { phase in
-            switch phase {
-            case .empty:
-                loadingStateView
-            case .success(let image):
-                image
+        Group {
+            if let image = loadedImage {
+                Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .transition(.opacity)
-            case .failure:
+            } else if loadFailed {
                 errorStateView
-            @unknown default:
+            } else {
                 loadingStateView
             }
         }
-        .id(retryTrigger) // Trigger reload when retryTrigger changes
+        .task(id: retryTrigger) {
+            await loadImage()
+        }
     }
 
     // MARK: - Loading State
@@ -124,8 +127,41 @@ struct AsyncImageWithLoading: View {
     // MARK: - Actions
     private func retryLoad() {
         withAnimation(Animation.swissSpring) {
+            loadFailed = false
             retryTrigger = UUID()
         }
+    }
+
+    /// Loads image using ImageCacheManager's optimized URLSession
+    private func loadImage() async {
+        guard let url = url else {
+            loadFailed = true
+            return
+        }
+
+        guard !isLoading else { return }
+
+        isLoading = true
+        loadFailed = false
+
+        do {
+            // Use ImageCacheManager's URLSession for automatic caching
+            let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
+            let session = await ImageCacheManager.shared.urlSession
+            let (data, _) = try await session.data(for: request)
+
+            if let uiImage = UIImage(data: data) {
+                withAnimation(Animation.swissSpring) {
+                    loadedImage = uiImage
+                }
+            } else {
+                loadFailed = true
+            }
+        } catch {
+            loadFailed = true
+        }
+
+        isLoading = false
     }
 }
 

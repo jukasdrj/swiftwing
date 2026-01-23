@@ -6,7 +6,5 @@
 	<array>
 		<string>JetBrainsMono-Regular.ttf</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>SwiftWing uses your camera to scan book spines for automatic identification.</string>
 </dict>
 </plist>
