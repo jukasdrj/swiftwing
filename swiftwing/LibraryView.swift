@@ -95,17 +95,32 @@ struct LibraryView: View {
     // MARK: - Empty State
     private var emptyStateView: some View {
         VStack(spacing: 24) {
-            Image(systemName: "camera.fill")
+            // SF Symbol: books.vertical (large, white, with subtle glow)
+            Image(systemName: "books.vertical")
                 .font(.system(size: 80))
-                .foregroundColor(.internationalOrange)
-
-            Text("No books yet. Start scanning!")
-                .font(.title3)
                 .foregroundColor(.swissText)
+                .shadow(color: .white.opacity(0.3), radius: 12)
+
+            // Title: "No Books Yet"
+            Text("No Books Yet")
+                .font(.title2.bold())
+                .foregroundColor(.swissText)
+
+            // Description with guidance
+            Text("Tap the camera tab to scan your first book spine. SwiftWing will identify it automatically.")
+                .font(.body)
+                .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
 
             #if DEBUG
+            // Optional: Add Sample Book button for testing
             VStack(spacing: 12) {
+                Button("Add Sample Book") {
+                    addSampleBook()
+                }
+                .swissGlassButton()
+
                 Button("Seed Library") {
                     seedLibrary()
                 }
@@ -116,6 +131,7 @@ struct LibraryView: View {
                 }
                 .swissGlassButton()
             }
+            .padding(.top, 12)
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -157,6 +173,23 @@ struct LibraryView: View {
     }
 
     #if DEBUG
+    /// US-307: Add a single sample book for testing empty state transitions
+    private func addSampleBook() {
+        let sampleBook = Book(
+            title: "The Swift Programming Language",
+            author: "Apple Inc.",
+            isbn: "9780000000999",
+            coverUrl: URL(string: "https://covers.openlibrary.org/b/isbn/9780000000999-L.jpg"),
+            format: "Hardcover",
+            spineConfidence: 0.92
+        )
+
+        withAnimation(.swissSpring) {
+            modelContext.insert(sampleBook)
+            try? modelContext.save()
+        }
+    }
+
     private func seedLibrary() {
         DataSeeder.seedLibrary(context: modelContext)
     }
