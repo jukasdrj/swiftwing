@@ -5,6 +5,7 @@ struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var searchText = ""
     @State private var isRefreshing = false
+    @State private var selectedBook: Book?
 
     // Dynamic query based on search text
     private var filteredBooks: [Book] {
@@ -40,6 +41,10 @@ struct LibraryView: View {
         }
         .background(Color.swissBackground.ignoresSafeArea())
         .searchable(text: $searchText, prompt: "Search title or author")
+        .sheet(item: $selectedBook) { book in
+            BookDetailSheet(book: book)
+                .presentationDetents([.medium])
+        }
     }
 
     // MARK: - Library Grid
@@ -49,6 +54,9 @@ struct LibraryView: View {
                 ForEach(filteredBooks, id: \.id) { book in
                     BookGridCell(book: book)
                         .transition(.scale.combined(with: .opacity))
+                        .onTapGesture {
+                            selectedBook = book
+                        }
                 }
             }
             .padding()
@@ -213,6 +221,261 @@ struct BookGridCell: View {
                     .font(.system(size: 32))
                     .foregroundColor(.gray.opacity(0.6))
             )
+    }
+}
+
+// MARK: - Book Detail Sheet
+struct BookDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let book: Book
+
+    @State private var isEditing = false
+    @State private var editedTitle: String
+    @State private var editedAuthor: String
+    @State private var editedISBN: String
+    @State private var editedFormat: String
+    @State private var editedPublisher: String
+    @State private var editedPublishedDate: Date?
+    @State private var editedPageCount: String
+
+    init(book: Book) {
+        self.book = book
+        _editedTitle = State(initialValue: book.title)
+        _editedAuthor = State(initialValue: book.author)
+        _editedISBN = State(initialValue: book.isbn)
+        _editedFormat = State(initialValue: book.format ?? "")
+        _editedPublisher = State(initialValue: book.publisher ?? "")
+        _editedPublishedDate = State(initialValue: book.publishedDate)
+        _editedPageCount = State(initialValue: book.pageCount != nil ? String(book.pageCount!) : "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                HStack(alignment: .top, spacing: 24) {
+                    // Left: Cover image (200x300)
+                    AsyncImage(url: book.coverUrl) { phase in
+                        switch phase {
+                        case .empty:
+                            placeholderCover
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        case .failure:
+                            placeholderCover
+                        @unknown default:
+                            placeholderCover
+                        }
+                    }
+                    .frame(width: 200, height: 300)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+
+                    // Right: Metadata VStack
+                    VStack(alignment: .leading, spacing: 16) {
+                        // AI Confidence (if available)
+                        if let confidence = book.spineConfidence {
+                            HStack(spacing: 4) {
+                                Text("AI Confidence:")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Text("\(Int(confidence * 100))%")
+                                    .font(.caption.bold())
+                                    .foregroundColor(confidenceColor(confidence))
+                            }
+                        }
+
+                        // Title
+                        MetadataField(
+                            label: "Title",
+                            value: $editedTitle,
+                            isEditing: isEditing
+                        )
+
+                        // Author
+                        MetadataField(
+                            label: "Author",
+                            value: $editedAuthor,
+                            isEditing: isEditing
+                        )
+
+                        // ISBN
+                        MetadataField(
+                            label: "ISBN",
+                            value: $editedISBN,
+                            isEditing: isEditing
+                        )
+
+                        // Format
+                        MetadataField(
+                            label: "Format",
+                            value: $editedFormat,
+                            isEditing: isEditing,
+                            placeholder: "e.g., Hardcover, Paperback"
+                        )
+
+                        // Publisher
+                        MetadataField(
+                            label: "Publisher",
+                            value: $editedPublisher,
+                            isEditing: isEditing,
+                            placeholder: "Publisher name"
+                        )
+
+                        // Published Date
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Published Date")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+
+                            if isEditing {
+                                DatePicker(
+                                    "",
+                                    selection: Binding(
+                                        get: { editedPublishedDate ?? Date() },
+                                        set: { editedPublishedDate = $0 }
+                                    ),
+                                    displayedComponents: .date
+                                )
+                                .labelsHidden()
+                            } else {
+                                Text(editedPublishedDate?.formatted(date: .long, time: .omitted) ?? "Not set")
+                                    .font(.body)
+                                    .foregroundColor(.swissText)
+                            }
+                        }
+
+                        // Page Count
+                        MetadataField(
+                            label: "Page Count",
+                            value: $editedPageCount,
+                            isEditing: isEditing,
+                            placeholder: "e.g., 432"
+                        )
+                        .keyboardType(.numberPad)
+
+                        Spacer()
+                    }
+                }
+                .padding(24)
+            }
+            .background(Color.swissBackground)
+            .navigationTitle("Book Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if isEditing {
+                        Button("Cancel") {
+                            cancelEditing()
+                        }
+                        .foregroundColor(.swissText)
+                    } else {
+                        Button("Close") {
+                            dismiss()
+                        }
+                        .foregroundColor(.swissText)
+                    }
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    if isEditing {
+                        Button("Save") {
+                            saveChanges()
+                        }
+                        .foregroundColor(.internationalOrange)
+                        .bold()
+                    } else {
+                        Button("Edit") {
+                            isEditing = true
+                        }
+                        .foregroundColor(.internationalOrange)
+                    }
+                }
+            }
+        }
+    }
+
+    private var placeholderCover: some View {
+        Rectangle()
+            .fill(Color.gray.opacity(0.3))
+            .overlay(
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 64))
+                    .foregroundColor(.gray.opacity(0.6))
+            )
+    }
+
+    private func confidenceColor(_ confidence: Double) -> Color {
+        if confidence > 0.8 {
+            return .green
+        } else if confidence >= 0.6 {
+            return .yellow
+        } else {
+            return .red
+        }
+    }
+
+    private func saveChanges() {
+        book.title = editedTitle
+        book.author = editedAuthor
+        book.isbn = editedISBN
+        book.format = editedFormat.isEmpty ? nil : editedFormat
+        book.publisher = editedPublisher.isEmpty ? nil : editedPublisher
+        book.publishedDate = editedPublishedDate
+
+        if let pageCount = Int(editedPageCount) {
+            book.pageCount = pageCount
+        } else {
+            book.pageCount = nil
+        }
+
+        try? modelContext.save()
+        isEditing = false
+    }
+
+    private func cancelEditing() {
+        // Reset to original values
+        editedTitle = book.title
+        editedAuthor = book.author
+        editedISBN = book.isbn
+        editedFormat = book.format ?? ""
+        editedPublisher = book.publisher ?? ""
+        editedPublishedDate = book.publishedDate
+        editedPageCount = book.pageCount != nil ? String(book.pageCount!) : ""
+        isEditing = false
+    }
+}
+
+// MARK: - Metadata Field Component
+struct MetadataField: View {
+    let label: String
+    @Binding var value: String
+    let isEditing: Bool
+    var placeholder: String = ""
+    var keyboardType: UIKeyboardType = .default
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.gray)
+
+            if isEditing {
+                TextField(placeholder.isEmpty ? label : placeholder, text: $value)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(keyboardType)
+            } else {
+                Text(value.isEmpty ? "Not set" : value)
+                    .font(.body)
+                    .foregroundColor(value.isEmpty ? .gray : .swissText)
+            }
+        }
     }
 }
 
