@@ -90,6 +90,7 @@ struct LibraryView: View {
             }
             .background(Color.swissBackground.ignoresSafeArea())
             .searchable(text: $searchText, prompt: "Search title or author")
+            .accessibilityLabel("Search books by title or author")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -111,6 +112,7 @@ struct LibraryView: View {
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
                             .foregroundColor(.swissText)
+                            .accessibilityLabel("Sort library")
                     }
                 }
             }
@@ -151,6 +153,7 @@ struct LibraryView: View {
                             bookToDelete = book
                             showDeleteConfirmation = true
                         }
+                        .accessibilityLabel("\(book.title) by \(book.author)")
                         .transition(.asymmetric(insertion: .scale, removal: .opacity))
                         .onTapGesture {
                             selectedBook = book
@@ -227,6 +230,7 @@ struct LibraryView: View {
                 .font(.system(size: 80))
                 .foregroundColor(.swissText)
                 .shadow(color: .white.opacity(0.3), radius: 12)
+                .accessibilityHidden(true)
 
             // Title: "No Books Yet"
             Text("No Books Yet")
@@ -267,6 +271,7 @@ struct LibraryView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityLabel("No books. Tap camera tab to scan.")
     }
 
     // MARK: - Search Empty State
@@ -432,6 +437,7 @@ struct BookGridCell: View {
                         RoundedRectangle(cornerRadius: 8)
                             .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
                     )
+                    .accessibilityHidden(true) // Title is redundant
 
                 // Delete button overlay (swipe-action alternative for grid)
                 if let onDelete = onDelete {
@@ -442,6 +448,7 @@ struct BookGridCell: View {
                             .shadow(radius: 2)
                     }
                     .padding(4)
+                    .accessibilityLabel("Delete \(book.title)")
                 }
             }
 
@@ -452,6 +459,7 @@ struct BookGridCell: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .frame(height: 32, alignment: .top)
+                .accessibilityHidden(true) // Parent VStack has combined label
         }
     }
 }
