@@ -137,32 +137,86 @@ struct LibraryView: View {
     // MARK: - Library Grid
     private var libraryGridView: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 20) {
-                ForEach(filteredBooks, id: \.id) { book in
-                    BookGridCell(book: book) {
-                        // Delete button handler (swipe-action alternative for grid)
-                        bookToDelete = book
-                        showDeleteConfirmation = true
-                    }
-                    .transition(.asymmetric(insertion: .scale, removal: .opacity))
-                    .onTapGesture {
-                        selectedBook = book
-                    }
-                    .contextMenu {
-                        Button(role: .destructive) {
+            VStack(spacing: 16) {
+                // Library Stats Header
+                libraryStatsHeader
+                    .padding(.horizontal)
+                    .padding(.top)
+
+                // Book Grid
+                LazyVGrid(columns: columns, spacing: 20) {
+                    ForEach(filteredBooks, id: \.id) { book in
+                        BookGridCell(book: book) {
+                            // Delete button handler (swipe-action alternative for grid)
                             bookToDelete = book
                             showDeleteConfirmation = true
-                        } label: {
-                            Label("Delete", systemImage: "trash")
+                        }
+                        .transition(.asymmetric(insertion: .scale, removal: .opacity))
+                        .onTapGesture {
+                            selectedBook = book
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                bookToDelete = book
+                                showDeleteConfirmation = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                         }
                     }
                 }
+                .padding(.horizontal)
+                .padding(.bottom)
             }
-            .padding()
         }
         .refreshable {
             await performRefresh()
         }
+    }
+
+    // MARK: - Library Stats Header
+    private var libraryStatsHeader: some View {
+        HStack(spacing: 12) {
+            // Card 1: Total Books
+            StatCard(
+                title: "Books",
+                value: "\(books.count)",
+                icon: "book.fill"
+            )
+
+            // Card 2: Unique Authors
+            StatCard(
+                title: "Authors",
+                value: "\(uniqueAuthorsCount)",
+                icon: "person.fill"
+            )
+
+            // Card 3: Most Common Format
+            StatCard(
+                title: "Format",
+                value: mostCommonFormatText,
+                icon: "square.stack.3d.up.fill"
+            )
+        }
+    }
+
+    // MARK: - Stats Computed Properties
+    private var uniqueAuthorsCount: Int {
+        Set(books.map { $0.author }).count
+    }
+
+    private var mostCommonFormatText: String {
+        // Count formats, excluding nil values
+        let formatCounts = Dictionary(grouping: books.compactMap { $0.format }, by: { $0 })
+            .mapValues { $0.count }
+
+        guard let mostCommon = formatCounts.max(by: { $0.value < $1.value }),
+              !books.isEmpty else {
+            return "N/A"
+        }
+
+        let percentage = Int((Double(mostCommon.value) / Double(books.count)) * 100)
+        return "\(mostCommon.key): \(percentage)%"
     }
 
     // MARK: - Empty State
@@ -631,6 +685,37 @@ struct MetadataField: View {
                     .foregroundColor(value.isEmpty ? .gray : .swissText)
             }
         }
+    }
+}
+
+// MARK: - Stat Card Component
+struct StatCard: View {
+    let title: String
+    let value: String
+    let icon: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundColor(.internationalOrange)
+
+            // Value
+            Text(value)
+                .font(.title2.bold())
+                .foregroundColor(.swissText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            // Title
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .swissGlassCard()
     }
 }
 
