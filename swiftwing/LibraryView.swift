@@ -579,6 +579,40 @@ struct BookDetailSheet: View {
                         )
                         .keyboardType(.numberPad)
 
+                        // Epic 5: Reading status fields (display only, no editing UI yet)
+                        if let status = book.readingStatus {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Reading Status")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Text(status)
+                                    .font(.body)
+                                    .foregroundColor(.swissText)
+                            }
+                        }
+
+                        if let dateRead = book.dateRead {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Date Read")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Text(dateRead.formatted(date: .long, time: .omitted))
+                                    .font(.body)
+                                    .foregroundColor(.swissText)
+                            }
+                        }
+
+                        if let rating = book.userRating {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Your Rating")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Text("\(rating) / 5 ⭐️")
+                                    .font(.body)
+                                    .foregroundColor(.swissText)
+                            }
+                        }
+
                         Spacer()
                     }
                 }

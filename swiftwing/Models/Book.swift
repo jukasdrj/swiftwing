@@ -1,6 +1,14 @@
 import Foundation
 import SwiftData
 
+// Epic 5: Reading status tracking
+enum ReadingStatus: String, Codable {
+    case toRead = "to_read"
+    case reading = "reading"
+    case completed = "completed"
+    case dnf = "did_not_finish"
+}
+
 @Model
 final class Book {
     @Attribute(.unique) var isbn: String
@@ -20,6 +28,11 @@ final class Book {
 
     // Tracking
     var addedDate: Date
+
+    // Epic 5: Reading status tracking (UI deferred to Epic 5)
+    var readingStatus: String? // Stores ReadingStatus rawValue
+    var dateRead: Date?
+    var userRating: Int? // 1-5 stars
 
     // Debug/raw data
     var rawJSON: String?
@@ -41,6 +54,9 @@ final class Book {
         pageCount: Int? = nil,
         spineConfidence: Double? = nil,
         addedDate: Date = Date(),
+        readingStatus: String? = nil,
+        dateRead: Date? = nil,
+        userRating: Int? = nil,
         rawJSON: String? = nil
     ) {
         self.id = id
@@ -54,6 +70,9 @@ final class Book {
         self.pageCount = pageCount
         self.spineConfidence = spineConfidence
         self.addedDate = addedDate
+        self.readingStatus = readingStatus
+        self.dateRead = dateRead
+        self.userRating = userRating
         self.rawJSON = rawJSON
     }
 }
