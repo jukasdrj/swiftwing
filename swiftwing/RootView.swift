@@ -1,8 +1,10 @@
 import SwiftUI
+import SwiftData
 import AVFoundation
 
 struct RootView: View {
     @State private var cameraPermissionStatus: CameraPermissionStatus = .notDetermined
+    @Query private var books: [Book]
 
     enum CameraPermissionStatus {
         case notDetermined
@@ -19,7 +21,7 @@ struct RootView: View {
                     set: { if $0 { cameraPermissionStatus = .authorized } }
                 ))
             case .authorized:
-                CameraView()
+                MainTabView(bookCount: books.count)
             }
         }
         .onAppear {
@@ -41,7 +43,38 @@ struct RootView: View {
     }
 }
 
+// MARK: - Main Tab View
+/// TabView with Library and Camera tabs
+/// Library tab shows book count badge when count > 0
+struct MainTabView: View {
+    let bookCount: Int
+
+    var body: some View {
+        TabView {
+            // Library Tab
+            Group {
+                if bookCount > 0 {
+                    LibraryView()
+                        .badge(bookCount)
+                } else {
+                    LibraryView()
+                }
+            }
+            .tabItem {
+                Label("Library", systemImage: "books.vertical")
+            }
+
+            // Camera Tab
+            CameraView()
+                .tabItem {
+                    Label("Camera", systemImage: "camera")
+                }
+        }
+    }
+}
+
 #Preview {
     RootView()
+        .modelContainer(for: Book.self, inMemory: true)
         .preferredColorScheme(.dark)
 }
