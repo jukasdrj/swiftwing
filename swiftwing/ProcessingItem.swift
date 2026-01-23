@@ -10,6 +10,8 @@ struct ProcessingItem: Identifiable, Equatable {
     let captureDate: Date
     var state: ProcessingState
     var progressMessage: String?  // Real-time progress text from SSE (e.g., "Looking...", "Reading...")
+    var tempFileURL: URL?  // Temporary JPEG file URL for cleanup (US-406)
+    var jobId: String?     // Talaria job ID for server cleanup (US-406)
 
     init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil) {
         self.id = UUID()
@@ -17,6 +19,8 @@ struct ProcessingItem: Identifiable, Equatable {
         self.captureDate = Date()
         self.state = state
         self.progressMessage = progressMessage
+        self.tempFileURL = nil
+        self.jobId = nil
     }
 
     /// Generates optimized 40x60px thumbnail from full image data

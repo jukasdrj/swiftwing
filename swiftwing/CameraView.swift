@@ -24,6 +24,9 @@ struct CameraView: View {
     @State private var pendingBookMetadata: BookMetadata?
     @State private var pendingRawJSON: String?
 
+    // US-406: Track active SSE streaming tasks for cancellation on app backgrounding
+    @State private var activeStreamingTasks: [UUID: Task<Void, Never>] = [:]
+
     var body: some View {
         ZStack {
             // Camera preview (edge-to-edge)
@@ -184,6 +187,10 @@ struct CameraView: View {
         .onDisappear {
             cameraManager.stopSession()
         }
+        // US-406: Cancel active SSE streams when app goes to background
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            cancelAllStreamingTasks()
+        }
     }
 
     private func setupCamera() async {
@@ -240,16 +247,42 @@ struct CameraView: View {
 
         // Fire and forget - process capture in parallel (non-blocking)
         // Uses structured Task to maintain priority inheritance
-        Task {
-            await processCapture()
+        // US-406: Track task for cancellation on app backgrounding
+        let itemId = UUID()
+        let task = Task {
+            await processCapture(itemId: itemId)
         }
+        Task { @MainActor in
+            activeStreamingTasks[itemId] = task
+        }
+    }
+
+    /// US-406: Cancel all active SSE streaming tasks when app goes to background
+    @MainActor
+    private func cancelAllStreamingTasks() {
+        print("🛑 Cancelling \(activeStreamingTasks.count) active SSE streams (app backgrounding)")
+        for (_, task) in activeStreamingTasks {
+            task.cancel()
+        }
+        activeStreamingTasks.removeAll()
     }
 
     /// Processes the captured image (runs in parallel)
     /// Performance target: < 500ms for image processing, then SSE streaming for AI enrichment
-    private func processCapture() async {
+    /// US-406: itemId is used to track and cancel active streaming tasks
+    private func processCapture(itemId: UUID) async {
         let startTime = CFAbsoluteTimeGetCurrent()
         var queueItem: ProcessingItem?
+        var tempFileURL: URL?
+        var jobId: String?
+        let networkActor = NetworkActor()
+
+        // Cleanup task tracker when done
+        defer {
+            Task { @MainActor in
+                activeStreamingTasks.removeValue(forKey: itemId)
+            }
+        }
 
         do {
             // Capture photo from camera (must be on main actor)
@@ -264,6 +297,7 @@ struct CameraView: View {
             // Process image: resize + compress + save
             // This runs off main thread via Task.detached
             let fileURL = try await Self.processImage(imageData)
+            tempFileURL = fileURL
 
             let duration = CFAbsoluteTimeGetCurrent() - startTime
             print("✅ Image processed in \(String(format: "%.3f", duration))s (target: < 0.5s)")
@@ -273,9 +307,6 @@ struct CameraView: View {
                 print("⚠️ WARNING: Image processing exceeded 0.5s target!")
             }
 
-            // Upload to Talaria API
-            let networkActor = NetworkActor()
-
             // Read processed image data for upload
             let uploadData = try Data(contentsOf: fileURL)
 
@@ -283,7 +314,11 @@ struct CameraView: View {
             updateQueueItemProgress(id: item.id, message: "Uploading...")
 
             let uploadResponse = try await networkActor.uploadImage(uploadData)
+            jobId = uploadResponse.jobId
             print("📤 Image uploaded, jobId: \(uploadResponse.jobId)")
+
+            // Store temp file URL and job ID for cleanup (US-406)
+            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResponse.jobId)
 
             // Switch to analyzing state
             updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
@@ -292,6 +327,13 @@ struct CameraView: View {
             let eventStream = await networkActor.streamEvents(from: uploadResponse.streamUrl)
 
             for try await event in eventStream {
+                // US-406: Check for task cancellation (app backgrounding)
+                if Task.isCancelled {
+                    print("🛑 SSE stream cancelled (app backgrounding)")
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+                    return
+                }
+
                 switch event {
                 case .progress(let message):
                     // Update progress message (e.g., "Looking...", "Reading...", "Enriching...")
@@ -318,7 +360,10 @@ struct CameraView: View {
                     print("✅ SSE stream completed")
                     updateQueueItem(id: item.id, state: .done, message: nil)
 
-                    // Auto-remove after 5 seconds
+                    // US-406: Cleanup resources (non-blocking)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+
+                    // Auto-remove from queue after 5 seconds
                     await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
 
                 case .error(let errorMessage):
@@ -326,6 +371,9 @@ struct CameraView: View {
                     print("❌ SSE error: \(errorMessage)")
                     updateQueueItem(id: item.id, state: .error, message: nil)
                     await showProcessingErrorOverlay(errorMessage)
+
+                    // US-406: Cleanup resources even on error (non-blocking)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
 
                     // Remove failed item after 5 seconds
                     await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
@@ -341,6 +389,9 @@ struct CameraView: View {
             // Update queue item to error state if it was created
             if let item = queueItem {
                 updateQueueItem(id: item.id, state: .error, message: nil)
+
+                // US-406: Cleanup resources even on upload failure (non-blocking)
+                await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
 
                 // Remove failed item after 5 seconds
                 await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
@@ -389,6 +440,15 @@ struct CameraView: View {
         }
     }
 
+    /// Updates queue item cleanup info (temp file URL and job ID) for US-406
+    @MainActor
+    private func updateQueueItemCleanupInfo(id: UUID, tempFileURL: URL, jobId: String) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            processingQueue[index].tempFileURL = tempFileURL
+            processingQueue[index].jobId = jobId
+        }
+    }
+
     /// Removes item from queue after delay
     @MainActor
     private func removeQueueItemAfterDelay(id: UUID, delay: TimeInterval) async {
@@ -417,9 +477,40 @@ struct CameraView: View {
         processingErrorMessage = nil
     }
 
+    /// US-406: Cleanup resources after job completion or error
+    /// Performs cleanup of both server-side job and local temporary file
+    /// Non-blocking - failures are logged but don't crash the app
+    private func performCleanup(jobId: String?, tempFileURL: URL?, networkActor: NetworkActor) async {
+        // Cleanup server-side job resources
+        if let jobId = jobId {
+            do {
+                try await networkActor.cleanupJob(jobId)
+                print("🗑️ Server cleanup successful for job: \(jobId)")
+            } catch {
+                // Log but don't crash - server cleanup failures shouldn't affect user
+                print("⚠️ Server cleanup failed for job \(jobId): \(error.localizedDescription)")
+            }
+        }
+
+        // Cleanup local temporary file
+        if let tempFileURL = tempFileURL {
+            do {
+                try FileManager.default.removeItem(at: tempFileURL)
+                print("🗑️ Local temp file cleanup successful: \(tempFileURL.lastPathComponent)")
+            } catch CocoaError.fileNoSuchFile {
+                // File already deleted - this is fine (might have been auto-cleaned)
+                print("ℹ️ Temp file already deleted: \(tempFileURL.lastPathComponent)")
+            } catch {
+                // Log but don't crash - temp file cleanup failures shouldn't affect user
+                print("⚠️ Local temp file cleanup failed for \(tempFileURL.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Processes image data: resize to max 1920px, compress to JPEG 0.85, save to temp directory
     /// Returns file URL for upload
     /// Performance target: < 500ms
+    /// Note: US-406 now handles explicit cleanup after job completion via performCleanup()
     static func processImage(_ imageData: Data) async throws -> URL {
         // Load UIImage
         guard let image = UIImage(data: imageData) else {
@@ -440,18 +531,19 @@ struct CameraView: View {
 
         try jpegData.write(to: fileURL)
 
-        // Schedule automatic cleanup after 5 minutes using structured concurrency
+        // US-406: Explicit cleanup now happens in performCleanup() after job completion
+        // Fallback: Schedule automatic cleanup after 30 minutes if explicit cleanup fails
         Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .seconds(300))
+            try? await Task.sleep(for: .seconds(1800)) // 30 minutes
             do {
                 try FileManager.default.removeItem(at: fileURL)
-                print("🗑️ Cleaned up temp file: \(filename)")
+                print("🗑️ Fallback cleanup for temp file: \(filename)")
             } catch CocoaError.fileNoSuchFile {
-                // File already deleted - this is fine
-                print("ℹ️ Temp file already deleted: \(filename)")
+                // File already deleted by explicit cleanup - this is expected
+                // print("ℹ️ Temp file already deleted: \(filename)")
             } catch {
                 // Log other errors but don't crash
-                print("⚠️ Failed to cleanup temp file \(filename): \(error.localizedDescription)")
+                print("⚠️ Fallback cleanup failed for \(filename): \(error.localizedDescription)")
             }
         }
 

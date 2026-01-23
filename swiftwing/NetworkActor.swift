@@ -153,6 +153,67 @@ actor NetworkActor {
         }
     }
 
+    /// Cleanup job resources on Talaria server after completion
+    /// - Parameter jobId: The job ID from UploadResponse
+    /// - Throws: NetworkError on failure (non-blocking - failures are logged but don't crash)
+    ///
+    /// This sends DELETE /v3/jobs/scans/{jobId}/cleanup to free server resources.
+    /// Should be called after receiving 'complete' or 'error' SSE events.
+    func cleanupJob(_ jobId: String) async throws {
+        // Construct cleanup endpoint
+        guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)/cleanup") else {
+            throw NetworkError.invalidResponse
+        }
+
+        // Create DELETE request
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        do {
+            let (_, response) = try await urlSession.data(for: request)
+
+            // Validate HTTP response
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw NetworkError.invalidResponse
+            }
+
+            // Check status code (200 or 204 = success)
+            switch httpResponse.statusCode {
+            case 200, 204:
+                // Success - cleanup completed
+                return
+
+            case 404:
+                // Job not found - already cleaned up or never existed (not an error)
+                return
+
+            case 408:
+                throw NetworkError.timeout
+
+            case 500...599:
+                throw NetworkError.serverError(httpResponse.statusCode)
+
+            default:
+                throw NetworkError.serverError(httpResponse.statusCode)
+            }
+
+        } catch let error as NetworkError {
+            throw error
+        } catch let urlError as URLError {
+            // Map URLError to NetworkError
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                throw NetworkError.noConnection
+            case .timedOut:
+                throw NetworkError.timeout
+            default:
+                throw NetworkError.invalidResponse
+            }
+        } catch {
+            throw NetworkError.invalidResponse
+        }
+    }
+
     // MARK: - Private Implementation (Upload)
 
     /// Perform upload with exponential backoff retry for server errors
