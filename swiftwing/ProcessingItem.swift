@@ -64,6 +64,7 @@ struct ProcessingItem: Identifiable, Equatable {
         case analyzing   // Blue border - AI is analyzing the book spine
         case done        // Green border - successfully identified
         case error       // Red border - processing failed
+        case offline     // Gray border - queued for upload when network returns (US-409)
 
         var borderColor: Color {
             switch self {
@@ -75,6 +76,8 @@ struct ProcessingItem: Identifiable, Equatable {
                 return .green
             case .error:
                 return .red
+            case .offline:
+                return .gray
             }
         }
     }

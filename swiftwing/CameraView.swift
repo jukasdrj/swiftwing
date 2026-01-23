@@ -34,6 +34,11 @@ struct CameraView: View {
     @State private var queuedScansCount: Int = 0
     @State private var countdownTimer: Task<Void, Never>?
 
+    // US-409: Offline queue state
+    @State private var networkMonitor = NetworkMonitor()
+    private let offlineQueueManager = OfflineQueueManager()
+    @State private var offlineQueuedCount: Int = 0
+
     var body: some View {
         ZStack {
             // Camera preview (edge-to-edge)
@@ -116,10 +121,32 @@ struct CameraView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
 
-            // Zoom level display (top-right corner)
+            // Zoom level display and offline indicator (top-right corner)
             VStack {
                 HStack {
                     Spacer()
+
+                    // US-409: Offline indicator with queued count
+                    if !networkMonitor.isConnected {
+                        HStack(spacing: 8) {
+                            Image(systemName: "wifi.slash")
+                                .font(.caption)
+                                .foregroundColor(.swissError)
+
+                            Text("OFFLINE")
+                                .font(.jetBrainsMono)
+                                .foregroundColor(.swissError)
+
+                            if offlineQueuedCount > 0 {
+                                Text("(\(offlineQueuedCount))")
+                                    .font(.jetBrainsMono)
+                                    .foregroundColor(.swissText.opacity(0.7))
+                            }
+                        }
+                        .swissGlassOverlay()
+                        .padding(.top, 60)
+                        .padding(.trailing, 8)
+                    }
 
                     Text(String(format: "%.1fx", cameraManager.currentZoomFactor))
                         .font(.jetBrainsMono)
@@ -209,6 +236,19 @@ struct CameraView: View {
         // US-406: Cancel active SSE streams when app goes to background
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
             cancelAllStreamingTasks()
+        }
+        // US-409: Auto-upload queued scans when network returns
+        .onChange(of: networkMonitor.isConnected) { oldValue, newValue in
+            if !oldValue && newValue {
+                // Network just came back online - upload queued scans
+                Task {
+                    await uploadQueuedScans()
+                }
+            }
+        }
+        .task {
+            // US-409: Check for queued scans on startup
+            await checkAndUploadQueuedScans()
         }
     }
 
@@ -411,6 +451,7 @@ struct CameraView: View {
     }
 
     /// US-407: Helper to process image data (used for both capture and retry)
+    /// US-409: Enhanced to handle offline mode by queueing scans for later upload
     private func processCaptureWithImageData(itemId: UUID, imageData: Data) async {
         let startTime = CFAbsoluteTimeGetCurrent()
         var queueItem: ProcessingItem?
@@ -427,6 +468,32 @@ struct CameraView: View {
 
         do {
             print("📸 Processing image data (\(imageData.count) bytes)")
+
+            // US-409: Check if offline - if so, queue for later upload
+            if !networkMonitor.isConnected {
+                print("📴 Offline mode - queueing scan for later upload")
+
+                // Add to processing queue with offline state
+                let item = ProcessingItem(imageData: imageData, state: .offline, progressMessage: "Queued (offline)")
+                await MainActor.run {
+                    withAnimation(.swissSpring) {
+                        processingQueue.append(item)
+                    }
+                }
+
+                // Queue scan in FileManager for persistent storage
+                let queuedId = try await offlineQueueManager.queueScan(imageData: imageData)
+                print("💾 Scan queued with ID: \(queuedId)")
+
+                // Update offline queue count
+                let count = try await offlineQueueManager.getQueuedScanCount()
+                await MainActor.run {
+                    offlineQueuedCount = count
+                }
+
+                // Keep item in queue indefinitely until uploaded
+                return
+            }
 
             // Add to processing queue immediately with thumbnail (uploading state)
             queueItem = addToQueue(imageData: imageData)
@@ -768,6 +835,75 @@ struct CameraView: View {
         let renderer = UIGraphicsImageRenderer(size: newSize)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+
+    // MARK: - US-409: Offline Queue Management
+
+    /// Check for queued scans on app startup and upload if network available
+    private func checkAndUploadQueuedScans() async {
+        do {
+            let count = try await offlineQueueManager.getQueuedScanCount()
+            await MainActor.run {
+                offlineQueuedCount = count
+            }
+
+            if count > 0 && networkMonitor.isConnected {
+                print("📤 Found \(count) queued scans - uploading now")
+                await uploadQueuedScans()
+            } else if count > 0 {
+                print("📴 Found \(count) queued scans - waiting for network")
+            }
+        } catch {
+            print("⚠️ Failed to check queued scans: \(error)")
+        }
+    }
+
+    /// Upload all queued scans when network becomes available
+    private func uploadQueuedScans() async {
+        do {
+            let queuedScans = try await offlineQueueManager.getAllQueuedScans()
+
+            guard !queuedScans.isEmpty else {
+                return
+            }
+
+            print("📤 Uploading \(queuedScans.count) queued scans")
+
+            // Remove offline items from processing queue
+            await MainActor.run {
+                withAnimation(.swissSpring) {
+                    processingQueue.removeAll { $0.state == .offline }
+                }
+            }
+
+            // Upload each scan sequentially
+            for (metadata, imageData) in queuedScans {
+                // Create new processing item for upload
+                let itemId = UUID()
+                let task = Task {
+                    await processCaptureWithImageData(itemId: itemId, imageData: imageData)
+                }
+                await MainActor.run {
+                    activeStreamingTasks[itemId] = task
+                }
+
+                // Wait for upload to complete before starting next
+                await task.value
+
+                // Remove from offline queue
+                try? await offlineQueueManager.removeQueuedScan(scanId: metadata.id)
+
+                // Update offline count
+                let count = try await offlineQueueManager.getQueuedScanCount()
+                await MainActor.run {
+                    offlineQueuedCount = count
+                }
+            }
+
+            print("✅ All queued scans uploaded")
+        } catch {
+            print("❌ Failed to upload queued scans: \(error)")
         }
     }
 

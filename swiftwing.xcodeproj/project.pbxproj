@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */; };
+		ACBEEDDC92CAE5BFB17A2AFB /* OfflineQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CABBB6D46005235B0EE24D0 /* OfflineQueueManager.swift */; };
+		731F3261C13548DBABC8AD6C /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A83635659BD848FA86CAC3DA /* NetworkMonitor.swift */; };
+		07F5E3C094E44553935AF60E /* OfflineQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F1CD3312D7464C99EAF83D /* OfflineQueueManager.swift */; };
 		08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */; };
 		0A1AC8F5659CBE024EB318D3 /* NetworkActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28EF0C87C243DB06ECB02C3 /* NetworkActor.swift */; };
 		297CACB39DDD705A8166A4A6 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */; };
@@ -38,6 +42,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		6CABBB6D46005235B0EE24D0 /* OfflineQueueManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OfflineQueueManager.swift; sourceTree = "<group>"; };
+		A83635659BD848FA86CAC3DA /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		90F1CD3312D7464C99EAF83D /* OfflineQueueManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueueManager.swift; sourceTree = "<group>"; };
 		05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
 		20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
 		2B42B677D75020B244722F76 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
@@ -108,6 +116,8 @@
 				8F38536DACB936224AB7F798 /* Theme.swift */,
 				CCCC1CE7E505514299320EBC /* Fonts */,
 				05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */,
+				A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */,
+				6CABBB6D46005235B0EE24D0 /* OfflineQueueManager.swift */,
 				733AF8F390562E0E6977AD18 /* CameraManager.swift */,
 				2B42B677D75020B244722F76 /* CameraPreviewView.swift */,
 				8FF5FA190CF9E5B8B778E942 /* CameraView.swift */,
@@ -240,6 +250,8 @@
 				08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */,
 				7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */,
 				C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */,
+				4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */,
+				ACBEEDDC92CAE5BFB17A2AFB /* OfflineQueueManager.swift in Sources */,
 				DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */,
 				A5A480382F23CF0D006CD05C /* ImageCacheManager.swift in Sources */,
 				2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */,

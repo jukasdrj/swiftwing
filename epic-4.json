@@ -343,7 +343,7 @@
       ],
       "priority": 8,
       "estimate": "5 hours",
-      "passes": false,
+      "passes": true,
       "notes": "Prevents user frustration. Talaria enforces daily limits.",
       "dependsOn": [
         "US-402"
@@ -368,7 +368,8 @@
         ],
         "required": true,
         "estimatedTests": 6
-      }
+      },
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-409",
@@ -548,6 +549,6 @@
       "US-411 (Integration testing - manual testing may suffice)"
     ],
     "demo_scenario": "Scan book spine → See 'Looking...' → See 'Reading...' → Book appears in library with full metadata + cover. Total time: < 10 seconds per scan.",
-    "updatedAt": "2026-01-23T17:52:50.952Z"
+    "updatedAt": "2026-01-23T18:01:45.904Z"
   }
 }
