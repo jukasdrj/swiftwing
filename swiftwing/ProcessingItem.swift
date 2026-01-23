@@ -10,6 +10,8 @@ struct ProcessingItem: Identifiable, Equatable {
     let captureDate: Date
     var state: ProcessingState
     var progressMessage: String?  // Real-time progress text from SSE (e.g., "Looking...", "Reading...")
+    var errorMessage: String?     // Error message for failed scans (US-407)
+    var originalImageData: Data?  // Original full-size image for retry (US-407)
     var tempFileURL: URL?  // Temporary JPEG file URL for cleanup (US-406)
     var jobId: String?     // Talaria job ID for server cleanup (US-406)
 
@@ -19,6 +21,8 @@ struct ProcessingItem: Identifiable, Equatable {
         self.captureDate = Date()
         self.state = state
         self.progressMessage = progressMessage
+        self.errorMessage = nil
+        self.originalImageData = imageData  // Store for retry (US-407)
         self.tempFileURL = nil
         self.jobId = nil
     }

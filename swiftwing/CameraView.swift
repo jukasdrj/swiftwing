@@ -130,7 +130,7 @@ struct CameraView: View {
                 Spacer()
 
                 // Processing queue (40px height above shutter)
-                ProcessingQueueView(items: processingQueue)
+                ProcessingQueueView(items: processingQueue, onRetry: retryFailedItem)
                     .padding(.bottom, 8)
 
                 // Shutter button (80x80px white ring at bottom center)
@@ -271,131 +271,16 @@ struct CameraView: View {
     /// Performance target: < 500ms for image processing, then SSE streaming for AI enrichment
     /// US-406: itemId is used to track and cancel active streaming tasks
     private func processCapture(itemId: UUID) async {
-        let startTime = CFAbsoluteTimeGetCurrent()
-        var queueItem: ProcessingItem?
-        var tempFileURL: URL?
-        var jobId: String?
-        let networkActor = NetworkActor()
-
-        // Cleanup task tracker when done
-        defer {
-            Task { @MainActor in
-                activeStreamingTasks.removeValue(forKey: itemId)
-            }
-        }
-
         do {
             // Capture photo from camera (must be on main actor)
             let imageData = try await cameraManager.capturePhoto()
             print("📸 Image captured (\(imageData.count) bytes)")
 
-            // Add to processing queue immediately with thumbnail (uploading state)
-            queueItem = addToQueue(imageData: imageData)
-
-            guard let item = queueItem else { return }
-
-            // Process image: resize + compress + save
-            // This runs off main thread via Task.detached
-            let fileURL = try await Self.processImage(imageData)
-            tempFileURL = fileURL
-
-            let duration = CFAbsoluteTimeGetCurrent() - startTime
-            print("✅ Image processed in \(String(format: "%.3f", duration))s (target: < 0.5s)")
-            print("📁 Saved to: \(fileURL.path)")
-
-            if duration >= 0.5 {
-                print("⚠️ WARNING: Image processing exceeded 0.5s target!")
-            }
-
-            // Read processed image data for upload
-            let uploadData = try Data(contentsOf: fileURL)
-
-            // Update progress: uploading
-            updateQueueItemProgress(id: item.id, message: "Uploading...")
-
-            let uploadResponse = try await networkActor.uploadImage(uploadData)
-            jobId = uploadResponse.jobId
-            print("📤 Image uploaded, jobId: \(uploadResponse.jobId)")
-
-            // Store temp file URL and job ID for cleanup (US-406)
-            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResponse.jobId)
-
-            // Switch to analyzing state
-            updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
-
-            // Stream SSE events from Talaria
-            let eventStream = await networkActor.streamEvents(from: uploadResponse.streamUrl)
-
-            for try await event in eventStream {
-                // US-406: Check for task cancellation (app backgrounding)
-                if Task.isCancelled {
-                    print("🛑 SSE stream cancelled (app backgrounding)")
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
-                    return
-                }
-
-                switch event {
-                case .progress(let message):
-                    // Update progress message (e.g., "Looking...", "Reading...", "Enriching...")
-                    print("📡 SSE Progress: \(message)")
-                    updateQueueItemProgress(id: item.id, message: message)
-
-                case .result(let bookMetadata):
-                    // Book metadata received - add to library
-                    print("📚 Book identified: \(bookMetadata.title) by \(bookMetadata.author)")
-
-                    // Encode metadata to raw JSON string for debugging
-                    let rawJSON: String?
-                    if let jsonData = try? JSONEncoder().encode(bookMetadata),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        rawJSON = jsonString
-                    } else {
-                        rawJSON = nil
-                    }
-
-                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON)
-
-                case .complete:
-                    // Job completed successfully
-                    print("✅ SSE stream completed")
-                    updateQueueItem(id: item.id, state: .done, message: nil)
-
-                    // US-406: Cleanup resources (non-blocking)
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
-
-                    // Auto-remove from queue after 5 seconds
-                    await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
-
-                case .error(let errorMessage):
-                    // AI processing failed
-                    print("❌ SSE error: \(errorMessage)")
-                    updateQueueItem(id: item.id, state: .error, message: nil)
-                    await showProcessingErrorOverlay(errorMessage)
-
-                    // US-406: Cleanup resources even on error (non-blocking)
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
-
-                    // Remove failed item after 5 seconds
-                    await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
-                }
-            }
-
+            // US-407: Delegate to processCaptureWithImageData for processing
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData)
         } catch {
-            print("❌ Image processing/upload failed: \(error)")
-
-            // Show user-visible error overlay
+            print("❌ Camera capture failed: \(error)")
             await showProcessingErrorOverlay(error.localizedDescription)
-
-            // Update queue item to error state if it was created
-            if let item = queueItem {
-                updateQueueItem(id: item.id, state: .error, message: nil)
-
-                // US-406: Cleanup resources even on upload failure (non-blocking)
-                await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
-
-                // Remove failed item after 5 seconds
-                await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
-            }
         }
     }
 
@@ -440,6 +325,17 @@ struct CameraView: View {
         }
     }
 
+    /// Updates queue item error message (US-407)
+    @MainActor
+    private func updateQueueItemError(id: UUID, errorMessage: String) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].state = .error
+                processingQueue[index].errorMessage = errorMessage
+            }
+        }
+    }
+
     /// Updates queue item cleanup info (temp file URL and job ID) for US-406
     @MainActor
     private func updateQueueItemCleanupInfo(id: UUID, tempFileURL: URL, jobId: String) {
@@ -455,6 +351,171 @@ struct CameraView: View {
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         withAnimation(.swissSpring) {
             processingQueue.removeAll { $0.id == id }
+        }
+    }
+
+    /// US-407: Retry failed item by re-uploading image and opening new SSE stream
+    @MainActor
+    private func retryFailedItem(_ item: ProcessingItem) {
+        guard item.state == .error,
+              let imageData = item.originalImageData else {
+            print("⚠️ Cannot retry: item not in error state or no image data")
+            return
+        }
+
+        print("🔄 Retrying failed item: \(item.id)")
+
+        // Remove the failed item from queue
+        withAnimation(.swissSpring) {
+            processingQueue.removeAll { $0.id == item.id }
+        }
+
+        // Trigger haptic feedback for retry action
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
+        // Re-process the image (same flow as processCapture, but with existing imageData)
+        let itemId = UUID()
+        let task = Task {
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData)
+        }
+        Task { @MainActor in
+            activeStreamingTasks[itemId] = task
+        }
+    }
+
+    /// US-407: Helper to process image data (used for both capture and retry)
+    private func processCaptureWithImageData(itemId: UUID, imageData: Data) async {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        var queueItem: ProcessingItem?
+        var tempFileURL: URL?
+        var jobId: String?
+        let networkActor = NetworkActor()
+
+        // Cleanup task tracker when done
+        defer {
+            Task { @MainActor in
+                activeStreamingTasks.removeValue(forKey: itemId)
+            }
+        }
+
+        do {
+            print("📸 Processing image data (\(imageData.count) bytes)")
+
+            // Add to processing queue immediately with thumbnail (uploading state)
+            queueItem = addToQueue(imageData: imageData)
+
+            guard let item = queueItem else { return }
+
+            // Process image: resize + compress + save
+            let fileURL = try await Self.processImage(imageData)
+            tempFileURL = fileURL
+
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            print("✅ Image processed in \(String(format: "%.3f", duration))s (target: < 0.5s)")
+
+            if duration >= 0.5 {
+                print("⚠️ WARNING: Image processing exceeded 0.5s target!")
+            }
+
+            // Read processed image data for upload
+            let uploadData = try Data(contentsOf: fileURL)
+
+            // Update progress: uploading
+            updateQueueItemProgress(id: item.id, message: "Uploading...")
+
+            let uploadResponse = try await networkActor.uploadImage(uploadData)
+            jobId = uploadResponse.jobId
+            print("📤 Image uploaded, jobId: \(uploadResponse.jobId)")
+
+            // Store temp file URL and job ID for cleanup (US-406)
+            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResponse.jobId)
+
+            // Switch to analyzing state
+            updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
+
+            // Stream SSE events from Talaria
+            let eventStream = await networkActor.streamEvents(from: uploadResponse.streamUrl)
+
+            for try await event in eventStream {
+                // Check for task cancellation (app backgrounding)
+                if Task.isCancelled {
+                    print("🛑 SSE stream cancelled (app backgrounding)")
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+                    return
+                }
+
+                switch event {
+                case .progress(let message):
+                    // Update progress message in queue
+                    print("📡 SSE progress: \(message)")
+                    updateQueueItemProgress(id: item.id, message: message)
+
+                case .result(let bookMetadata):
+                    // Book metadata received - add to library
+                    print("📚 Book identified: \(bookMetadata.title) by \(bookMetadata.author)")
+
+                    // Encode metadata to raw JSON string for debugging
+                    let rawJSON: String?
+                    if let jsonData = try? JSONEncoder().encode(bookMetadata),
+                       let jsonString = String(data: jsonData, encoding: .utf8) {
+                        rawJSON = jsonString
+                    } else {
+                        rawJSON = nil
+                    }
+
+                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON)
+
+                case .complete:
+                    print("✅ SSE stream completed")
+                    updateQueueItem(id: item.id, state: .done, message: nil)
+
+                    // Cleanup resources (non-blocking)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+
+                    // Auto-remove from queue after 5 seconds
+                    await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+
+                case .error(let errorMessage):
+                    // AI processing failed (US-407)
+                    print("❌ SSE error (jobId: \(jobId ?? "unknown")): \(errorMessage)")
+
+                    // Update queue item with error message and trigger haptic feedback
+                    updateQueueItemError(id: item.id, errorMessage: errorMessage)
+                    await showProcessingErrorOverlay(errorMessage)
+
+                    // Trigger error haptic feedback
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                    impactFeedback.impactOccurred()
+
+                    // Cleanup resources even on error (non-blocking)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+
+                    // Remove failed item after 5 seconds
+                    await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+                }
+            }
+
+        } catch {
+            print("❌ Image processing/upload failed: \(error)")
+
+            // Show user-visible error overlay
+            await showProcessingErrorOverlay(error.localizedDescription)
+
+            // Update queue item to error state if it was created
+            if let item = queueItem {
+                updateQueueItemError(id: item.id, errorMessage: error.localizedDescription)
+
+                // Trigger error haptic feedback
+                let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                impactFeedback.impactOccurred()
+
+                // Cleanup resources (non-blocking)
+                await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+
+                // Remove failed item after 5 seconds
+                await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+            }
         }
     }
 
