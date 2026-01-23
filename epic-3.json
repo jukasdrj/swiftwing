@@ -700,7 +700,7 @@
       ],
       "priority": 19,
       "estimate": "3 hours",
-      "passes": false,
+      "passes": true,
       "notes": "Power user feature. Makes manual review efficient.",
       "dependsOn": [
         "US-304"
@@ -721,7 +721,8 @@
         ],
         "required": true,
         "estimatedTests": 4
-      }
+      },
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-320",
