@@ -3,7 +3,7 @@ import SwiftData
 
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Book.title) private var books: [Book]
+    @Query(sort: [SortDescriptor(\Book.addedDate, order: .reverse)]) private var books: [Book]
     @State private var isRefreshing = false
 
     // 3-column grid with adaptive sizing
@@ -30,6 +30,7 @@ struct LibraryView: View {
             LazyVGrid(columns: columns, spacing: 20) {
                 ForEach(books, id: \.id) { book in
                     BookGridCell(book: book)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding()
