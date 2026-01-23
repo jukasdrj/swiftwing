@@ -46,6 +46,7 @@ struct LibraryView: View {
     @State private var exportFileURL: URL?
     @State private var showEmptyLibraryAlert = false
     @AppStorage("library_sort_option") private var sortOptionRaw: String = LibrarySortOption.newestFirst.rawValue
+    @AppStorage("show_review_needed") private var showReviewNeeded = false
 
     private var sortOption: LibrarySortOption {
         LibrarySortOption(rawValue: sortOptionRaw) ?? .newestFirst
@@ -57,17 +58,32 @@ struct LibraryView: View {
         return (try? modelContext.fetch(descriptor)) ?? []
     }
 
-    // Dynamic query based on search text
+    // Dynamic query based on search text and confidence filter
     private var filteredBooks: [Book] {
-        if searchText.isEmpty {
-            return sortedBooks
-        } else {
+        var result = sortedBooks
+
+        // Apply search filter first
+        if !searchText.isEmpty {
             let lowercasedSearch = searchText.lowercased()
-            return sortedBooks.filter { book in
+            result = result.filter { book in
                 book.title.lowercased().contains(lowercasedSearch) ||
                 book.author.lowercased().contains(lowercasedSearch)
             }
         }
+
+        // Apply confidence filter (after search)
+        if showReviewNeeded {
+            result = result.filter { book in
+                (book.spineConfidence ?? 1.0) < 0.8
+            }
+        }
+
+        return result
+    }
+
+    // Count of books that need review (for badge)
+    private var reviewNeededCount: Int {
+        books.filter { ($0.spineConfidence ?? 1.0) < 0.8 }.count
     }
 
     // Keep original query for reactive updates
@@ -87,6 +103,8 @@ struct LibraryView: View {
                     emptyStateView
                 } else if filteredBooks.isEmpty && !searchText.isEmpty {
                     searchEmptyStateView
+                } else if filteredBooks.isEmpty && showReviewNeeded {
+                    reviewNeededEmptyStateView
                 } else {
                     libraryGridView
                 }
@@ -103,6 +121,25 @@ struct LibraryView: View {
                             .foregroundColor(.swissText)
                             .accessibilityLabel("Export library to CSV")
                     }
+                }
+
+                // US-319: Confidence filter toggle
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(.swissSpring) {
+                            showReviewNeeded.toggle()
+                        }
+                    } label: {
+                        Label {
+                            Text("Show Review Needed")
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(showReviewNeeded ? .internationalOrange : .swissText)
+                        }
+                    }
+                    .badge(reviewNeededCount > 0 ? "\(reviewNeededCount)" : nil)
+                    .accessibilityLabel("Filter to show books that need review")
+                    .accessibilityHint(showReviewNeeded ? "Currently showing only low-confidence books" : "Tap to show only low-confidence books")
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -312,6 +349,28 @@ struct LibraryView: View {
             Text("Try searching by title or author")
                 .font(.subheadline)
                 .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Review Needed Empty State (US-319)
+    private var reviewNeededEmptyStateView: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 80))
+                .foregroundColor(.green)
+                .shadow(color: .green.opacity(0.3), radius: 12)
+
+            Text("No books need review")
+                .font(.title3)
+                .foregroundColor(.swissText)
+                .multilineTextAlignment(.center)
+
+            Text("All your books have high AI confidence scores!")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
