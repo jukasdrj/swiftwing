@@ -48,6 +48,11 @@ struct LibraryView: View {
     @AppStorage("library_sort_option") private var sortOptionRaw: String = LibrarySortOption.newestFirst.rawValue
     @AppStorage("show_review_needed") private var showReviewNeeded = false
 
+    // US-320: Bulk delete selection mode
+    @State private var isSelectionMode = false
+    @State private var selectedBookIDs: Set<UUID> = []
+    @State private var showBulkDeleteConfirmation = false
+
     private var sortOption: LibrarySortOption {
         LibrarySortOption(rawValue: sortOptionRaw) ?? .newestFirst
     }
@@ -98,72 +103,102 @@ struct LibraryView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if books.isEmpty {
-                    emptyStateView
-                } else if filteredBooks.isEmpty && !searchText.isEmpty {
-                    searchEmptyStateView
-                } else if filteredBooks.isEmpty && showReviewNeeded {
-                    reviewNeededEmptyStateView
-                } else {
-                    libraryGridView
+            ZStack(alignment: .bottom) {
+                Group {
+                    if books.isEmpty {
+                        emptyStateView
+                    } else if filteredBooks.isEmpty && !searchText.isEmpty {
+                        searchEmptyStateView
+                    } else if filteredBooks.isEmpty && showReviewNeeded {
+                        reviewNeededEmptyStateView
+                    } else {
+                        libraryGridView
+                    }
+                }
+                .background(Color.swissBackground.ignoresSafeArea())
+
+                // US-320: Bottom toolbar in selection mode
+                if isSelectionMode && !selectedBookIDs.isEmpty {
+                    selectionToolbar
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .background(Color.swissBackground.ignoresSafeArea())
             .searchable(text: $searchText, prompt: "Search title or author")
             .accessibilityLabel("Search books by title or author")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        exportLibrary()
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                            .foregroundColor(.swissText)
-                            .accessibilityLabel("Export library to CSV")
+                    if isSelectionMode {
+                        Button("Cancel") {
+                            exitSelectionMode()
+                        }
+                        .foregroundColor(.swissText)
+                    } else {
+                        Button {
+                            exportLibrary()
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.swissText)
+                                .accessibilityLabel("Export library to CSV")
+                        }
                     }
                 }
 
-                // US-319: Confidence filter toggle
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        withAnimation(.swissSpring) {
-                            showReviewNeeded.toggle()
+                // US-319: Confidence filter toggle (hidden in selection mode)
+                if !isSelectionMode {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            withAnimation(.swissSpring) {
+                                showReviewNeeded.toggle()
+                            }
+                        } label: {
+                            Label {
+                                Text("Show Review Needed")
+                            } icon: {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(showReviewNeeded ? .internationalOrange : .swissText)
+                            }
                         }
-                    } label: {
-                        Label {
-                            Text("Show Review Needed")
-                        } icon: {
-                            Image(systemName: "exclamationmark.triangle")
-                                .foregroundColor(showReviewNeeded ? .internationalOrange : .swissText)
-                        }
+                        .badge(reviewNeededCount > 0 ? "\(reviewNeededCount)" : nil)
+                        .accessibilityLabel("Filter to show books that need review")
+                        .accessibilityHint(showReviewNeeded ? "Currently showing only low-confidence books" : "Tap to show only low-confidence books")
                     }
-                    .badge(reviewNeededCount > 0 ? "\(reviewNeededCount)" : nil)
-                    .accessibilityLabel("Filter to show books that need review")
-                    .accessibilityHint(showReviewNeeded ? "Currently showing only low-confidence books" : "Tap to show only low-confidence books")
-                }
 
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        ForEach(LibrarySortOption.allCases, id: \.self) { option in
-                            Button {
-                                withAnimation(.swissSpring) {
-                                    sortOptionRaw = option.rawValue
-                                }
-                            } label: {
-                                HStack {
-                                    Label(option.rawValue, systemImage: option.icon)
-                                    if option == sortOption {
-                                        Spacer()
-                                        Image(systemName: "checkmark")
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            ForEach(LibrarySortOption.allCases, id: \.self) { option in
+                                Button {
+                                    withAnimation(.swissSpring) {
+                                        sortOptionRaw = option.rawValue
+                                    }
+                                } label: {
+                                    HStack {
+                                        Label(option.rawValue, systemImage: option.icon)
+                                        if option == sortOption {
+                                            Spacer()
+                                            Image(systemName: "checkmark")
+                                        }
                                     }
                                 }
                             }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                                .foregroundColor(.swissText)
+                                .accessibilityLabel("Sort library")
                         }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                            .foregroundColor(.swissText)
-                            .accessibilityLabel("Sort library")
                     }
+                }
+
+                // US-320: Select button (disabled during search)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(isSelectionMode ? "Select All" : "Select") {
+                        if isSelectionMode {
+                            selectAllBooks()
+                        } else {
+                            enterSelectionMode()
+                        }
+                    }
+                    .foregroundColor(.internationalOrange)
+                    .disabled(!searchText.isEmpty)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -208,22 +243,33 @@ struct LibraryView: View {
                 // Book Grid
                 LazyVGrid(columns: adaptiveColumns, spacing: 20) {
                     ForEach(filteredBooks, id: \.id) { book in
-                        BookGridCell(book: book) {
-                            // Delete button handler (swipe-action alternative for grid)
-                            bookToDelete = book
-                            showDeleteConfirmation = true
-                        }
+                        BookGridCell(
+                            book: book,
+                            isSelectionMode: isSelectionMode,
+                            isSelected: selectedBookIDs.contains(book.id),
+                            onDelete: {
+                                // Delete button handler (swipe-action alternative for grid)
+                                bookToDelete = book
+                                showDeleteConfirmation = true
+                            }
+                        )
                         .accessibilityLabel("\(book.title) by \(book.author)")
                         .transition(.asymmetric(insertion: .scale, removal: .opacity))
                         .onTapGesture {
-                            selectedBook = book
+                            if isSelectionMode {
+                                toggleBookSelection(book)
+                            } else {
+                                selectedBook = book
+                            }
                         }
                         .contextMenu {
-                            Button(role: .destructive) {
-                                bookToDelete = book
-                                showDeleteConfirmation = true
-                            } label: {
-                                Label("Delete", systemImage: "trash")
+                            if !isSelectionMode {
+                                Button(role: .destructive) {
+                                    bookToDelete = book
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
                             }
                         }
                     }
@@ -375,6 +421,40 @@ struct LibraryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    // MARK: - Selection Toolbar
+    private var selectionToolbar: some View {
+        HStack {
+            Button {
+                showBulkDeleteConfirmation = true
+            } label: {
+                Label("Delete Selected (\(selectedBookIDs.count))", systemImage: "trash")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.red)
+                    .cornerRadius(12)
+            }
+            .accessibilityLabel("Delete \(selectedBookIDs.count) selected books")
+        }
+        .padding()
+        .background(
+            Color.black.opacity(0.95)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 0)
+                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        )
+        .alert("Delete \(selectedBookIDs.count) books?", isPresented: $showBulkDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                deleteBulkBooks()
+            }
+        } message: {
+            Text("This cannot be undone.")
+        }
+    }
+
     // MARK: - Actions
     private func performRefresh() async {
         isRefreshing = true
@@ -389,6 +469,52 @@ struct LibraryView: View {
             try? modelContext.save()
         }
         bookToDelete = nil
+    }
+
+    // US-320: Selection mode functions
+    private func enterSelectionMode() {
+        withAnimation(.swissSpring) {
+            isSelectionMode = true
+            selectedBookIDs.removeAll()
+        }
+    }
+
+    private func exitSelectionMode() {
+        withAnimation(.swissSpring) {
+            isSelectionMode = false
+            selectedBookIDs.removeAll()
+        }
+    }
+
+    private func toggleBookSelection(_ book: Book) {
+        withAnimation(.spring(duration: 0.2)) {
+            if selectedBookIDs.contains(book.id) {
+                selectedBookIDs.remove(book.id)
+            } else {
+                selectedBookIDs.insert(book.id)
+            }
+        }
+    }
+
+    private func selectAllBooks() {
+        withAnimation(.swissSpring) {
+            selectedBookIDs = Set(filteredBooks.map { $0.id })
+        }
+    }
+
+    private func deleteBulkBooks() {
+        withAnimation(.spring(duration: 0.2)) {
+            // Delete all selected books in one transaction
+            for bookID in selectedBookIDs {
+                if let book = books.first(where: { $0.id == bookID }) {
+                    modelContext.delete(book)
+                }
+            }
+            try? modelContext.save()
+
+            // Exit selection mode
+            exitSelectionMode()
+        }
     }
 
     /// US-318: Export library to CSV
@@ -527,33 +653,50 @@ struct LibraryView: View {
 // MARK: - Book Grid Cell
 struct BookGridCell: View {
     let book: Book
+    var isSelectionMode: Bool = false
+    var isSelected: Bool = false
     var onDelete: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 8) {
             // Cover image with 100x150 aspect ratio
-            ZStack(alignment: .topTrailing) {
+            ZStack(alignment: .topLeading) {
                 AsyncImageWithLoading(url: book.coverUrl)
                     .frame(height: 150)
                     .aspectRatio(2/3, contentMode: .fit)
                     .cornerRadius(8)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                            .strokeBorder(
+                                isSelected ? Color.blue : Color.white.opacity(0.2),
+                                lineWidth: isSelected ? 3 : 1
+                            )
                     )
                     .accessibilityHidden(true) // Title is redundant
 
-                // Delete button overlay (swipe-action alternative for grid)
-                if let onDelete = onDelete {
-                    Button(action: onDelete) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(.white, .red)
-                            .shadow(radius: 2)
+                // US-320: Checkbox overlay in selection mode (top-left)
+                if isSelectionMode {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .foregroundStyle(isSelected ? .white : .white.opacity(0.6), isSelected ? .blue : .clear)
+                        .shadow(radius: 2)
+                        .padding(8)
+                }
+
+                // Delete button overlay (swipe-action alternative for grid, top-right)
+                if !isSelectionMode, let onDelete = onDelete {
+                    HStack {
+                        Spacer()
+                        Button(action: onDelete) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white, .red)
+                                .shadow(radius: 2)
+                        }
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel("Delete \(book.title)")
                     }
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
-                    .accessibilityLabel("Delete \(book.title)")
                 }
             }
 
