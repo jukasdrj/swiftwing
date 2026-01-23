@@ -70,11 +70,11 @@ struct LibraryView: View {
     // Keep original query for reactive updates
     @Query private var books: [Book]
 
-    // 3-column grid with adaptive sizing
-    private let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
+    // Adaptive grid layout that responds to device size and orientation
+    // iPhone portrait: 3 columns | iPhone landscape: 5 columns
+    // iPad portrait: 5 columns | iPad landscape: 7 columns
+    private let adaptiveColumns = [
+        GridItem(.adaptive(minimum: 100, maximum: 150), spacing: 16)
     ]
 
     var body: some View {
@@ -144,7 +144,7 @@ struct LibraryView: View {
                     .padding(.top)
 
                 // Book Grid
-                LazyVGrid(columns: columns, spacing: 20) {
+                LazyVGrid(columns: adaptiveColumns, spacing: 20) {
                     ForEach(filteredBooks, id: \.id) { book in
                         BookGridCell(book: book) {
                             // Delete button handler (swipe-action alternative for grid)
