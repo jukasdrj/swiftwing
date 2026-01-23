@@ -3,8 +3,23 @@ import SwiftData
 
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: [SortDescriptor(\Book.addedDate, order: .reverse)]) private var books: [Book]
+    @State private var searchText = ""
     @State private var isRefreshing = false
+
+    // Dynamic query based on search text
+    private var filteredBooks: [Book] {
+        if searchText.isEmpty {
+            return books
+        } else {
+            let lowercasedSearch = searchText.lowercased()
+            return books.filter { book in
+                book.title.lowercased().contains(lowercasedSearch) ||
+                book.author.lowercased().contains(lowercasedSearch)
+            }
+        }
+    }
+
+    @Query(sort: [SortDescriptor(\Book.addedDate, order: .reverse)]) private var books: [Book]
 
     // 3-column grid with adaptive sizing
     private let columns = [
@@ -17,18 +32,21 @@ struct LibraryView: View {
         Group {
             if books.isEmpty {
                 emptyStateView
+            } else if filteredBooks.isEmpty && !searchText.isEmpty {
+                searchEmptyStateView
             } else {
                 libraryGridView
             }
         }
         .background(Color.swissBackground.ignoresSafeArea())
+        .searchable(text: $searchText, prompt: "Search title or author")
     }
 
     // MARK: - Library Grid
     private var libraryGridView: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 20) {
-                ForEach(books, id: \.id) { book in
+                ForEach(filteredBooks, id: \.id) { book in
                     BookGridCell(book: book)
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -65,6 +83,25 @@ struct LibraryView: View {
                 .swissGlassButton()
             }
             #endif
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Search Empty State
+    private var searchEmptyStateView: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 80))
+                .foregroundColor(.gray)
+
+            Text("No results for '\(searchText)'")
+                .font(.title3)
+                .foregroundColor(.swissText)
+                .multilineTextAlignment(.center)
+
+            Text("Try searching by title or author")
+                .font(.subheadline)
+                .foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
