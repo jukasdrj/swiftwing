@@ -740,7 +740,7 @@
       ],
       "priority": 20,
       "estimate": "5 hours",
-      "passes": false,
+      "passes": true,
       "notes": "Advanced feature. Nice for power users cleaning up bulk imports.",
       "dependsOn": [
         "US-306"
@@ -762,7 +762,8 @@
         ],
         "required": true,
         "estimatedTests": 5
-      }
+      },
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-321",
