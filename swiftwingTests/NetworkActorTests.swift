@@ -255,6 +255,201 @@ final class NetworkActorTests: XCTestCase {
         }
     }
 
+    // MARK: - SSE Streaming Tests
+
+    /// Test successful SSE stream with progress, result, and complete events
+    func testStreamEventsSuccess() async throws {
+        // Arrange: Create mock SSE stream
+        let sseData = """
+        event: progress
+        data: {"message": "Looking..."}
+
+        event: progress
+        data: {"message": "Reading spine..."}
+
+        event: result
+        data: {"title": "Test Book", "author": "Test Author", "isbn": "1234567890", "coverUrl": "https://example.com/cover.jpg", "confidence": 0.95}
+
+        event: complete
+        data: {}
+
+        """.data(using: .utf8)!
+
+        // Configure mock to return SSE stream
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "text/event-stream"])!
+            return (response, sseData)
+        }
+
+        // Act: Stream events
+        let actor = createTestActor()
+        let streamUrl = URL(string: "https://api.talaria.example.com/v3/stream/test-job-123")!
+        var events: [SSEEvent] = []
+
+        for try await event in actor.streamEvents(from: streamUrl) {
+            events.append(event)
+        }
+
+        // Assert: Received all events in order
+        XCTAssertEqual(events.count, 4)
+
+        // Verify progress events
+        if case .progress(let message1) = events[0] {
+            XCTAssertEqual(message1, "Looking...")
+        } else {
+            XCTFail("Expected progress event")
+        }
+
+        if case .progress(let message2) = events[1] {
+            XCTAssertEqual(message2, "Reading spine...")
+        } else {
+            XCTFail("Expected progress event")
+        }
+
+        // Verify result event
+        if case .result(let metadata) = events[2] {
+            XCTAssertEqual(metadata.title, "Test Book")
+            XCTAssertEqual(metadata.author, "Test Author")
+            XCTAssertEqual(metadata.isbn, "1234567890")
+            XCTAssertEqual(metadata.confidence, 0.95)
+        } else {
+            XCTFail("Expected result event")
+        }
+
+        // Verify complete event
+        if case .complete = events[3] {
+            // Success
+        } else {
+            XCTFail("Expected complete event")
+        }
+    }
+
+    /// Test SSE stream with error event
+    func testStreamEventsError() async throws {
+        // Arrange: Mock SSE with error
+        let sseData = """
+        event: progress
+        data: {"message": "Processing..."}
+
+        event: error
+        data: {"message": "Failed to identify book spine"}
+
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, sseData)
+        }
+
+        // Act
+        let actor = createTestActor()
+        let streamUrl = URL(string: "https://api.talaria.example.com/v3/stream/error-job")!
+        var events: [SSEEvent] = []
+
+        for try await event in actor.streamEvents(from: streamUrl) {
+            events.append(event)
+        }
+
+        // Assert: Stream closed after error
+        XCTAssertEqual(events.count, 2)
+        if case .error(let message) = events[1] {
+            XCTAssertEqual(message, "Failed to identify book spine")
+        } else {
+            XCTFail("Expected error event")
+        }
+    }
+
+    /// Test SSE connection failure with retry
+    func testStreamEventsConnectionFailureRetry() async throws {
+        // Arrange: Fail first, succeed second
+        var callCount = 0
+        MockURLProtocol.requestHandler = { request in
+            callCount += 1
+            if callCount == 1 {
+                // First call: connection failed
+                let response = HTTPURLResponse(url: request.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!
+                return (response, Data())
+            } else {
+                // Second call: success
+                let sseData = """
+                event: progress
+                data: {"message": "Connected after retry"}
+
+                event: complete
+                data: {}
+
+                """.data(using: .utf8)!
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, sseData)
+            }
+        }
+
+        // Act: Should retry and succeed
+        let actor = createTestActor()
+        let streamUrl = URL(string: "https://api.talaria.example.com/v3/stream/retry")!
+        var events: [SSEEvent] = []
+
+        for try await event in actor.streamEvents(from: streamUrl) {
+            events.append(event)
+        }
+
+        // Assert: Succeeded after retry
+        XCTAssertEqual(callCount, 2)
+        XCTAssertEqual(events.count, 2)
+    }
+
+    /// Test SSE connection failure exhausts retries
+    func testStreamEventsConnectionFailureExhausted() async throws {
+        // Arrange: Always fail
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        // Act & Assert: Should throw after max retries
+        let actor = createTestActor()
+        let streamUrl = URL(string: "https://api.talaria.example.com/v3/stream/fail")!
+
+        do {
+            for try await _ in actor.streamEvents(from: streamUrl) {
+                XCTFail("Should not receive events")
+            }
+            XCTFail("Expected SSEError.maxRetriesExceeded")
+        } catch SSEError.maxRetriesExceeded {
+            // Expected: max retries = 3, so total calls = 4
+            XCTAssertEqual(MockURLProtocol.requestCount, 4)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    /// Test SSE parsing with invalid event format
+    func testStreamEventsInvalidFormat() async throws {
+        // Arrange: Mock malformed SSE
+        let sseData = """
+        event: progress
+        data: not a json object
+
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, sseData)
+        }
+
+        // Act: Should skip invalid events
+        let actor = createTestActor()
+        let streamUrl = URL(string: "https://api.talaria.example.com/v3/stream/invalid")!
+        var events: [SSEEvent] = []
+
+        for try await event in actor.streamEvents(from: streamUrl) {
+            events.append(event)
+        }
+
+        // Assert: No events yielded (invalid format ignored)
+        XCTAssertEqual(events.count, 0)
+    }
+
     // MARK: - Helper Methods
 
     /// Create NetworkActor configured with MockURLProtocol
@@ -310,7 +505,22 @@ final class MockURLProtocol: URLProtocol {
         do {
             let (response, data) = try handler(request)
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
+
+            // For SSE streams (text/event-stream), send data in chunks to simulate streaming
+            if let contentType = response.value(forHTTPHeaderField: "Content-Type"),
+               contentType.contains("text/event-stream") {
+                // Split by newlines and send each line separately to simulate streaming
+                let lines = String(data: data, encoding: .utf8)?.components(separatedBy: "\n") ?? []
+                for line in lines {
+                    if let lineData = (line + "\n").data(using: .utf8) {
+                        client?.urlProtocol(self, didLoad: lineData)
+                    }
+                }
+            } else {
+                // Regular response: send all data at once
+                client?.urlProtocol(self, didLoad: data)
+            }
+
             client?.urlProtocolDidFinishLoading(self)
         } catch {
             client?.urlProtocol(self, didFailWithError: error)
