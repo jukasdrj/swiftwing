@@ -203,6 +203,11 @@ struct LibraryView: View {
                     testFullMetadataBook()
                 }
                 .swissGlassButton()
+
+                Button("Test US-311 Duplicate Detection") {
+                    testDuplicateDetection()
+                }
+                .swissGlassButton()
             }
             .padding(.top, 12)
             #endif
@@ -310,6 +315,48 @@ struct LibraryView: View {
         print("  - Full book has page count: \(fullBook.pageCount ?? 0)")
         print("  - Low confidence book needs review: \(lowConfidenceBook.needsReview)")
         print("  - Full book does NOT need review: \(!fullBook.needsReview)")
+    }
+
+    /// US-311: Test duplicate detection logic
+    private func testDuplicateDetection() {
+        let testISBN = "9780134092669" // Test ISBN
+
+        // Test 1: Check for existing duplicate
+        if let existingBook = DuplicateDetection.findDuplicate(isbn: testISBN, in: modelContext) {
+            print("✅ US-311 Test 1: Found existing duplicate")
+            print("  - Title: \(existingBook.title)")
+            print("  - ISBN: \(existingBook.isbn)")
+        } else {
+            print("✅ US-311 Test 1: No duplicate found (adding test book)")
+
+            // Add a test book
+            let testBook = Book(
+                title: "iOS Programming: The Big Nerd Ranch Guide",
+                author: "Christian Keur & Aaron Hillegass",
+                isbn: testISBN
+            )
+
+            modelContext.insert(testBook)
+            try? modelContext.save()
+            print("  - Test book added with ISBN: \(testISBN)")
+        }
+
+        // Test 2: Try to find the duplicate again (should succeed after Test 1)
+        if let duplicate = DuplicateDetection.findDuplicate(isbn: testISBN, in: modelContext) {
+            print("✅ US-311 Test 2: Duplicate detection working correctly")
+            print("  - Found: \(duplicate.title)")
+            print("  - ISBN match: \(duplicate.isbn == testISBN)")
+        } else {
+            print("❌ US-311 Test 2: Duplicate detection failed")
+        }
+
+        // Test 3: Check non-existent ISBN
+        let nonExistentISBN = "9999999999999"
+        if DuplicateDetection.findDuplicate(isbn: nonExistentISBN, in: modelContext) == nil {
+            print("✅ US-311 Test 3: Correctly returns nil for non-existent ISBN")
+        } else {
+            print("❌ US-311 Test 3: Incorrectly found book with non-existent ISBN")
+        }
     }
     #endif
 }

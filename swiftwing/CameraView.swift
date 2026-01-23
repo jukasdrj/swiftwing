@@ -1,10 +1,12 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import SwiftData
 
 /// Main camera view with zero-lag preview
 /// Performance target: < 0.5s cold start to live feed
 struct CameraView: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var cameraManager = CameraManager()
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -15,6 +17,11 @@ struct CameraView: View {
     @State private var showFocusIndicator = false
     @State private var processingErrorMessage: String?
     @State private var showProcessingError = false
+
+    // US-311: Duplicate detection state
+    @State private var duplicateBook: Book?
+    @State private var showDuplicateAlert = false
+    @State private var pendingBookData: (title: String, author: String, isbn: String)?
 
     var body: some View {
         ZStack {
@@ -131,6 +138,43 @@ struct CameraView: View {
                 }
                 .haptic(.impact, trigger: showFlash)
                 .padding(.bottom, 40)
+            }
+
+            // US-311: Duplicate book detection alert
+            if showDuplicateAlert, let duplicate = duplicateBook {
+                DuplicateBookAlert(
+                    duplicateBook: duplicate,
+                    onCancel: {
+                        withAnimation(.swissSpring) {
+                            showDuplicateAlert = false
+                            duplicateBook = nil
+                            pendingBookData = nil
+                        }
+                    },
+                    onAddAnyway: {
+                        withAnimation(.swissSpring) {
+                            showDuplicateAlert = false
+                            if let bookData = pendingBookData {
+                                addBookToLibrary(
+                                    title: bookData.title,
+                                    author: bookData.author,
+                                    isbn: bookData.isbn
+                                )
+                            }
+                            duplicateBook = nil
+                            pendingBookData = nil
+                        }
+                    },
+                    onViewExisting: {
+                        withAnimation(.swissSpring) {
+                            showDuplicateAlert = false
+                            // TODO: Navigate to book detail sheet when library navigation is implemented
+                            // For now, just dismiss the alert
+                            duplicateBook = nil
+                            pendingBookData = nil
+                        }
+                    }
+                )
             }
         }
         .statusBar(hidden: true) // Full immersion
@@ -391,6 +435,52 @@ struct CameraView: View {
         let renderer = UIGraphicsImageRenderer(size: newSize)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+
+    // MARK: - US-311: Duplicate Detection
+
+    /// Handles book addition from AI results with duplicate detection
+    /// This will be called when Epic 4 AI results arrive
+    /// - Parameters:
+    ///   - title: Book title from AI
+    ///   - author: Book author from AI
+    ///   - isbn: Book ISBN from AI
+    @MainActor
+    private func handleBookResult(title: String, author: String, isbn: String) {
+        // Check for duplicate using SwiftData predicate
+        if let duplicate = DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
+            // Store pending book data for "Add Anyway" action
+            pendingBookData = (title: title, author: author, isbn: isbn)
+            duplicateBook = duplicate
+
+            // Show duplicate alert (non-blocking)
+            withAnimation(.swissSpring) {
+                showDuplicateAlert = true
+            }
+        } else {
+            // No duplicate - add directly to library
+            addBookToLibrary(title: title, author: author, isbn: isbn)
+        }
+    }
+
+    /// Adds book to library without duplicate check
+    /// Used when user confirms "Add Anyway" or no duplicate exists
+    @MainActor
+    private func addBookToLibrary(title: String, author: String, isbn: String) {
+        let newBook = Book(
+            title: title,
+            author: author,
+            isbn: isbn
+        )
+
+        modelContext.insert(newBook)
+
+        do {
+            try modelContext.save()
+            print("✅ Book added to library: \(title)")
+        } catch {
+            print("❌ Failed to save book: \(error)")
         }
     }
 }
