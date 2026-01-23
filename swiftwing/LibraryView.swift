@@ -1,6 +1,40 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Sort Options
+enum LibrarySortOption: String, CaseIterable {
+    case newestFirst = "Newest First"
+    case oldestFirst = "Oldest First"
+    case titleAZ = "Title A-Z"
+    case authorAZ = "Author A-Z"
+
+    var sortDescriptors: [SortDescriptor<Book>] {
+        switch self {
+        case .newestFirst:
+            return [SortDescriptor(\Book.addedDate, order: .reverse)]
+        case .oldestFirst:
+            return [SortDescriptor(\Book.addedDate, order: .forward)]
+        case .titleAZ:
+            return [SortDescriptor(\Book.title, order: .forward)]
+        case .authorAZ:
+            return [SortDescriptor(\Book.author, order: .forward)]
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .newestFirst:
+            return "calendar.badge.clock"
+        case .oldestFirst:
+            return "calendar"
+        case .titleAZ:
+            return "textformat"
+        case .authorAZ:
+            return "person.text.rectangle"
+        }
+    }
+}
+
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var searchText = ""
@@ -8,21 +42,33 @@ struct LibraryView: View {
     @State private var selectedBook: Book?
     @State private var bookToDelete: Book?
     @State private var showDeleteConfirmation = false
+    @AppStorage("library_sort_option") private var sortOptionRaw: String = LibrarySortOption.newestFirst.rawValue
+
+    private var sortOption: LibrarySortOption {
+        LibrarySortOption(rawValue: sortOptionRaw) ?? .newestFirst
+    }
+
+    // Sorted books based on current sort option
+    private var sortedBooks: [Book] {
+        let descriptor = FetchDescriptor<Book>(sortBy: sortOption.sortDescriptors)
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
 
     // Dynamic query based on search text
     private var filteredBooks: [Book] {
         if searchText.isEmpty {
-            return books
+            return sortedBooks
         } else {
             let lowercasedSearch = searchText.lowercased()
-            return books.filter { book in
+            return sortedBooks.filter { book in
                 book.title.lowercased().contains(lowercasedSearch) ||
                 book.author.lowercased().contains(lowercasedSearch)
             }
         }
     }
 
-    @Query(sort: [SortDescriptor(\Book.addedDate, order: .reverse)]) private var books: [Book]
+    // Keep original query for reactive updates
+    @Query private var books: [Book]
 
     // 3-column grid with adaptive sizing
     private let columns = [
@@ -32,17 +78,44 @@ struct LibraryView: View {
     ]
 
     var body: some View {
-        Group {
-            if books.isEmpty {
-                emptyStateView
-            } else if filteredBooks.isEmpty && !searchText.isEmpty {
-                searchEmptyStateView
-            } else {
-                libraryGridView
+        NavigationStack {
+            Group {
+                if books.isEmpty {
+                    emptyStateView
+                } else if filteredBooks.isEmpty && !searchText.isEmpty {
+                    searchEmptyStateView
+                } else {
+                    libraryGridView
+                }
             }
+            .background(Color.swissBackground.ignoresSafeArea())
+            .searchable(text: $searchText, prompt: "Search title or author")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(LibrarySortOption.allCases, id: \.self) { option in
+                            Button {
+                                withAnimation(.swissSpring) {
+                                    sortOptionRaw = option.rawValue
+                                }
+                            } label: {
+                                HStack {
+                                    Label(option.rawValue, systemImage: option.icon)
+                                    if option == sortOption {
+                                        Spacer()
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .foregroundColor(.swissText)
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .background(Color.swissBackground.ignoresSafeArea())
-        .searchable(text: $searchText, prompt: "Search title or author")
         .sheet(item: $selectedBook) { book in
             BookDetailSheet(book: book)
                 .presentationDetents([.medium])
