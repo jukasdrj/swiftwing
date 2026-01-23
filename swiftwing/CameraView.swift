@@ -39,6 +39,9 @@ struct CameraView: View {
     private let offlineQueueManager = OfflineQueueManager()
     @State private var offlineQueuedCount: Int = 0
 
+    // US-410: Stream concurrency manager (limit max 5 concurrent SSE streams)
+    private let streamManager = StreamManager()
+
     var body: some View {
         ZStack {
             // Camera preview (edge-to-edge)
@@ -514,18 +517,39 @@ struct CameraView: View {
             // Read processed image data for upload
             let uploadData = try Data(contentsOf: fileURL)
 
+            // US-410: Performance optimization - limit concurrent SSE streams to 5
+            // Prevents memory/FPS degradation during bulk scanning (20+ rapid scans)
+            // If 5 streams are active, this scan waits in queue (FIFO) until slot available
+            await streamManager.acquireStreamSlot(scanId: itemId)
+
+            // Ensure we release the stream slot when done (even on error)
+            defer {
+                Task {
+                    await streamManager.releaseStreamSlot(scanId: itemId)
+                }
+            }
+
             // Update progress: uploading
             updateQueueItemProgress(id: item.id, message: "Uploading...")
 
+            // Performance logging: start upload timer
+            let uploadStart = CFAbsoluteTimeGetCurrent()
+
             let uploadResponse = try await networkActor.uploadImage(uploadData)
             jobId = uploadResponse.jobId
-            print("📤 Image uploaded, jobId: \(uploadResponse.jobId)")
+
+            // Performance logging: upload completed
+            let uploadDuration = (CFAbsoluteTimeGetCurrent() - uploadStart) * 1000 // Convert to ms
+            print("📤 Upload took \(Int(uploadDuration))ms, jobId: \(uploadResponse.jobId)")
 
             // Store temp file URL and job ID for cleanup (US-406)
             updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResponse.jobId)
 
             // Switch to analyzing state
             updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
+
+            // Performance logging: start SSE stream timer
+            let streamStart = CFAbsoluteTimeGetCurrent()
 
             // Stream SSE events from Talaria
             let eventStream = await networkActor.streamEvents(from: uploadResponse.streamUrl)
@@ -560,7 +584,10 @@ struct CameraView: View {
                     handleBookResult(metadata: bookMetadata, rawJSON: rawJSON)
 
                 case .complete:
-                    print("✅ SSE stream completed")
+                    // Performance logging: SSE stream completed
+                    let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
+                    print("✅ SSE stream lasted \(String(format: "%.1f", streamDuration))s")
+
                     updateQueueItem(id: item.id, state: .done, message: nil)
 
                     // Cleanup resources (non-blocking)
