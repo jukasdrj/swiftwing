@@ -32,3 +32,23 @@ fastlane/test_output
 
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Secrets & Environment
+.env
+.dev.vars
+*.pem
+*.key
+credentials.json
+secrets/
+
+# Build logs
+build.log
+*.log
+
+# Ralph-TUI runtime
+.ralph-tui/
+
+# Legacy/Archive
+flutter-legacy/

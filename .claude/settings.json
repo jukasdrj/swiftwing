@@ -1,0 +1,28 @@
+{
+  "respectGitignore": true,
+  "plansDirectory": ".claude/plans",
+  "attribution": {
+    "commit": "Co-Authored-By: Claude Code <noreply@anthropic.com>"
+  },
+  "fileSuggestion": {
+    "type": "command",
+    "command": "find swiftwing -type f \\( -name '*.swift' -o -name '*.json' -o -name '*.md' \\) 2>/dev/null"
+  },
+  "permissions": {
+    "Bash": "*",
+    "Read": "*",
+    "Write": "*",
+    "Edit": "*",
+    "Glob": "*",
+    "Grep": "*",
+    "Task": "*",
+    "Skill(planning-with-files)": "*",
+    "Skill(gogo)": "*",
+    "Skill(feature-dev)": "*",
+    "Skill(commit-push-pr)": "*",
+    "mcp__pal__debug": "*",
+    "mcp__pal__codereview": "*",
+    "mcp__pal__analyze": "*",
+    "mcp__pal__thinkdeep": "*"
+  }
+}
