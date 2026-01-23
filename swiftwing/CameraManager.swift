@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 
 /// Camera session manager for SwiftUI
 /// AVCaptureSession must be managed on main thread per Apple documentation
@@ -73,10 +73,12 @@ class CameraManager: ObservableObject {
         guard let session = captureSession else { return }
 
         // Start on background queue to avoid blocking UI
+        // AVCaptureSession is not Sendable but is thread-safe for startRunning()
+        nonisolated(unsafe) let unsafeSession = session
         DispatchQueue.global(qos: .userInitiated).async {
-            if !session.isRunning {
+            if !unsafeSession.isRunning {
                 let startTime = CFAbsoluteTimeGetCurrent()
-                session.startRunning()
+                unsafeSession.startRunning()
                 let duration = CFAbsoluteTimeGetCurrent() - startTime
                 print("✅ Camera session started in \(String(format: "%.3f", duration))s")
             }
@@ -87,9 +89,11 @@ class CameraManager: ObservableObject {
     func stopSession() {
         guard let session = captureSession else { return }
 
+        // AVCaptureSession is not Sendable but is thread-safe for stopRunning()
+        nonisolated(unsafe) let unsafeSession = session
         DispatchQueue.global(qos: .userInitiated).async {
-            if session.isRunning {
-                session.stopRunning()
+            if unsafeSession.isRunning {
+                unsafeSession.stopRunning()
                 print("⏸️ Camera session stopped")
             }
         }

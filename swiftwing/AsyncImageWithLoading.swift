@@ -147,7 +147,7 @@ struct AsyncImageWithLoading: View {
         do {
             // Use ImageCacheManager's URLSession for automatic caching
             let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
-            let session = await ImageCacheManager.shared.urlSession
+            let session = ImageCacheManager.shared.urlSession
             let (data, _) = try await session.data(for: request)
 
             if let uiImage = UIImage(data: data) {

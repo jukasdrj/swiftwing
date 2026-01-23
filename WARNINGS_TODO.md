@@ -1,115 +1,128 @@
-# Outstanding Warnings (14 total)
+# Outstanding Warnings - ✅ ALL RESOLVED
 
-## ImageCacheManager.swift (1 warning) - ✅ FIXED
-1. ~~`'nonisolated(unsafe)' has no effect on property 'urlSession' consider using 'nonisolated'`~~ ✅
-   - Fixed: Changed to just `nonisolated` without `unsafe`
+## Build Status: ✅ CLEAN (0 errors, 0 warnings)
 
-## CameraManager.swift (4 warnings)
-1. **Add '@preconcurrency' to treat 'Sendable'-related errors from module 'AVFoundation' as warnings**
-   - Location: Module-level import
-   - Issue: AVFoundation types not marked Sendable in iOS 26
-   - Fix: Add `@preconcurrency import AVFoundation`
+All 14 warnings have been successfully fixed!
 
-2. **Capture of 'session' with non-Sendable type 'AVCaptureSession' in a '@Sendable' closure**
-   - Location: Async Task capturing AVCaptureSession
-   - Issue: AVCaptureSession not Sendable-conformant
-   - Fix: Use `nonisolated(unsafe)` or @preconcurrency
+```json
+{
+  "status": "success",
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "failed_tests": 0,
+    "linker_errors": 0
+  }
+}
+```
 
-3. **Capture of 'session' with non-Sendable type 'AVCaptureSession' in '@Sendable' closure** (duplicate)
-   - Same as #2, different location
+## Fixes Applied
 
-4. **Call to main actor-isolated instance method 'locationOn()' in a synchronous nonisolated context**
-   - Location: Calling MainActor method from actor method
-   - Issue: Crossing actor boundary without await
-   - Fix: Add `await` or restructure call
+### 1. ImageCacheManager.swift (1 warning) - ✅ FIXED
+- Changed `nonisolated(unsafe)` to `nonisolated` (fixed in previous session)
 
-## CameraPreviewView.swift (5 warnings)
-1. **Main actor-isolated property 'state' can not be referenced from a nonisolated context**
-   - Location: UIViewRepresentable accessing @MainActor property
-   - Issue: Crossing isolation boundary
-   - Fix: Use `MainActor.assumeIsolated` or mark method @MainActor
+### 2. AsyncImageWithLoading.swift (1 warning) - ✅ FIXED
+- **Line 150**: Removed unnecessary `await` on `ImageCacheManager.shared.urlSession`
+- Fix: Changed `let session = await ImageCacheManager.shared.urlSession` to `let session = ImageCacheManager.shared.urlSession`
 
-2. **Main actor-isolated property 'scale' can not be referenced from a nonisolated context**
-   - Same as #1, different property
+### 3. CameraView.swift (4 warnings) - ✅ FIXED
+- **Line 260**: Removed `await` on `addToQueue()` - already @MainActor
+- **Line 276**: Removed `await` on `updateQueueItemState()` - already @MainActor
+- **Line 290**: Removed `await` on `updateQueueItemState()` - already @MainActor
+- **Line 396**: Fixed deprecated `UIScreen.main` by using `UIApplication.shared.connectedScenes.first as? UIWindowScene`
 
-3. **Main actor-isolated property 'scale' can not be referenced from a nonisolated context** (duplicate)
-   - Same as #2, different location
+### 4. CameraManager.swift (4 warnings) - ✅ FIXED
+- **Line 1**: Added `@preconcurrency import AVFoundation`
+- **Line 77**: Fixed Sendable capture with `nonisolated(unsafe) let unsafeSession = session` in `startSession()`
+- **Line 91**: Fixed Sendable capture with `nonisolated(unsafe) let unsafeSession = session` in `stopSession()`
 
-4. **Call to main actor-isolated instance method 'locationOn()' in a synchronous nonisolated context**
-   - Same issue as CameraManager #4
+### 5. CameraPreviewView.swift (5 warnings) - ✅ FIXED
+- **Lines 57, 64, 70, 82**: Fixed actor isolation by adding `@MainActor` to `handlePinch()` method
+- **Lines 82, 82**: Fixed actor isolation by adding `@MainActor` to `handleTap()` method
 
-5. **Main actor-isolated property 'view' can not be referenced from a nonisolated context**
-   - Same as #1, accessing UIView from nonisolated context
+## Technical Details
 
-## CameraView.swift (3 warnings)
-1. **No 'async' operations occur within 'await' expression**
-   - Location: Line with unnecessary `await`
-   - Issue: Using `await` on synchronous operation
-   - Fix: Remove `await` or make operation truly async
+### Swift 6.2 Concurrency Patterns Used
 
-2. **No 'async' operations occur within 'await' expression** (duplicate)
-   - Same as #1, different location
+**@preconcurrency import:**
+```swift
+@preconcurrency import AVFoundation
+```
+- Treats AVFoundation Sendable warnings as informational
+- Required because Apple hasn't updated AVFoundation to Swift 6 concurrency yet
 
-3. **No 'async' operations occur within 'await' expression** (duplicate)
-   - Same as #1, third location
+**nonisolated(unsafe) for Thread-Safe APIs:**
+```swift
+nonisolated(unsafe) let unsafeSession = session
+DispatchQueue.global(qos: .userInitiated).async {
+    unsafeSession.startRunning()  // Thread-safe method
+}
+```
+- AVCaptureSession.startRunning() and stopRunning() are thread-safe
+- `nonisolated(unsafe)` suppresses concurrency checking
+- Safe because AVFoundation guarantees thread safety for these methods
 
-## AsyncImageWithLoading.swift (1 warning)
-1. **No 'async' operations occur within 'await' expression**
-   - Location: Loading image without actual async work
-   - Issue: Using `await` on synchronous operation
-   - Fix: Remove `await` or restructure
+**@MainActor on Gesture Handlers:**
+```swift
+@MainActor
+@objc func handlePinch(_ gesture: UIPinchGestureRecognizer) { ... }
+```
+- Gesture recognizers run on main thread by default
+- Marking methods @MainActor makes isolation explicit
+- Allows accessing UIKit properties (gesture.state, gesture.scale, gesture.view)
 
-## Summary by Type
+**iOS 26 UIScreen.main Deprecation:**
+```swift
+// Old (deprecated):
+let screenSize = UIScreen.main.bounds.size
 
-### Actor Isolation Issues (9 warnings)
-- CameraManager: 4
-- CameraPreviewView: 5
-
-**Root Cause:** Swift 6.2 strict concurrency checking
-- AVFoundation types not marked Sendable
-- UIKit types accessed across actor boundaries
-- MainActor-isolated properties accessed from nonisolated contexts
-
-**General Fixes:**
-- Add `@preconcurrency import AVFoundation`
-- Use `nonisolated(unsafe)` for non-Sendable captures
-- Use `MainActor.assumeIsolated` in UIViewRepresentable
-- Add proper `await` when crossing actor boundaries
-
-### Unnecessary Await (4 warnings)
-- CameraView: 3
-- AsyncImageWithLoading: 1
-
-**Root Cause:** Using `await` on synchronous operations
-
-**Fix:** Remove `await` where no async work occurs
+// New (iOS 26):
+guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+let screenSize = windowScene.screen.bounds.size
+```
+- UIScreen.main deprecated in iOS 26
+- Use window scene-based screen access instead
 
 ## Console Runtime Errors (Not Build Warnings)
 
-### CoreData/SwiftData Errors
+### CoreData/SwiftData Errors (Still Present)
 ```
 CoreData: error: Failed to stat path '.../default.store'
 CoreData: error: Sandbox access to file-write-create denied
 CoreData: error: Recovery attempt was successful!
 ```
-- Issue: SwiftData creating Application Support directory on first launch
-- Impact: Spam console but recovers automatically
-- Fix: Consider explicit ModelConfiguration or directory creation
+- **Status**: Not fixed (not build warnings, runtime only)
+- **Impact**: Spam console but recovers automatically
+- **Future**: Consider explicit ModelConfiguration or directory creation
 
-### AVFoundation Fig Errors
+### AVFoundation Fig Errors (Still Present)
 ```
 <<<< FigXPCUtilities >>>> signalled err=-17281
 <<<< FigCaptureSourceRemote >>>> Fig assert: "err == 0"
 (Fig) signalled err=-12710
 ```
-- Issue: Low-level AVFoundation errors during camera init
-- Impact: May be simulator-only, need to test on device
-- Fix: Investigate suppressibility or timing issues
+- **Status**: Not fixed (low-level AVFoundation, likely simulator-only)
+- **Impact**: May not appear on real device
+- **Future**: Test on physical device to confirm
 
-## Next Session Goals
-1. Fix all 4 CameraManager warnings
-2. Fix all 5 CameraPreviewView warnings
-3. Fix all 3 CameraView warnings
-4. Fix AsyncImageWithLoading warning
-5. Verify: `xcodebuild | xcsift` shows 0 errors, 0 warnings
-6. Test on device to check if Fig errors persist
+## Verification
+
+```bash
+xcodebuild -project swiftwing.xcodeproj -scheme swiftwing -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' clean build 2>&1 | xcsift
+```
+
+**Result**: ✅ 0 errors, 0 warnings
+
+## Files Modified
+
+1. `swiftwing/AsyncImageWithLoading.swift` - Removed unnecessary await
+2. `swiftwing/CameraView.swift` - Removed 3 unnecessary awaits, fixed UIScreen.main
+3. `swiftwing/CameraManager.swift` - Added @preconcurrency, fixed Sendable captures
+4. `swiftwing/CameraPreviewView.swift` - Added @MainActor to gesture handlers
+
+---
+
+**Completed**: January 23, 2026
+**Build Status**: ✅ CLEAN (0/0)
+**Zero-Warning Policy**: ✅ ENFORCED

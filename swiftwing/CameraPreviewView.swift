@@ -53,6 +53,7 @@ struct CameraPreviewView: UIViewRepresentable {
             self.onFocusTap = onFocusTap
         }
 
+        @MainActor
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
             switch gesture.state {
             case .began:
@@ -75,6 +76,7 @@ struct CameraPreviewView: UIViewRepresentable {
             }
         }
 
+        @MainActor
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
             guard let previewLayer = previewLayer else { return }
 

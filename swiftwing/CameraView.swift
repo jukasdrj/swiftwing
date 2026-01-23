@@ -257,7 +257,7 @@ struct CameraView: View {
             print("📸 Image captured (\(imageData.count) bytes)")
 
             // Add to processing queue immediately with thumbnail
-            queueItem = await addToQueue(imageData: imageData)
+            queueItem = addToQueue(imageData: imageData)
 
             // Process image: resize + compress + save
             // This runs off main thread via Task.detached
@@ -273,7 +273,7 @@ struct CameraView: View {
 
             // Update to done state
             if let item = queueItem {
-                await updateQueueItemState(id: item.id, state: .done)
+                updateQueueItemState(id: item.id, state: .done)
 
                 // Auto-remove after 5 seconds
                 await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
@@ -287,7 +287,7 @@ struct CameraView: View {
 
             // Update queue item to error state if it was created
             if let item = queueItem {
-                await updateQueueItemState(id: item.id, state: .error)
+                updateQueueItemState(id: item.id, state: .error)
 
                 // Remove failed item after 3 seconds
                 await removeQueueItemAfterDelay(id: item.id, delay: 3.0)
@@ -393,7 +393,11 @@ struct CameraView: View {
 
         // Convert device point back to screen coordinates for indicator
         // Device coordinates are normalized (0.0-1.0), convert to screen space
-        let screenSize = UIScreen.main.bounds.size
+        // Use window scene screen instead of deprecated UIScreen.main
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+            return
+        }
+        let screenSize = windowScene.screen.bounds.size
         let screenPoint = CGPoint(
             x: devicePoint.x * screenSize.width,
             y: devicePoint.y * screenSize.height
