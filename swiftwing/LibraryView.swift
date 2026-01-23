@@ -10,10 +10,25 @@ struct LibraryView: View {
             Text("Books: \(books.count)")
                 .font(.title)
 
+            #if DEBUG
+            VStack(spacing: 12) {
+                Button("Add Dummy Book") {
+                    addDummyBook()
+                }
+                .swissGlassButton()
+
+                Button("Seed Library") {
+                    seedLibrary()
+                }
+                .swissGlassButton()
+                .haptic(.success, trigger: books.count)
+            }
+            #else
             Button("Add Dummy Book") {
                 addDummyBook()
             }
             .buttonStyle(.borderedProminent)
+            #endif
         }
         .padding()
     }
@@ -26,6 +41,12 @@ struct LibraryView: View {
         )
         modelContext.insert(dummyBook)
     }
+
+    #if DEBUG
+    private func seedLibrary() {
+        DataSeeder.seedLibrary(context: modelContext)
+    }
+    #endif
 }
 
 #Preview {

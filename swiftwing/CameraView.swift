@@ -13,6 +13,8 @@ struct CameraView: View {
     @State private var processingQueue: [ProcessingItem] = []
     @State private var focusPoint: CGPoint?
     @State private var showFocusIndicator = false
+    @State private var processingErrorMessage: String?
+    @State private var showProcessingError = false
 
     var body: some View {
         ZStack {
@@ -71,6 +73,29 @@ struct CameraView: View {
                 FocusIndicatorView()
                     .position(point)
                     .transition(.opacity)
+            }
+
+            // Processing error overlay (auto-dismiss after 5s)
+            if showProcessingError, let error = processingErrorMessage {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.swissError)
+
+                    Text("Processing Failed")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.swissText)
+
+                    Text(error)
+                        .font(.system(size: 14))
+                        .foregroundColor(.swissText.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+                }
+                .padding(24)
+                .swissGlassCard()
+                .padding(.horizontal, 32)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
 
             // Zoom level display (top-right corner)
@@ -170,8 +195,9 @@ struct CameraView: View {
         }
 
         // Fire and forget - process capture in parallel (non-blocking)
-        Task.detached(priority: .userInitiated) {
-            await self.processCapture()
+        // Uses structured Task to maintain priority inheritance
+        Task {
+            await processCapture()
         }
     }
 
@@ -179,6 +205,7 @@ struct CameraView: View {
     /// Performance target: < 500ms
     private func processCapture() async {
         let startTime = CFAbsoluteTimeGetCurrent()
+        var queueItem: ProcessingItem?
 
         do {
             // Capture photo from camera (must be on main actor)
@@ -186,7 +213,7 @@ struct CameraView: View {
             print("📸 Image captured (\(imageData.count) bytes)")
 
             // Add to processing queue immediately with thumbnail
-            let queueItem = await addToQueue(imageData: imageData)
+            queueItem = await addToQueue(imageData: imageData)
 
             // Process image: resize + compress + save
             // This runs off main thread via Task.detached
@@ -201,13 +228,26 @@ struct CameraView: View {
             }
 
             // Update to done state
-            await updateQueueItemState(id: queueItem.id, state: .done)
+            if let item = queueItem {
+                await updateQueueItemState(id: item.id, state: .done)
 
-            // Auto-remove after 5 seconds
-            await removeQueueItemAfterDelay(id: queueItem.id, delay: 5.0)
+                // Auto-remove after 5 seconds
+                await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+            }
 
         } catch {
             print("❌ Image processing failed: \(error)")
+
+            // Show user-visible error overlay
+            await showProcessingErrorOverlay(error.localizedDescription)
+
+            // Update queue item to error state if it was created
+            if let item = queueItem {
+                await updateQueueItemState(id: item.id, state: .error)
+
+                // Remove failed item after 3 seconds
+                await removeQueueItemAfterDelay(id: item.id, delay: 3.0)
+            }
         }
     }
 
@@ -240,6 +280,25 @@ struct CameraView: View {
         }
     }
 
+    /// Shows processing error overlay with auto-dismiss after 5 seconds
+    @MainActor
+    private func showProcessingErrorOverlay(_ message: String) async {
+        processingErrorMessage = message
+        withAnimation(.swissSpring) {
+            showProcessingError = true
+        }
+
+        // Auto-dismiss after 5 seconds
+        try? await Task.sleep(nanoseconds: 5_000_000_000)
+        withAnimation(.swissSpring) {
+            showProcessingError = false
+        }
+
+        // Clear message after fade out animation completes
+        try? await Task.sleep(nanoseconds: 200_000_000) // 200ms for animation
+        processingErrorMessage = nil
+    }
+
     /// Processes image data: resize to max 1920px, compress to JPEG 0.85, save to temp directory
     /// Returns file URL for upload
     /// Performance target: < 500ms
@@ -262,6 +321,20 @@ struct CameraView: View {
         let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
 
         try jpegData.write(to: fileURL)
+
+        // Schedule automatic cleanup after 5 minutes
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 300) {
+            do {
+                try FileManager.default.removeItem(at: fileURL)
+                print("🗑️ Cleaned up temp file: \(filename)")
+            } catch CocoaError.fileNoSuchFile {
+                // File already deleted - this is fine
+                print("ℹ️ Temp file already deleted: \(filename)")
+            } catch {
+                // Log other errors but don't crash
+                print("⚠️ Failed to cleanup temp file \(filename): \(error.localizedDescription)")
+            }
+        }
 
         return fileURL
     }

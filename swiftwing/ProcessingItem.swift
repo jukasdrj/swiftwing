@@ -20,6 +20,7 @@ struct ProcessingItem: Identifiable, Equatable {
         case processing  // Yellow border
         case uploading   // Blue border (placeholder for Epic 4)
         case done        // Green border
+        case error       // Red border (processing failed)
 
         var borderColor: Color {
             switch self {
@@ -29,6 +30,8 @@ struct ProcessingItem: Identifiable, Equatable {
                 return .swissUploading
             case .done:
                 return .swissDone
+            case .error:
+                return .swissError
             }
         }
     }
