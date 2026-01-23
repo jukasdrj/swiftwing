@@ -1,5 +1,9 @@
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 // MARK: - Shimmer Effect View
 /// Animated gradient shimmer for loading states
 /// Matches Swiss Glass aesthetic with white glow on black

@@ -53,6 +53,10 @@ struct LibraryView: View {
     @State private var selectedBookIDs: Set<UUID> = []
     @State private var showBulkDeleteConfirmation = false
 
+    // US-321: Performance monitoring
+    @State private var prefetchCoordinator = LibraryPrefetchCoordinator()
+    @State private var renderStartTime: CFAbsoluteTime?
+
     private var sortOption: LibrarySortOption {
         LibrarySortOption(rawValue: sortOptionRaw) ?? .newestFirst
     }
@@ -272,6 +276,10 @@ struct LibraryView: View {
                                 }
                             }
                         }
+                        .onAppear {
+                            // US-321: Prefetch upcoming images when book appears
+                            prefetchUpcomingImages(startingFrom: book)
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -280,6 +288,22 @@ struct LibraryView: View {
         }
         .refreshable {
             await performRefresh()
+        }
+        .onAppear {
+            // US-321: Log initial render performance
+            renderStartTime = CFAbsoluteTimeGetCurrent()
+        }
+        .task {
+            // US-321: Log library rendering after view loads
+            if let startTime = renderStartTime {
+                // Give LazyVGrid time to render (1 frame)
+                try? await Task.sleep(for: .milliseconds(16))
+                let duration = CFAbsoluteTimeGetCurrent() - startTime
+                PerformanceLogger.logLibraryRendering(
+                    bookCount: filteredBooks.count,
+                    duration: duration
+                )
+            }
         }
     }
 
@@ -363,6 +387,22 @@ struct LibraryView: View {
                 }
                 .swissGlassButton()
 
+                // US-321: Performance test data generation
+                Button("Generate 100 Books (Performance Test)") {
+                    generatePerformanceTestData(count: 100)
+                }
+                .swissGlassButton()
+
+                Button("Generate 1000 Books (Stress Test)") {
+                    generatePerformanceTestData(count: 1000)
+                }
+                .swissGlassButton()
+
+                Button("Clear All Books") {
+                    clearAllBooks()
+                }
+                .swissGlassButton()
+
                 Button("Test US-301 Schema") {
                     testFullMetadataBook()
                 }
@@ -370,6 +410,12 @@ struct LibraryView: View {
 
                 Button("Test US-311 Duplicate Detection") {
                     testDuplicateDetection()
+                }
+                .swissGlassButton()
+
+                // US-321: Performance logging
+                Button("Log Cache Statistics") {
+                    logImageCacheStats()
                 }
                 .swissGlassButton()
             }
@@ -461,6 +507,17 @@ struct LibraryView: View {
         // Placeholder for Epic 4 sync
         try? await Task.sleep(for: .seconds(1))
         isRefreshing = false
+    }
+
+    // US-321: Prefetch upcoming images for smooth scrolling
+    private func prefetchUpcomingImages(startingFrom book: Book) {
+        guard let index = filteredBooks.firstIndex(where: { $0.id == book.id }) else { return }
+
+        // Prefetch next 20 books (adaptive grid shows ~12-15 at a time)
+        let prefetchRange = min(index + 20, filteredBooks.count)
+        let upcomingBooks = Array(filteredBooks[index..<prefetchRange])
+
+        prefetchCoordinator.prefetchUpcoming(books: upcomingBooks, maxCount: 20)
     }
 
     private func deleteBook(_ book: Book) {
@@ -645,6 +702,32 @@ struct LibraryView: View {
             print("✅ US-311 Test 3: Correctly returns nil for non-existent ISBN")
         } else {
             print("❌ US-311 Test 3: Incorrectly found book with non-existent ISBN")
+        }
+    }
+
+    /// US-321: Generate performance test dataset
+    private func generatePerformanceTestData(count: Int) {
+        print("📊 US-321: Generating \(count) test books...")
+        PerformanceTestData.generateTestDataset(
+            count: count,
+            context: modelContext,
+            includeCovers: true
+        )
+    }
+
+    /// US-321: Clear all books from library
+    private func clearAllBooks() {
+        PerformanceTestData.clearTestData(context: modelContext)
+    }
+
+    /// US-321: Log image cache statistics
+    private func logImageCacheStats() {
+        Task {
+            let stats = await ImageCacheManager.shared.getCacheStatistics()
+            PerformanceLogger.logCacheStatistics(
+                memoryUsed: stats.memoryUsed,
+                diskUsed: stats.diskUsed
+            )
         }
     }
     #endif
