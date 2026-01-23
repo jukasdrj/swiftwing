@@ -26,17 +26,20 @@
 		7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000210000000000000001 /* CameraPermissionPrimerView.swift */; };
 		7F0000220000000000000001 /* AsyncImageWithLoading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000230000000000000001 /* AsyncImageWithLoading.swift */; };
 		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
+		9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */; };
 		A5A480302F23C145006CD05C /* LibraryPrefetchCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */; };
 		A5A480382F23CF0D006CD05C /* ImageCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */; };
 		AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61AA37A8BF1D45E7A09593F7 /* DuplicateBookAlert.swift */; };
 		BBFC697E2E23D044AC8EF131 /* ProcessingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */; };
 		C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */; };
+		C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */; };
 		DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733AF8F390562E0E6977AD18 /* CameraManager.swift */; };
 		DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
+		20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
 		2B42B677D75020B244722F76 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		518C6845C092FC50A655B339 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProcessingQueueView.swift; sourceTree = "<group>"; };
@@ -64,6 +67,7 @@
 		CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateDetection.swift; sourceTree = "<group>"; };
 		D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
+		FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +118,8 @@
 				90075E8758F64E3095FAE717 /* PerformanceTestData.swift */,
 				59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */,
 				A28EF0C87C243DB06ECB02C3 /* NetworkActor.swift */,
+				20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */,
+				FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */,
 			);
 			path = swiftwing;
 			sourceTree = "<group>";
@@ -246,6 +252,8 @@
 				671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */,
 				DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */,
 				0A1AC8F5659CBE024EB318D3 /* NetworkActor.swift in Sources */,
+				9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */,
+				C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

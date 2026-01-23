@@ -27,6 +27,13 @@ struct CameraView: View {
     // US-406: Track active SSE streaming tasks for cancellation on app backgrounding
     @State private var activeStreamingTasks: [UUID: Task<Void, Never>] = [:]
 
+    // US-408: Rate limit state
+    private let rateLimitState = RateLimitState()
+    @State private var isRateLimited = false
+    @State private var rateLimitCountdown: Int = 0
+    @State private var queuedScansCount: Int = 0
+    @State private var countdownTimer: Task<Void, Never>?
+
     var body: some View {
         ZStack {
             // Camera preview (edge-to-edge)
@@ -134,14 +141,26 @@ struct CameraView: View {
                     .padding(.bottom, 8)
 
                 // Shutter button (80x80px white ring at bottom center)
+                // US-408: Disabled during rate limit cooldown
                 Button(action: captureImage) {
                     Circle()
-                        .strokeBorder(.white, lineWidth: 4)
+                        .strokeBorder(isRateLimited ? .gray : .white, lineWidth: 4)
                         .frame(width: 80, height: 80)
                         .contentShape(Circle())
+                        .opacity(isRateLimited ? 0.3 : 1.0)
                 }
+                .disabled(isRateLimited)
                 .haptic(.impact, trigger: showFlash)
                 .padding(.bottom, 40)
+            }
+
+            // US-408: Rate limit overlay with countdown timer
+            if isRateLimited {
+                RateLimitOverlay(
+                    remainingSeconds: rateLimitCountdown,
+                    queuedScansCount: queuedScansCount
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
 
             // US-405: Duplicate book detection alert with full metadata
@@ -231,7 +250,14 @@ struct CameraView: View {
 
     /// Captures image with non-blocking rapid-fire support
     /// Each tap creates a new parallel task - button never blocks
+    /// US-408: Button is disabled during rate limit, but this is a safety check
     private func captureImage() {
+        // US-408: Safety check - should not be called when rate limited (button is disabled)
+        guard !isRateLimited else {
+            print("⚠️ Capture blocked: rate limited")
+            return
+        }
+
         // Show flash immediately (100ms animation)
         withAnimation(.easeOut(duration: 0.1)) {
             showFlash = true
@@ -497,6 +523,38 @@ struct CameraView: View {
             }
 
         } catch {
+            // US-408: Check if this is a rate limit error
+            if let networkError = error as? NetworkError,
+               case .rateLimited(let retryAfter) = networkError {
+                // Rate limit (429) - queue scan and show countdown UI
+                print("⏰ Rate limited: retry after \(retryAfter ?? 0)s")
+
+                // Queue the image data for retry after cooldown
+                await rateLimitState.queueScan(imageData)
+
+                // Set rate limit state with retry-after duration (default 60s if not provided)
+                let retryDuration = retryAfter ?? 60.0
+                await rateLimitState.setRateLimited(retryAfter: retryDuration)
+
+                // Update UI state and start countdown timer
+                await startRateLimitCountdown()
+
+                // Remove queue item if it was created
+                if let item = queueItem {
+                    withAnimation(.swissSpring) {
+                        processingQueue.removeAll { $0.id == item.id }
+                    }
+                }
+
+                // Cleanup temp file (non-blocking)
+                if let tempFileURL = tempFileURL {
+                    try? FileManager.default.removeItem(at: tempFileURL)
+                }
+
+                return
+            }
+
+            // Other errors:
             print("❌ Image processing/upload failed: \(error)")
 
             // Show user-visible error overlay
@@ -515,6 +573,49 @@ struct CameraView: View {
 
                 // Remove failed item after 5 seconds
                 await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+            }
+        }
+    }
+
+    /// US-408: Start rate limit countdown timer
+    /// Updates countdown every second and auto-recovers when expired
+    @MainActor
+    private func startRateLimitCountdown() async {
+        // Cancel existing timer if any
+        countdownTimer?.cancel()
+
+        // Get initial remaining seconds
+        rateLimitCountdown = await rateLimitState.getRemainingSeconds()
+        isRateLimited = true
+
+        // Start countdown timer
+        countdownTimer = Task { @MainActor in
+            while await rateLimitState.isRateLimited {
+                // Update countdown display and queued scans count
+                rateLimitCountdown = await rateLimitState.getRemainingSeconds()
+                queuedScansCount = await rateLimitState.queuedScanCount
+
+                // Check if expired
+                if rateLimitCountdown <= 0 {
+                    // Clear rate limit state
+                    await rateLimitState.clearRateLimit()
+                    isRateLimited = false
+
+                    // Process queued scans
+                    let queuedScans = await rateLimitState.dequeueAllScans()
+                    for imageData in queuedScans {
+                        let itemId = UUID()
+                        let task = Task {
+                            await processCaptureWithImageData(itemId: itemId, imageData: imageData)
+                        }
+                        activeStreamingTasks[itemId] = task
+                    }
+
+                    break
+                }
+
+                // Wait 1 second before next update
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
     }

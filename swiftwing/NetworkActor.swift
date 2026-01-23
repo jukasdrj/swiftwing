@@ -226,15 +226,9 @@ actor NetworkActor {
             try await Task.sleep(nanoseconds: UInt64(backoffSeconds * 1_000_000_000))
             return try await performUploadWithRetry(imageData: imageData, maxRetries: maxRetries, currentAttempt: currentAttempt + 1)
         } catch NetworkError.rateLimited(let retryAfter) {
-            // Rate limited (429) - respect retry-after header
-            if let retryAfter = retryAfter {
-                try await Task.sleep(nanoseconds: UInt64(retryAfter * 1_000_000_000))
-                return try await performUpload(imageData: imageData)
-            } else {
-                // No retry-after header, use default backoff
-                try await Task.sleep(nanoseconds: 2_000_000_000) // 2s default
-                return try await performUpload(imageData: imageData)
-            }
+            // US-408: Rate limited (429) - throw immediately, let UI handle cooldown
+            // Don't sleep here - CameraView will show countdown overlay and queue scans
+            throw NetworkError.rateLimited(retryAfter: retryAfter)
         }
     }
 

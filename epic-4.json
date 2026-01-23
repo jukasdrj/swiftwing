@@ -1,0 +1,553 @@
+{
+  "name": "Epic 4: Talaria Integration (AI Magic)",
+  "description": "Integrate Talaria backend for AI-powered book recognition via multipart upload and Server-Sent Events (SSE) streaming. This epic connects camera captures to real-time AI enrichment, delivering the core 'magic' value proposition of SwiftWing.",
+  "branchName": "epic/4-talaria-integration",
+  "userStories": [
+    {
+      "id": "US-103",
+      "title": "Basic SwiftData Book Model (Dummy Data)",
+      "description": "As a developer, I want to create a minimal Book @Model and save one dummy record so that I prove SwiftData persistence works.",
+      "passes": true,
+      "completionNotes": "Completed in Epic 1"
+    },
+    {
+      "id": "US-206",
+      "title": "Enhance Theme with Swiss Glass Components",
+      "description": "As a developer, I want to formalize the Swiss Glass design system so that all camera UI uses consistent styling.",
+      "passes": true,
+      "completionNotes": "Completed in Epic 2"
+    },
+    {
+      "id": "US-301",
+      "title": "Expand Book Schema (Full Metadata)",
+      "description": "As a developer, I want to extend the Book model with all metadata fields so that the library can display rich book information from Epic 4 AI results.",
+      "passes": true,
+      "completionNotes": "Completed in Epic 3"
+    },
+    {
+      "id": "US-401",
+      "title": "NetworkActor Foundation (HTTP Client)",
+      "description": "As a developer, I want to create a NetworkActor for thread-safe HTTP operations so that all Talaria API calls are isolated from data races.",
+      "acceptanceCriteria": [
+        "Create NetworkActor with isolated URLSession instance",
+        "Add deviceId property (from Keychain, persisted from Epic 1)",
+        "Implement func uploadImage(_:) async throws -> UploadResponse",
+        "UploadResponse struct contains: jobId (String), streamUrl (URL)",
+        "Add proper error types: NetworkError enum (noConnection, timeout, serverError, invalidResponse)",
+        "URLSession configured with 30s timeout, custom User-Agent header",
+        "All network calls are nonisolated(unsafe) where needed for URLSession APIs",
+        "Unit test: Mock upload request with stubbed JSON response"
+      ],
+      "priority": 1,
+      "estimate": "4 hours",
+      "passes": true,
+      "notes": "Foundation for all Talaria integration. Must complete before SSE work.",
+      "dependsOn": [
+        "US-103"
+      ],
+      "technicalNotes": [
+        "Actor pattern prevents data races on URLSession shared state",
+        "Use URLSession.shared or custom configuration with .ephemeral for no disk caching",
+        "Device ID should be retrieved from Keychain (stored in Epic 1 US-102)",
+        "User-Agent format: 'SwiftWing/1.0 iOS/26.0 (iPhone15,2)'",
+        "Error handling: Map URLError to NetworkError with localized descriptions",
+        "Example: actor NetworkActor { nonisolated let urlSession: URLSession; func uploadImage(...) async throws -> UploadResponse { ... } }",
+        "Response parsing: Use JSONDecoder with snake_case key strategy if needed"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test NetworkActor initialization",
+          "Test uploadImage with mock URLSession (success case)",
+          "Test uploadImage with network timeout",
+          "Test error mapping (URLError -> NetworkError)",
+          "Test deviceId retrieval from Keychain"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-402",
+      "title": "Multipart Image Upload to Talaria",
+      "description": "As a developer, I want to upload JPEG images as multipart/form-data to Talaria so that I can create scan jobs and receive streamUrl.",
+      "acceptanceCriteria": [
+        "Implement multipart form-data encoding for JPEG uploads",
+        "POST to /v3/jobs/scans with fields: deviceId, image (JPEG data)",
+        "Include Content-Type: multipart/form-data; boundary=<UUID>",
+        "Handle 202 Accepted response with jobId + streamUrl",
+        "Handle 429 Too Many Requests (rate limit) with retry-after header",
+        "Handle 5xx server errors with exponential backoff (1s, 2s, 4s max 3 retries)",
+        "Return UploadResponse or throw NetworkError",
+        "Test with real JPEG from FileManager.default.temporaryDirectory"
+      ],
+      "priority": 2,
+      "estimate": "5 hours",
+      "passes": true,
+      "notes": "Core upload logic. SSE depends on getting valid streamUrl.",
+      "dependsOn": [
+        "US-401"
+      ],
+      "technicalNotes": [
+        "Multipart encoding: Generate boundary UUID, build body with --boundary headers",
+        "Body format: --boundary\\r\\nContent-Disposition: form-data; name=\"deviceId\"\\r\\n\\r\\n{deviceId}\\r\\n--boundary\\r\\nContent-Disposition: form-data; name=\"image\"; filename=\"spine.jpg\"\\r\\nContent-Type: image/jpeg\\r\\n\\r\\n{imageData}\\r\\n--boundary--",
+        "Use Data(contentsOf: imageURL) to read JPEG from temp files (from Epic 2)",
+        "Talaria endpoint: https://api.oooefam.net/v3/jobs/scans",
+        "Handle 429: Extract Retry-After header (seconds), wait before retry",
+        "Exponential backoff: Use Task.sleep(for: .seconds(delay))",
+        "Response 202 Accepted: { \"jobId\": \"abc123\", \"token\": \"auth-token\" } - NOTE: streamUrl is /v3/jobs/scans/{jobId}/stream",
+        "Important: Token must be sent as Authorization: Bearer {token} for SSE stream"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test multipart body encoding (correct format)",
+          "Test upload with mock 202 response",
+          "Test 429 rate limit handling (respects Retry-After)",
+          "Test 5xx error with retry logic",
+          "Test maximum retry attempts (stops after 3)"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-403",
+      "title": "Server-Sent Events (SSE) Listener",
+      "description": "As a developer, I want to connect to SSE streams and parse events so that I can receive real-time progress from Talaria.",
+      "acceptanceCriteria": [
+        "Implement func streamEvents(from:) -> AsyncThrowingStream<SSEEvent, Error>",
+        "Connect to streamUrl via URLSession.bytes(from:)",
+        "Parse SSE format: lines starting with 'event:', 'data:', or blank (delimiter)",
+        "SSEEvent enum cases: progress(String), result(BookMetadata), complete, error(String)",
+        "Handle connection timeouts (5 minute max per stream)",
+        "Handle stream interruptions (reconnect with exponential backoff)",
+        "Close stream on 'complete' or 'error' events",
+        "Unit test: Mock SSE stream with AsyncStream"
+      ],
+      "priority": 3,
+      "estimate": "6 hours",
+      "passes": true,
+      "notes": "Complex async stream parsing. Critical for real-time UX.",
+      "dependsOn": [
+        "US-402"
+      ],
+      "technicalNotes": [
+        "SSE format: event: progress\\ndata: {\"message\":\"Looking...\"}\\n\\n",
+        "Use URLSession.bytes(from: streamUrl) -> (AsyncBytes, URLResponse)",
+        "Parse line-by-line: for try await line in bytes.lines { ... }",
+        "State machine: Track current event type, accumulate data lines, yield on blank line",
+        "AsyncThrowingStream: Use continuation to yield parsed SSEEvents",
+        "Timeout: Use Task.withTimeout (custom extension) or Task cancellation after 5 minutes",
+        "Reconnect logic: If stream drops, wait 2s, 4s, 8s (max 3 attempts) before giving up",
+        "Example event types: event: progress → data: {\"message\":\"Reading...\"}; event: result → data: {\"isbn\":\"123\", \"title\":\"...\"}"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test SSE parsing (progress event)",
+          "Test SSE parsing (result event with full metadata)",
+          "Test SSE parsing (complete event)",
+          "Test SSE parsing (error event)",
+          "Test stream timeout (5 minute limit)",
+          "Test reconnect logic on stream interruption"
+        ],
+        "required": true,
+        "estimatedTests": 6
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-404",
+      "title": "Progress Event Visualization (Processing Queue)",
+      "description": "As a user, I want to see real-time progress messages on thumbnails so that I know the AI is working on my scans.",
+      "acceptanceCriteria": [
+        "Update ProcessingItem model to include progressMessage (String?)",
+        "Consume SSE progress events and update corresponding ProcessingItem",
+        "Display progress text overlay on thumbnails (e.g., 'Looking...', 'Reading...', 'Enriching...')",
+        "Text appears in white, semi-transparent black background",
+        "Progress messages update smoothly without flickering",
+        "Thumbnail border color: Yellow (uploading) → Blue (analyzing) → Green (done) → Red (error)",
+        "Remove thumbnail from queue 5 seconds after completion or error"
+      ],
+      "priority": 4,
+      "estimate": "4 hours",
+      "passes": true,
+      "notes": "Visual feedback for users. Makes AI processing feel transparent.",
+      "dependsOn": [
+        "US-403",
+        "US-206"
+      ],
+      "technicalNotes": [
+        "ProcessingItem: Add var progressMessage: String? = nil",
+        "CameraViewModel: Track active SSE streams by jobId, update ProcessingItem on progress events",
+        "UI overlay: ZStack { thumbnail; if let message = item.progressMessage { Text(message).font(.caption2).padding(4).background(.black.opacity(0.7)).foregroundColor(.white) } }",
+        "Border states: Uploading (.yellow) → Processing (.blue) → Done (.green) → Error (.red)",
+        "Auto-remove: DispatchQueue.main.asyncAfter(deadline: .now() + 5) { removeFromQueue(item) }",
+        "Animation: .animation(.easeInOut(duration: 0.2), value: progressMessage)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test ProcessingItem progress update",
+          "Test border color changes based on state",
+          "Test auto-removal after 5 seconds",
+          "Test progress text overlay rendering (manual UI test)"
+        ],
+        "required": false,
+        "estimatedTests": 3
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-405",
+      "title": "Result Event Handling (SwiftData Upsert)",
+      "description": "As a developer, I want to parse result events and save books to SwiftData so that scanned books appear in the library.",
+      "acceptanceCriteria": [
+        "Parse SSE result event data into BookMetadata struct",
+        "BookMetadata: isbn, title, author, coverUrl, format, publisher, publishedDate, pageCount, spineConfidence",
+        "Check if book with same ISBN exists in SwiftData (duplicate detection)",
+        "If exists: Show duplicate alert (defer UI to Epic 3 logic)",
+        "If new: Insert Book into modelContext with all metadata",
+        "Set addedDate to Date(), rawJSON to SSE data string",
+        "Handle missing fields gracefully (optional properties)",
+        "Trigger haptic success feedback (.success) on successful insert"
+      ],
+      "priority": 5,
+      "estimate": "5 hours",
+      "passes": true,
+      "notes": "Connects AI results to data layer. Critical for library population.",
+      "dependsOn": [
+        "US-403",
+        "US-301"
+      ],
+      "technicalNotes": [
+        "BookMetadata struct: Codable, maps to Book @Model properties",
+        "Duplicate check: let descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.isbn == metadata.isbn }); let existing = try? modelContext.fetch(descriptor).first",
+        "Insert: let book = Book(isbn: metadata.isbn, title: metadata.title, ...); modelContext.insert(book); try? modelContext.save()",
+        "Optional handling: Use nil coalescing for missing fields (e.g., format, publisher)",
+        "Haptic: UIImpactFeedbackGenerator(style: .medium).impactOccurred() or .sensoryFeedback(.success)",
+        "rawJSON: Store full SSE data string for debugging (Epic 3 US-301 schema)",
+        "Error handling: If SwiftData save fails, log error but don't crash"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test BookMetadata parsing from SSE JSON",
+          "Test duplicate detection (same ISBN)",
+          "Test new book insertion to SwiftData",
+          "Test optional field handling (missing publisher)",
+          "Test haptic feedback trigger (integration test)"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-406",
+      "title": "Complete Event & Resource Cleanup",
+      "description": "As a developer, I want to handle 'complete' SSE events and cleanup resources so that jobs don't leak memory or server resources.",
+      "acceptanceCriteria": [
+        "Handle SSE 'complete' event by closing stream",
+        "Send DELETE /v3/jobs/scans/{jobId}/cleanup to Talaria",
+        "Delete temporary JPEG file from FileManager (from Epic 2)",
+        "Update ProcessingItem state to 'done' (green border)",
+        "Remove ProcessingItem from queue after 5 seconds",
+        "Cancel any active SSE streams on app backgrounding",
+        "Log cleanup success/failure (non-blocking)",
+        "Test: Verify temp files and memory are released"
+      ],
+      "priority": 6,
+      "estimate": "4 hours",
+      "passes": true,
+      "notes": "Resource management. Prevent memory leaks and server bloat.",
+      "dependsOn": [
+        "US-405"
+      ],
+      "technicalNotes": [
+        "On 'complete' event: Close AsyncThrowingStream continuation, send DELETE request",
+        "DELETE endpoint: https://api.talaria.example/v3/jobs/scans/{jobId}/cleanup",
+        "Temp file cleanup: try? FileManager.default.removeItem(at: tempImageURL)",
+        "App backgrounding: Use NotificationCenter.default.addObserver for UIApplication.didEnterBackgroundNotification, cancel all active SSE tasks",
+        "Memory management: Ensure NetworkActor doesn't retain strong references to streams",
+        "Logging: Use os_log or NSLog for cleanup events (non-fatal)",
+        "ProcessingItem removal: Same as US-404, auto-remove after 5s"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test DELETE cleanup request sent",
+          "Test temp file deletion",
+          "Test stream closure on complete event",
+          "Test stream cancellation on app backgrounding",
+          "Test ProcessingItem removal from queue"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-407",
+      "title": "Error Event Handling (User-Facing Feedback)",
+      "description": "As a user, I want to see clear error messages when scans fail so that I know what went wrong and can retry.",
+      "acceptanceCriteria": [
+        "Handle SSE 'error' event by parsing error message",
+        "Display error overlay on thumbnail (red border, error icon)",
+        "Show retry button on failed thumbnails",
+        "Retry button re-uploads image and opens new SSE stream",
+        "Handle common errors: 'No text found', 'Book not recognized', 'Server error'",
+        "Trigger haptic error feedback (.error) on failure",
+        "Log errors for debugging (include jobId, error message)",
+        "Test: Simulate SSE error event and verify UI updates"
+      ],
+      "priority": 7,
+      "estimate": "4 hours",
+      "passes": true,
+      "notes": "User-facing error handling. Essential for production quality.",
+      "dependsOn": [
+        "US-404"
+      ],
+      "technicalNotes": [
+        "Error event parsing: event: error\\ndata: {\"message\":\"No text found on spine\"}",
+        "UI: Show SF Symbol 'exclamationmark.triangle.fill' on thumbnail, red border",
+        "Retry button: Small overlay button on thumbnail, tapping re-invokes upload + SSE flow",
+        "ProcessingItem: Add var errorMessage: String? = nil, var canRetry: Bool = true",
+        "Haptic: UINotificationFeedbackGenerator().notificationOccurred(.error)",
+        "Common errors: Map to user-friendly messages (e.g., 'Could not read spine. Try better lighting.')",
+        "Logging: NSLog(\"[SwiftWing] Scan failed: jobId=\\(jobId), error=\\(errorMessage)\")"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test error event parsing",
+          "Test error UI rendering (red border, icon)",
+          "Test retry button triggers re-upload",
+          "Test haptic error feedback",
+          "Test error message display"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-408",
+      "title": "Rate Limit Handling (429 Too Many Requests)",
+      "description": "As a user, I want to be notified when I hit rate limits so that I understand why scanning is paused.",
+      "acceptanceCriteria": [
+        "Detect 429 response from Talaria upload endpoint",
+        "Parse Retry-After header (seconds until rate limit resets)",
+        "Display rate limit overlay: 'Rate limit reached. Try again in [countdown].'",
+        "Disable shutter button during rate limit cooldown",
+        "Show countdown timer in overlay (updates every second)",
+        "Automatically re-enable shutter when cooldown expires",
+        "Queue pending scans locally (don't lose images)",
+        "Test: Mock 429 response with Retry-After: 60"
+      ],
+      "priority": 8,
+      "estimate": "5 hours",
+      "passes": false,
+      "notes": "Prevents user frustration. Talaria enforces daily limits.",
+      "dependsOn": [
+        "US-402"
+      ],
+      "technicalNotes": [
+        "429 handling: Check httpResponse.statusCode == 429, extract Retry-After header",
+        "Retry-After format: Integer seconds (e.g., '60' = 1 minute)",
+        "UI overlay: ZStack on CameraView, semi-transparent black, centered text + countdown",
+        "Countdown: @State var rateLimitSecondsRemaining = 0, Timer.publish(every: 1, on: .main, in: .common).autoconnect()",
+        "Shutter disable: Add @State var isRateLimited = false, disable Button when true",
+        "Local queue: Store pending scans in @State var pendingUploads: [URL] = []",
+        "Auto-retry: When countdown reaches 0, upload all pendingUploads sequentially"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test 429 detection and Retry-After parsing",
+          "Test rate limit overlay appears",
+          "Test shutter button disabled during cooldown",
+          "Test countdown timer updates",
+          "Test pending scans queue locally",
+          "Test auto-retry when cooldown expires"
+        ],
+        "required": true,
+        "estimatedTests": 6
+      }
+    },
+    {
+      "id": "US-409",
+      "title": "Offline Queue (Scan Without Network)",
+      "description": "As a user, I want to scan books while offline so that I can catalog books anywhere and sync later.",
+      "acceptanceCriteria": [
+        "Detect network unavailability with NWPathMonitor",
+        "Display 'OFFLINE' indicator in top-right of CameraView",
+        "Allow shutter button to work offline (queue scans locally)",
+        "Store offline scans in FileManager with metadata JSON",
+        "Show gray border on offline thumbnails (pending upload)",
+        "When network returns, auto-upload queued scans sequentially",
+        "Show upload progress on queued thumbnails",
+        "Test: Toggle airplane mode, scan, verify queue persists"
+      ],
+      "priority": 9,
+      "estimate": "6 hours",
+      "passes": false,
+      "notes": "Offline-first design. Critical for user flexibility.",
+      "dependsOn": [
+        "US-402"
+      ],
+      "technicalNotes": [
+        "NWPathMonitor: Import Network, monitor.pathUpdateHandler = { path in isOnline = (path.status == .satisfied) }",
+        "Offline indicator: Text('OFFLINE').font(.caption).padding(4).background(.red).foregroundColor(.white).clipShape(Capsule())",
+        "Local storage: Save JPEG + JSON to FileManager.default.applicationSupportDirectory/pending_scans/",
+        "JSON metadata: {\"captureDate\":\"...\",\"imagePath\":\"...\",\"retryCount\":0}",
+        "ProcessingItem: Add var isOffline: Bool = false, render with gray border",
+        "Auto-upload: On network restoration, load all JSON from pending_scans/, upload each",
+        "Sequential upload: Use for loop with await to avoid overwhelming server"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test NWPathMonitor detects offline state",
+          "Test offline indicator appears",
+          "Test shutter works offline (queue created)",
+          "Test offline scans persist to disk",
+          "Test auto-upload on network restoration",
+          "Test upload progress UI updates"
+        ],
+        "required": true,
+        "estimatedTests": 6
+      }
+    },
+    {
+      "id": "US-410",
+      "title": "Performance Optimization (Concurrent SSE Streams)",
+      "description": "As a developer, I want to ensure multiple concurrent SSE streams don't degrade performance so that bulk scanning remains smooth.",
+      "acceptanceCriteria": [
+        "Limit max concurrent SSE streams to 5 (configurable)",
+        "Queue additional scans if 5 streams already active",
+        "Monitor memory usage with Instruments (< 100 MB with 10 active streams)",
+        "Ensure UI remains responsive at 60 FPS during bulk scanning",
+        "Profile with 20+ rapid scans in < 30 seconds",
+        "Add performance logging: 'Upload took [X]ms, SSE stream lasted [Y]s'",
+        "Document findings in code comments or findings.md"
+      ],
+      "priority": 10,
+      "estimate": "5 hours",
+      "passes": false,
+      "notes": "Performance validation. Users will scan 10+ books rapidly.",
+      "dependsOn": [
+        "US-403"
+      ],
+      "technicalNotes": [
+        "Concurrency limit: @State var activeStreamCount = 0, check before starting new stream",
+        "Queue: @State var pendingStreams: [UploadResponse] = [], start stream when slot opens",
+        "Memory profiling: Xcode → Product → Profile → Allocations + Leaks",
+        "FPS monitoring: Use Instruments Core Animation tool, target 60 FPS",
+        "Performance logging: let start = CFAbsoluteTimeGetCurrent(); ...; let duration = CFAbsoluteTimeGetCurrent() - start; print('Duration: \\(duration)s')",
+        "AsyncStream cleanup: Ensure continuations are finished and streams are deinit'd",
+        "Test scenario: Scan 20 books in 30s, monitor memory + CPU in Instruments"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test max 5 concurrent streams enforced",
+          "Test queuing when limit reached",
+          "Performance test: 20 scans in 30s (Instruments only)"
+        ],
+        "required": false,
+        "estimatedTests": 2
+      }
+    },
+    {
+      "id": "US-411",
+      "title": "Integration Testing (End-to-End Flow)",
+      "description": "As a developer, I want to test the complete scan-to-library flow so that I know Epic 4 works as designed.",
+      "acceptanceCriteria": [
+        "Create mock Talaria server or use test endpoint",
+        "Scenario 1: Scan → Upload → SSE progress → Result → Book in library",
+        "Scenario 2: Scan → Upload → SSE error → Retry → Success",
+        "Scenario 3: Scan while offline → Network returns → Auto-upload → Success",
+        "Scenario 4: 10 rapid scans → All complete within 2 minutes",
+        "Verify SwiftData contains correct book metadata after each scenario",
+        "Verify temp files are cleaned up after each scenario",
+        "Document test results in test coverage summary"
+      ],
+      "priority": 11,
+      "estimate": "6 hours",
+      "passes": false,
+      "notes": "Comprehensive validation. Ensures all components integrate correctly.",
+      "dependsOn": [
+        "US-401",
+        "US-402",
+        "US-403",
+        "US-405",
+        "US-406",
+        "US-407",
+        "US-409"
+      ],
+      "technicalNotes": [
+        "Mock server: Use URLProtocol subclass or local HTTP server (Swifter library)",
+        "SSE mock: Return event: progress\\ndata: ...\\n\\nevent: result\\ndata: ...\\n\\nevent: complete\\n\\n",
+        "Scenario testing: Use XCTestCase with async/await, verify modelContext.fetch(FetchDescriptor<Book>())",
+        "Temp file check: assert(FileManager.default.fileExists(at: tempURL) == false)",
+        "Timing: Use XCTestExpectation with timeout for async flows",
+        "Integration tests: Place in SwiftWingTests/Integration/ folder",
+        "Test data: Use realistic book metadata (ISBN: 9780451524935, Title: '1984', Author: 'George Orwell')"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Integration test: Happy path (scan to library)",
+          "Integration test: Error handling (SSE error + retry)",
+          "Integration test: Offline queue + auto-upload",
+          "Integration test: Bulk scanning (10 scans)",
+          "Integration test: Resource cleanup verification"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      }
+    }
+  ],
+  "metadata": {
+    "created": "2026-01-23",
+    "epic_number": 4,
+    "total_epics": 6,
+    "estimated_duration": "2-3 weeks (solo dev, part-time)",
+    "dependencies": "Epic 1 (US-103 SwiftData), Epic 2 (US-206 Processing Queue), Epic 3 (US-301 Book schema)",
+    "ralph_tui_notes": "This epic has 11 user stories covering full Talaria integration: HTTP client, multipart upload, SSE streaming, real-time UI updates, error handling, rate limits, offline queue, and performance optimization. Prioritize US-401 through US-407 for MVP. US-408 through US-411 are production-quality enhancements.",
+    "architecture_notes": {
+      "actors": "NetworkActor isolates all HTTP and SSE operations to prevent data races",
+      "async_streams": "SSE streams use AsyncThrowingStream for native Swift concurrency",
+      "error_handling": "Comprehensive error types with user-facing messages and retry logic",
+      "performance": "Max 5 concurrent SSE streams, < 100 MB memory, 60 FPS UI target",
+      "offline_first": "NWPathMonitor detects connectivity, local queue persists scans"
+    },
+    "talaria_endpoints": {
+      "base_url": "https://api.oooefam.net",
+      "upload": "POST /v3/jobs/scans (multipart/form-data: deviceId, image)",
+      "stream": "GET /v3/jobs/scans/:jobId/stream (Server-Sent Events)",
+      "status": "GET /v3/jobs/scans/:jobId (polling fallback)",
+      "results": "GET /v3/jobs/scans/:jobId/results (?format=lite for App Clip)",
+      "cleanup": "DELETE /v3/jobs/scans/:jobId/cleanup (no-op, R2 auto-cleanup)",
+      "cancel": "DELETE /v3/jobs/scans/:jobId (cancel scan + R2 cleanup)"
+    },
+    "sse_events": {
+      "progress": "event: progress, data: {\"jobId\":\"...\",\"status\":\"processing\",\"message\":\"Analyzing spines...\",\"progress\":50,\"processedCount\":5,\"totalCount\":10,\"timestamp\":\"2026-01-23T20:00:00Z\"}",
+      "completed": "event: completed, data: {\"jobId\":\"...\",\"status\":\"completed\",\"books\":[{\"isbn\":\"...\",\"title\":\"...\",\"author\":\"...\",\"coverUrl\":\"...\",\"format\":\"Hardcover\",\"publisher\":\"...\",\"publishedDate\":\"...\",\"pageCount\":300,\"confidence\":0.95}],\"completedAt\":\"2026-01-23T20:01:00Z\",\"timestamp\":\"2026-01-23T20:01:00Z\"}",
+      "failed": "event: failed, data: {\"jobId\":\"...\",\"status\":\"failed\",\"error\":{\"code\":\"GEMINI_ERROR\",\"message\":\"No text found on spine\",\"retryable\":true},\"timestamp\":\"2026-01-23T20:00:30Z\"}",
+      "canceled": "event: canceled, data: {\"jobId\":\"...\",\"status\":\"canceled\",\"cancelReason\":\"Client request\",\"timestamp\":\"2026-01-23T20:00:15Z\"}"
+    },
+    "test_coverage_strategy": {
+      "unit_tests_required": 9,
+      "total_estimated_tests": 58,
+      "integration_tests": 5,
+      "performance_tests": 2,
+      "coverage_target": "80% (focus on NetworkActor, SSE parsing, error handling, offline queue)"
+    },
+    "critical_paths": [
+      "US-401 → US-402 → US-403 → US-405 (Core upload + SSE + result handling)",
+      "US-404 + US-407 (User-facing feedback: progress + errors)",
+      "US-409 (Offline-first capability)",
+      "US-408 (Rate limit handling for production)"
+    ],
+    "skip_if_behind_schedule": [
+      "US-410 (Performance optimization - test in production)",
+      "US-411 (Integration testing - manual testing may suffice)"
+    ],
+    "demo_scenario": "Scan book spine → See 'Looking...' → See 'Reading...' → Book appears in library with full metadata + cover. Total time: < 10 seconds per scan.",
+    "updatedAt": "2026-01-23T17:52:50.952Z"
+  }
+}
