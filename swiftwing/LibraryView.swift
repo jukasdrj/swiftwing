@@ -42,6 +42,9 @@ struct LibraryView: View {
     @State private var selectedBook: Book?
     @State private var bookToDelete: Book?
     @State private var showDeleteConfirmation = false
+    @State private var showExportSheet = false
+    @State private var exportFileURL: URL?
+    @State private var showEmptyLibraryAlert = false
     @AppStorage("library_sort_option") private var sortOptionRaw: String = LibrarySortOption.newestFirst.rawValue
 
     private var sortOption: LibrarySortOption {
@@ -92,6 +95,16 @@ struct LibraryView: View {
             .searchable(text: $searchText, prompt: "Search title or author")
             .accessibilityLabel("Search books by title or author")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        exportLibrary()
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundColor(.swissText)
+                            .accessibilityLabel("Export library to CSV")
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         ForEach(LibrarySortOption.allCases, id: \.self) { option in
@@ -122,6 +135,11 @@ struct LibraryView: View {
             BookDetailSheet(book: book)
                 .presentationDetents([.medium])
         }
+        .sheet(isPresented: $showExportSheet) {
+            if let fileURL = exportFileURL {
+                ActivityViewController(activityItems: [fileURL])
+            }
+        }
         .alert("Delete \"\(bookToDelete?.title ?? "this book")\"?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) {
                 bookToDelete = nil
@@ -133,6 +151,11 @@ struct LibraryView: View {
             }
         } message: {
             Text("This cannot be undone.")
+        }
+        .alert("No books to export", isPresented: $showEmptyLibraryAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your library is empty. Scan some books first!")
         }
     }
 
@@ -307,6 +330,28 @@ struct LibraryView: View {
             try? modelContext.save()
         }
         bookToDelete = nil
+    }
+
+    /// US-318: Export library to CSV
+    private func exportLibrary() {
+        // Check if library is empty
+        guard !books.isEmpty else {
+            showEmptyLibraryAlert = true
+            return
+        }
+
+        // Generate CSV
+        let csv = LibraryExporter.generateCSV(from: books)
+        let filename = LibraryExporter.generateFilename()
+
+        // Save to temporary file
+        do {
+            let fileURL = try LibraryExporter.saveToTemporaryFile(csv: csv, filename: filename)
+            exportFileURL = fileURL
+            showExportSheet = true
+        } catch {
+            print("Failed to export library: \(error)")
+        }
     }
 
     #if DEBUG
@@ -820,6 +865,85 @@ struct StatCard: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
         .swissGlassCard()
+    }
+}
+
+// MARK: - Library Export Utilities (US-318)
+struct LibraryExporter {
+    /// Generate CSV content from an array of books
+    /// Headers: ISBN, Title, Author, Format, Publisher, Date Added, Notes
+    static func generateCSV(from books: [Book]) -> String {
+        var csv = "ISBN,Title,Author,Format,Publisher,Date Added,Notes\n"
+
+        for book in books {
+            let fields = [
+                escapeCSVField(book.isbn),
+                escapeCSVField(book.title),
+                escapeCSVField(book.author),
+                escapeCSVField(book.format ?? ""),
+                escapeCSVField(book.publisher ?? ""),
+                formatDate(book.addedDate),
+                escapeCSVField(book.notes ?? "")
+            ]
+
+            csv += fields.joined(separator: ",") + "\n"
+        }
+
+        return csv
+    }
+
+    /// Escape CSV field (wrap in quotes if contains comma, quote, or newline)
+    private static func escapeCSVField(_ field: String) -> String {
+        // Check if field needs escaping
+        if field.contains(",") || field.contains("\"") || field.contains("\n") || field.contains("\r") {
+            // Escape existing quotes by doubling them
+            let escapedField = field.replacingOccurrences(of: "\"", with: "\"\"")
+            return "\"\(escapedField)\""
+        }
+
+        return field
+    }
+
+    /// Format date as YYYY-MM-DD
+    private static func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    /// Generate filename with current date: "SwiftWing_Library_[YYYY-MM-DD].csv"
+    static func generateFilename() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let dateString = formatter.string(from: Date())
+        return "SwiftWing_Library_\(dateString).csv"
+    }
+
+    /// Save CSV to temporary file and return URL
+    static func saveToTemporaryFile(csv: String, filename: String) throws -> URL {
+        let tempDirectory = FileManager.default.temporaryDirectory
+        let fileURL = tempDirectory.appendingPathComponent(filename)
+
+        try csv.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        return fileURL
+    }
+}
+
+/// UIKit wrapper for UIActivityViewController (sharing sheet)
+struct ActivityViewController: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let applicationActivities: [UIActivity]? = nil
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: applicationActivities
+        )
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        // No updates needed
     }
 }
 

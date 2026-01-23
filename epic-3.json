@@ -592,7 +592,7 @@
       ],
       "priority": 16,
       "estimate": "2 hours",
-      "passes": false,
+      "passes": true,
       "notes": "Legal requirement for App Store. Easy with SwiftUI defaults.",
       "dependsOn": [
         "US-302"
@@ -609,7 +609,8 @@
         ],
         "required": false,
         "estimatedTests": 0
-      }
+      },
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-317",
@@ -625,7 +626,7 @@
       ],
       "priority": 17,
       "estimate": "2 hours",
-      "passes": false,
+      "passes": true,
       "notes": "Personal touch. Users love annotating their collections.",
       "dependsOn": [
         "US-305"
@@ -644,7 +645,8 @@
         ],
         "required": false,
         "estimatedTests": 3
-      }
+      },
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-318",
@@ -850,6 +852,6 @@
       "performance_tests": 1,
       "coverage_target": "70% (focus on critical paths: SwiftData operations, search, delete)"
     },
-    "updatedAt": "2026-01-23T02:32:39.594Z"
+    "updatedAt": "2026-01-23T02:38:33.668Z"
   }
 }
