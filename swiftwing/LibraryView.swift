@@ -323,27 +323,14 @@ struct BookGridCell: View {
         VStack(spacing: 8) {
             // Cover image with 100x150 aspect ratio
             ZStack(alignment: .topTrailing) {
-                AsyncImage(url: book.coverUrl) { phase in
-                    switch phase {
-                    case .empty:
-                        placeholderView
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    case .failure:
-                        placeholderView
-                    @unknown default:
-                        placeholderView
-                    }
-                }
-                .frame(height: 150)
-                .aspectRatio(2/3, contentMode: .fit)
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
-                )
+                AsyncImageWithLoading(url: book.coverUrl)
+                    .frame(height: 150)
+                    .aspectRatio(2/3, contentMode: .fit)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                    )
 
                 // Delete button overlay (swipe-action alternative for grid)
                 if let onDelete = onDelete {
@@ -365,16 +352,6 @@ struct BookGridCell: View {
                 .multilineTextAlignment(.center)
                 .frame(height: 32, alignment: .top)
         }
-    }
-
-    private var placeholderView: some View {
-        Rectangle()
-            .fill(Color.gray.opacity(0.3))
-            .overlay(
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(.gray.opacity(0.6))
-            )
     }
 }
 
@@ -410,26 +387,13 @@ struct BookDetailSheet: View {
             ScrollView {
                 HStack(alignment: .top, spacing: 24) {
                     // Left: Cover image (200x300)
-                    AsyncImage(url: book.coverUrl) { phase in
-                        switch phase {
-                        case .empty:
-                            placeholderCover
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        case .failure:
-                            placeholderCover
-                        @unknown default:
-                            placeholderCover
-                        }
-                    }
-                    .frame(width: 200, height: 300)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
-                    )
+                    AsyncImageWithLoading(url: book.coverUrl)
+                        .frame(width: 200, height: 300)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                        )
 
                     // Right: Metadata VStack
                     VStack(alignment: .leading, spacing: 16) {
@@ -553,16 +517,6 @@ struct BookDetailSheet: View {
                 }
             }
         }
-    }
-
-    private var placeholderCover: some View {
-        Rectangle()
-            .fill(Color.gray.opacity(0.3))
-            .overlay(
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 64))
-                    .foregroundColor(.gray.opacity(0.6))
-            )
     }
 
     private func confidenceColor(_ confidence: Double) -> Color {
