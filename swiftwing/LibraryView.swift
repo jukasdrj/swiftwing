@@ -6,6 +6,8 @@ struct LibraryView: View {
     @State private var searchText = ""
     @State private var isRefreshing = false
     @State private var selectedBook: Book?
+    @State private var bookToDelete: Book?
+    @State private var showDeleteConfirmation = false
 
     // Dynamic query based on search text
     private var filteredBooks: [Book] {
@@ -45,6 +47,18 @@ struct LibraryView: View {
             BookDetailSheet(book: book)
                 .presentationDetents([.medium])
         }
+        .alert("Delete \"\(bookToDelete?.title ?? "this book")\"?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                bookToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let book = bookToDelete {
+                    deleteBook(book)
+                }
+            }
+        } message: {
+            Text("This cannot be undone.")
+        }
     }
 
     // MARK: - Library Grid
@@ -52,11 +66,23 @@ struct LibraryView: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 20) {
                 ForEach(filteredBooks, id: \.id) { book in
-                    BookGridCell(book: book)
-                        .transition(.scale.combined(with: .opacity))
-                        .onTapGesture {
-                            selectedBook = book
+                    BookGridCell(book: book) {
+                        // Delete button handler (swipe-action alternative for grid)
+                        bookToDelete = book
+                        showDeleteConfirmation = true
+                    }
+                    .transition(.asymmetric(insertion: .scale, removal: .opacity))
+                    .onTapGesture {
+                        selectedBook = book
+                    }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            bookToDelete = book
+                            showDeleteConfirmation = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
                         }
+                    }
                 }
             }
             .padding()
@@ -122,6 +148,14 @@ struct LibraryView: View {
         isRefreshing = false
     }
 
+    private func deleteBook(_ book: Book) {
+        withAnimation(.spring(duration: 0.2)) {
+            modelContext.delete(book)
+            try? modelContext.save()
+        }
+        bookToDelete = nil
+    }
+
     #if DEBUG
     private func seedLibrary() {
         DataSeeder.seedLibrary(context: modelContext)
@@ -177,31 +211,45 @@ struct LibraryView: View {
 // MARK: - Book Grid Cell
 struct BookGridCell: View {
     let book: Book
+    var onDelete: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 8) {
             // Cover image with 100x150 aspect ratio
-            AsyncImage(url: book.coverUrl) { phase in
-                switch phase {
-                case .empty:
-                    placeholderView
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                case .failure:
-                    placeholderView
-                @unknown default:
-                    placeholderView
+            ZStack(alignment: .topTrailing) {
+                AsyncImage(url: book.coverUrl) { phase in
+                    switch phase {
+                    case .empty:
+                        placeholderView
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure:
+                        placeholderView
+                    @unknown default:
+                        placeholderView
+                    }
+                }
+                .frame(height: 150)
+                .aspectRatio(2/3, contentMode: .fit)
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                )
+
+                // Delete button overlay (swipe-action alternative for grid)
+                if let onDelete = onDelete {
+                    Button(action: onDelete) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.white, .red)
+                            .shadow(radius: 2)
+                    }
+                    .padding(4)
                 }
             }
-            .frame(height: 150)
-            .aspectRatio(2/3, contentMode: .fit)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
-            )
 
             // Title (2 lines max, truncated)
             Text(book.title)
