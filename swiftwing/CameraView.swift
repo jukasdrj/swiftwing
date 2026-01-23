@@ -246,7 +246,7 @@ struct CameraView: View {
     }
 
     /// Processes the captured image (runs in parallel)
-    /// Performance target: < 500ms
+    /// Performance target: < 500ms for image processing, then SSE streaming for AI enrichment
     private func processCapture() async {
         let startTime = CFAbsoluteTimeGetCurrent()
         var queueItem: ProcessingItem?
@@ -256,8 +256,10 @@ struct CameraView: View {
             let imageData = try await cameraManager.capturePhoto()
             print("📸 Image captured (\(imageData.count) bytes)")
 
-            // Add to processing queue immediately with thumbnail
+            // Add to processing queue immediately with thumbnail (uploading state)
             queueItem = addToQueue(imageData: imageData)
+
+            guard let item = queueItem else { return }
 
             // Process image: resize + compress + save
             // This runs off main thread via Task.detached
@@ -271,26 +273,71 @@ struct CameraView: View {
                 print("⚠️ WARNING: Image processing exceeded 0.5s target!")
             }
 
-            // Update to done state
-            if let item = queueItem {
-                updateQueueItemState(id: item.id, state: .done)
+            // Upload to Talaria API
+            let networkActor = NetworkActor()
 
-                // Auto-remove after 5 seconds
-                await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+            // Read processed image data for upload
+            let uploadData = try Data(contentsOf: fileURL)
+
+            // Update progress: uploading
+            updateQueueItemProgress(id: item.id, message: "Uploading...")
+
+            let uploadResponse = try await networkActor.uploadImage(uploadData)
+            print("📤 Image uploaded, jobId: \(uploadResponse.jobId)")
+
+            // Switch to analyzing state
+            updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
+
+            // Stream SSE events from Talaria
+            let eventStream = await networkActor.streamEvents(from: uploadResponse.streamUrl)
+
+            for try await event in eventStream {
+                switch event {
+                case .progress(let message):
+                    // Update progress message (e.g., "Looking...", "Reading...", "Enriching...")
+                    print("📡 SSE Progress: \(message)")
+                    updateQueueItemProgress(id: item.id, message: message)
+
+                case .result(let bookMetadata):
+                    // Book metadata received - add to library
+                    print("📚 Book identified: \(bookMetadata.title) by \(bookMetadata.author)")
+                    handleBookResult(
+                        title: bookMetadata.title,
+                        author: bookMetadata.author,
+                        isbn: bookMetadata.isbn ?? "Unknown"
+                    )
+
+                case .complete:
+                    // Job completed successfully
+                    print("✅ SSE stream completed")
+                    updateQueueItem(id: item.id, state: .done, message: nil)
+
+                    // Auto-remove after 5 seconds
+                    await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+
+                case .error(let errorMessage):
+                    // AI processing failed
+                    print("❌ SSE error: \(errorMessage)")
+                    updateQueueItem(id: item.id, state: .error, message: nil)
+                    await showProcessingErrorOverlay(errorMessage)
+
+                    // Remove failed item after 5 seconds
+                    await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+                }
             }
 
         } catch {
-            print("❌ Image processing failed: \(error)")
+            print("❌ Image processing/upload failed: \(error)")
 
             // Show user-visible error overlay
             await showProcessingErrorOverlay(error.localizedDescription)
 
             // Update queue item to error state if it was created
             if let item = queueItem {
-                updateQueueItemState(id: item.id, state: .error)
+                updateQueueItem(id: item.id, state: .error, message: nil)
 
-                // Remove failed item after 3 seconds
-                await removeQueueItemAfterDelay(id: item.id, delay: 3.0)
+                // Remove failed item after 5 seconds
+                await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
             }
         }
     }
@@ -298,7 +345,7 @@ struct CameraView: View {
     /// Adds item to processing queue and returns the item
     @MainActor
     private func addToQueue(imageData: Data) -> ProcessingItem {
-        let item = ProcessingItem(imageData: imageData, state: .processing)
+        let item = ProcessingItem(imageData: imageData, state: .uploading)
         withAnimation(.swissSpring) {
             processingQueue.append(item)
         }
@@ -311,6 +358,27 @@ struct CameraView: View {
         if let index = processingQueue.firstIndex(where: { $0.id == id }) {
             withAnimation(.swissSpring) {
                 processingQueue[index].state = state
+            }
+        }
+    }
+
+    /// Updates queue item progress message
+    @MainActor
+    private func updateQueueItemProgress(id: UUID, message: String?) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].progressMessage = message
+            }
+        }
+    }
+
+    /// Updates both state and progress message atomically
+    @MainActor
+    private func updateQueueItem(id: UUID, state: ProcessingItem.ProcessingState, message: String?) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].state = state
+                processingQueue[index].progressMessage = message
             }
         }
     }

@@ -9,12 +9,14 @@ struct ProcessingItem: Identifiable, Equatable {
     let thumbnailData: Data  // Pre-processed 40x60px thumbnail for performance
     let captureDate: Date
     var state: ProcessingState
+    var progressMessage: String?  // Real-time progress text from SSE (e.g., "Looking...", "Reading...")
 
-    init(imageData: Data, state: ProcessingState = .processing) {
+    init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil) {
         self.id = UUID()
         self.thumbnailData = Self.generateThumbnail(from: imageData)
         self.captureDate = Date()
         self.state = state
+        self.progressMessage = progressMessage
     }
 
     /// Generates optimized 40x60px thumbnail from full image data
@@ -50,21 +52,21 @@ struct ProcessingItem: Identifiable, Equatable {
     }
 
     enum ProcessingState: Equatable {
-        case processing  // Yellow border
-        case uploading   // Blue border (placeholder for Epic 4)
-        case done        // Green border
-        case error       // Red border (processing failed)
+        case uploading   // Yellow border - uploading image to Talaria
+        case analyzing   // Blue border - AI is analyzing the book spine
+        case done        // Green border - successfully identified
+        case error       // Red border - processing failed
 
         var borderColor: Color {
             switch self {
-            case .processing:
-                return .swissProcessing
             case .uploading:
-                return .swissUploading
+                return .yellow
+            case .analyzing:
+                return .blue
             case .done:
-                return .swissDone
+                return .green
             case .error:
-                return .swissError
+                return .red
             }
         }
     }

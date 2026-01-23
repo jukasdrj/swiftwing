@@ -37,7 +37,7 @@ struct ProcessingQueueView: View {
 }
 
 /// Individual thumbnail in the processing queue
-/// 40x60px with state-based border color
+/// 40x60px with state-based border color and progress text overlay
 struct ProcessingThumbnailView: View {
     let item: ProcessingItem
 
@@ -58,6 +58,22 @@ struct ProcessingThumbnailView: View {
                     .cornerRadius(4)
             }
 
+            // Progress text overlay (if available)
+            if let progressMessage = item.progressMessage {
+                VStack {
+                    Spacer()
+                    Text(progressMessage)
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.black.opacity(0.7))
+                        .cornerRadius(2)
+                        .padding(.bottom, 2)
+                }
+                .frame(width: 40, height: 60)
+            }
+
             // State-based border
             RoundedRectangle(cornerRadius: 4)
                 .strokeBorder(item.state.borderColor, lineWidth: 2)
@@ -73,8 +89,8 @@ struct ProcessingThumbnailView: View {
         .pngData() ?? Data()
 
     let items = [
-        ProcessingItem(imageData: sampleData, state: .processing),
-        ProcessingItem(imageData: sampleData, state: .uploading),
+        ProcessingItem(imageData: sampleData, state: .uploading, progressMessage: "Uploading..."),
+        ProcessingItem(imageData: sampleData, state: .analyzing, progressMessage: "Looking..."),
         ProcessingItem(imageData: sampleData, state: .done)
     ]
 
