@@ -480,6 +480,8 @@ struct BookDetailSheet: View {
     @State private var editedPublisher: String
     @State private var editedPublishedDate: Date?
     @State private var editedPageCount: String
+    @State private var editedNotes: String
+    @State private var isNotesExpanded = false
 
     init(book: Book) {
         self.book = book
@@ -490,6 +492,7 @@ struct BookDetailSheet: View {
         _editedPublisher = State(initialValue: book.publisher ?? "")
         _editedPublishedDate = State(initialValue: book.publishedDate)
         _editedPageCount = State(initialValue: book.pageCount != nil ? String(book.pageCount!) : "")
+        _editedNotes = State(initialValue: book.notes ?? "")
     }
 
     var body: some View {
@@ -626,6 +629,54 @@ struct BookDetailSheet: View {
                     }
                 }
                 .padding(24)
+
+                // Personal Notes Section (Expandable)
+                VStack(alignment: .leading, spacing: 12) {
+                    Button {
+                        withAnimation(.swissSpring) {
+                            isNotesExpanded.toggle()
+                        }
+                    } label: {
+                        HStack {
+                            Text("Personal Notes")
+                                .font(.headline)
+                                .foregroundColor(.swissText)
+
+                            Spacer()
+
+                            Image(systemName: isNotesExpanded ? "chevron.up" : "chevron.down")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+
+                    if isNotesExpanded {
+                        TextEditor(text: $editedNotes)
+                            .frame(minHeight: 120)
+                            .padding(8)
+                            .background(Color.black.opacity(0.3))
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                            )
+                            .foregroundColor(.swissText)
+                            .font(.body)
+                            .scrollContentBackground(.hidden)
+                            .overlay(alignment: .topLeading) {
+                                if editedNotes.isEmpty {
+                                    Text("Add personal notes...")
+                                        .foregroundColor(.gray)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 16)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.vertical, 16)
             }
             .background(Color.swissBackground)
             .navigationTitle("Book Details")
@@ -660,6 +711,13 @@ struct BookDetailSheet: View {
                     }
                 }
             }
+            .onDisappear {
+                // Auto-save notes on sheet dismiss (even if not in edit mode)
+                if editedNotes != (book.notes ?? "") {
+                    book.notes = editedNotes.isEmpty ? nil : editedNotes
+                    try? modelContext.save()
+                }
+            }
         }
     }
 
@@ -680,6 +738,7 @@ struct BookDetailSheet: View {
         book.format = editedFormat.isEmpty ? nil : editedFormat
         book.publisher = editedPublisher.isEmpty ? nil : editedPublisher
         book.publishedDate = editedPublishedDate
+        book.notes = editedNotes.isEmpty ? nil : editedNotes
 
         if let pageCount = Int(editedPageCount) {
             book.pageCount = pageCount
@@ -700,6 +759,7 @@ struct BookDetailSheet: View {
         editedPublisher = book.publisher ?? ""
         editedPublishedDate = book.publishedDate
         editedPageCount = book.pageCount != nil ? String(book.pageCount!) : ""
+        editedNotes = book.notes ?? ""
         isEditing = false
     }
 }

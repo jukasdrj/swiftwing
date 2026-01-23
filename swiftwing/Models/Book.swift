@@ -34,6 +34,9 @@ final class Book {
     var dateRead: Date?
     var userRating: Int? // 1-5 stars
 
+    // Personal annotations
+    var notes: String?
+
     // Debug/raw data
     var rawJSON: String?
 
@@ -57,6 +60,7 @@ final class Book {
         readingStatus: String? = nil,
         dateRead: Date? = nil,
         userRating: Int? = nil,
+        notes: String? = nil,
         rawJSON: String? = nil
     ) {
         self.id = id
@@ -73,6 +77,7 @@ final class Book {
         self.readingStatus = readingStatus
         self.dateRead = dateRead
         self.userRating = userRating
+        self.notes = notes
         self.rawJSON = rawJSON
     }
 }
