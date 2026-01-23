@@ -18,10 +18,11 @@ struct CameraView: View {
     @State private var processingErrorMessage: String?
     @State private var showProcessingError = false
 
-    // US-311: Duplicate detection state
+    // US-405: Duplicate detection state with full metadata
     @State private var duplicateBook: Book?
     @State private var showDuplicateAlert = false
-    @State private var pendingBookData: (title: String, author: String, isbn: String)?
+    @State private var pendingBookMetadata: BookMetadata?
+    @State private var pendingRawJSON: String?
 
     var body: some View {
         ZStack {
@@ -140,7 +141,7 @@ struct CameraView: View {
                 .padding(.bottom, 40)
             }
 
-            // US-311: Duplicate book detection alert
+            // US-405: Duplicate book detection alert with full metadata
             if showDuplicateAlert, let duplicate = duplicateBook {
                 DuplicateBookAlert(
                     duplicateBook: duplicate,
@@ -148,21 +149,19 @@ struct CameraView: View {
                         withAnimation(.swissSpring) {
                             showDuplicateAlert = false
                             duplicateBook = nil
-                            pendingBookData = nil
+                            pendingBookMetadata = nil
+                            pendingRawJSON = nil
                         }
                     },
                     onAddAnyway: {
                         withAnimation(.swissSpring) {
                             showDuplicateAlert = false
-                            if let bookData = pendingBookData {
-                                addBookToLibrary(
-                                    title: bookData.title,
-                                    author: bookData.author,
-                                    isbn: bookData.isbn
-                                )
+                            if let metadata = pendingBookMetadata {
+                                addBookToLibrary(metadata: metadata, rawJSON: pendingRawJSON)
                             }
                             duplicateBook = nil
-                            pendingBookData = nil
+                            pendingBookMetadata = nil
+                            pendingRawJSON = nil
                         }
                     },
                     onViewExisting: {
@@ -171,7 +170,8 @@ struct CameraView: View {
                             // TODO: Navigate to book detail sheet when library navigation is implemented
                             // For now, just dismiss the alert
                             duplicateBook = nil
-                            pendingBookData = nil
+                            pendingBookMetadata = nil
+                            pendingRawJSON = nil
                         }
                     }
                 )
@@ -301,11 +301,17 @@ struct CameraView: View {
                 case .result(let bookMetadata):
                     // Book metadata received - add to library
                     print("📚 Book identified: \(bookMetadata.title) by \(bookMetadata.author)")
-                    handleBookResult(
-                        title: bookMetadata.title,
-                        author: bookMetadata.author,
-                        isbn: bookMetadata.isbn ?? "Unknown"
-                    )
+
+                    // Encode metadata to raw JSON string for debugging
+                    let rawJSON: String?
+                    if let jsonData = try? JSONEncoder().encode(bookMetadata),
+                       let jsonString = String(data: jsonData, encoding: .utf8) {
+                        rawJSON = jsonString
+                    } else {
+                        rawJSON = nil
+                    }
+
+                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON)
 
                 case .complete:
                     // Job completed successfully
@@ -511,21 +517,23 @@ struct CameraView: View {
         }
     }
 
-    // MARK: - US-311: Duplicate Detection
+    // MARK: - US-405: Result Event Handling
 
     /// Handles book addition from AI results with duplicate detection
     /// This will be called when Epic 4 AI results arrive
     /// - Parameters:
-    ///   - title: Book title from AI
-    ///   - author: Book author from AI
-    ///   - isbn: Book ISBN from AI
+    ///   - metadata: Full BookMetadata from Talaria SSE result event
+    ///   - rawJSON: Original JSON string from SSE for debugging
     @MainActor
-    private func handleBookResult(title: String, author: String, isbn: String) {
+    private func handleBookResult(metadata: BookMetadata, rawJSON: String?) {
+        let isbn = metadata.isbn ?? "Unknown"
+
         do {
             // Check for duplicate using SwiftData predicate
             if let duplicate = try DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
-                // Store pending book data for "Add Anyway" action
-                pendingBookData = (title: title, author: author, isbn: isbn)
+                // Store pending metadata and rawJSON for "Add Anyway" action
+                pendingBookMetadata = metadata
+                pendingRawJSON = rawJSON
                 duplicateBook = duplicate
 
                 // Show duplicate alert (non-blocking)
@@ -533,8 +541,8 @@ struct CameraView: View {
                     showDuplicateAlert = true
                 }
             } else {
-                // No duplicate - add directly to library
-                addBookToLibrary(title: title, author: author, isbn: isbn)
+                // No duplicate - add directly to library with full metadata
+                addBookToLibrary(metadata: metadata, rawJSON: rawJSON)
             }
         } catch {
             // Show error to user if duplicate detection fails
@@ -542,25 +550,50 @@ struct CameraView: View {
                 await showProcessingErrorOverlay("Failed to check for duplicates: \(error.localizedDescription)")
             }
             // Add book anyway as a fallback (better to risk duplicate than lose data)
-            addBookToLibrary(title: title, author: author, isbn: isbn)
+            addBookToLibrary(metadata: metadata, rawJSON: rawJSON)
         }
     }
 
     /// Adds book to library without duplicate check
     /// Used when user confirms "Add Anyway" or no duplicate exists
+    /// - Parameters:
+    ///   - metadata: Full BookMetadata from Talaria AI
+    ///   - rawJSON: Original JSON string from SSE for debugging
     @MainActor
-    private func addBookToLibrary(title: String, author: String, isbn: String) {
+    private func addBookToLibrary(metadata: BookMetadata, rawJSON: String?) {
+        // Parse publishedDate if present (expecting ISO 8601 or common date formats)
+        let publishedDate: Date?
+        if let dateString = metadata.publishedDate {
+            let formatter = ISO8601DateFormatter()
+            publishedDate = formatter.date(from: dateString)
+        } else {
+            publishedDate = nil
+        }
+
         let newBook = Book(
-            title: title,
-            author: author,
-            isbn: isbn
+            title: metadata.title,
+            author: metadata.author,
+            isbn: metadata.isbn ?? "Unknown",
+            coverUrl: metadata.coverUrl,
+            format: metadata.format,
+            publisher: metadata.publisher,
+            publishedDate: publishedDate,
+            pageCount: metadata.pageCount,
+            spineConfidence: metadata.confidence,
+            addedDate: Date(),
+            rawJSON: rawJSON
         )
 
         modelContext.insert(newBook)
 
         do {
             try modelContext.save()
-            print("✅ Book added to library: \(title)")
+            print("✅ Book added to library: \(metadata.title)")
+
+            // US-405: Haptic success feedback
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+
         } catch {
             print("❌ Failed to save book: \(error)")
         }
