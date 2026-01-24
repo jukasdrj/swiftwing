@@ -1,0 +1,511 @@
+{
+  "name": "Epic 5: Swift OpenAPI Generator Integration",
+  "description": "Replace manual URLSession implementations with Apple's official swift-openapi-generator to provide compile-time type safety and automatic API contract synchronization for Talaria backend integration. This epic modernizes the network layer with generated code, eliminating runtime JSON parsing errors and ensuring API contract compatibility.",
+  "branchName": "epic/5-openapi-generator",
+  "userStories": [
+    {
+      "id": "US-501",
+      "title": "Add swift-openapi-generator Package Dependencies",
+      "description": "As a developer, I want to add swift-openapi-generator and its runtime dependencies to the Xcode project so that I can generate type-safe Swift client code from OpenAPI specifications.",
+      "acceptanceCriteria": [
+        "Add apple/swift-openapi-generator package dependency to Xcode project",
+        "Add apple/swift-openapi-runtime package dependency",
+        "Add apple/swift-openapi-urlsession for URLSession-based transport",
+        "Configure build plugin in target settings",
+        "Verify packages resolve and download successfully",
+        "Build project to confirm zero errors or warnings from package integration"
+      ],
+      "priority": 1,
+      "estimate": "1 hour",
+      "passes": true,
+      "notes": "Foundation for OpenAPI-based networking. Must complete before spec fetch work.",
+      "dependsOn": [],
+      "technicalNotes": [
+        "Use File > Add Package Dependencies in Xcode",
+        "swift-openapi-generator version: Latest stable (≥1.0.0)",
+        "swift-openapi-runtime provides types and protocols for generated code",
+        "swift-openapi-urlsession provides URLSession-based client transport",
+        "Build plugin automatically generates Swift code during build phase",
+        "Package URLs:",
+        "  - https://github.com/apple/swift-openapi-generator",
+        "  - https://github.com/apple/swift-openapi-runtime",
+        "  - https://github.com/apple/swift-openapi-urlsession"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Build project after package addition",
+          "Verify package resolution in Xcode",
+          "Check for dependency conflicts"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      },
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-502",
+      "title": "Configure Build Phase to Fetch OpenAPI Spec",
+      "description": "As a developer, I want the OpenAPI specification automatically fetched from Talaria server during each build so that the client stays synchronized with the latest API contract.",
+      "acceptanceCriteria": [
+        "Create build phase script that runs before compilation",
+        "Script fetches openapi.yaml from Talaria server URL",
+        "Downloaded spec saved to swiftwing/Generated/openapi.yaml",
+        "Build fails immediately if spec fetch fails (no fallback to cached version)",
+        "Script logs fetch status clearly in build output",
+        "Script uses appropriate HTTP headers (User-Agent, timeout: 30s)"
+      ],
+      "priority": 2,
+      "estimate": "2 hours",
+      "passes": false,
+      "notes": "Critical for automatic API synchronization. Strict enforcement prevents stale contracts.",
+      "dependsOn": [
+        "US-501"
+      ],
+      "technicalNotes": [
+        "Add 'Run Script' build phase in Xcode project settings",
+        "Script must run before 'Compile Sources' phase",
+        "Use curl with --fail flag to ensure errors propagate",
+        "Example: curl --fail -o swiftwing/Generated/openapi.yaml https://api.oooefam.net/openapi.yaml",
+        "Set build phase input files: none (always runs)",
+        "Set build phase output files: $(SRCROOT)/swiftwing/Generated/openapi.yaml",
+        "Add Generated/ to .gitignore (spec is fetched, not committed)",
+        "Script should create Generated/ directory if it doesn't exist",
+        "User-Agent header: SwiftWing/1.0 (OpenAPI Fetch)",
+        "Timeout: curl --max-time 30"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test build phase runs before compilation",
+          "Test build fails when spec URL is unreachable",
+          "Test spec file is created in correct location",
+          "Test Generated/ directory is created if missing"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-503",
+      "title": "Create OpenAPI Generator Configuration",
+      "description": "As a developer, I want to configure swift-openapi-generator settings to produce idiomatic Swift code matching SwiftWing's architecture patterns and Swift 6.2 concurrency requirements.",
+      "acceptanceCriteria": [
+        "Create openapi-generator-config.yaml in project root",
+        "Configure generator to target Swift 6.2 with strict concurrency",
+        "Enable async/await code generation for all operations",
+        "Configure namespace as TalariaAPI",
+        "Enable Server-Sent Events streaming support",
+        "Configure generated types to conform to Sendable protocol",
+        "Verify configuration syntax is valid"
+      ],
+      "priority": 3,
+      "estimate": "1.5 hours",
+      "passes": false,
+      "notes": "Configuration determines code generation quality and Swift 6 compatibility.",
+      "dependsOn": [
+        "US-502"
+      ],
+      "technicalNotes": [
+        "Configuration file format: YAML",
+        "Key settings: accessModifier: public, generate: [types, client]",
+        "SSE support: Ensure OpenAPI spec includes SSE extensions (may require custom annotations)",
+        "Swift 6 concurrency: Generated client methods should be async and Sendable-safe",
+        "Generator reads config from project root or target directory",
+        "Example config structure:",
+        "  generate:",
+        "    - types",
+        "    - client",
+        "  accessModifier: public",
+        "  additionalImports:",
+        "    - Foundation",
+        "File location: $(SRCROOT)/openapi-generator-config.yaml",
+        "May also need openapi.yaml in target to trigger plugin"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Validate YAML syntax",
+          "Verify generator recognizes configuration",
+          "Test generated code uses configured namespace"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-504",
+      "title": "Generate Type-Safe Talaria Client Code",
+      "description": "As a developer, I want swift-openapi-generator to automatically create type-safe Swift client code for all Talaria v3 API endpoints so that all network requests are validated at compile time.",
+      "acceptanceCriteria": [
+        "Generator creates client code in DerivedData during build",
+        "Generated code includes all v3 endpoints: POST /v3/jobs/scans, GET /v3/jobs/scans/:jobId/stream, DELETE /v3/jobs/scans/:jobId/cleanup",
+        "Generated request/response types match OpenAPI spec exactly",
+        "All generated types are immutable (struct-based where appropriate)",
+        "Enums generated for known string constants (event types, status codes)",
+        "Generated code compiles with zero errors or warnings",
+        "Xcode autocomplete works for generated types and methods"
+      ],
+      "priority": 4,
+      "estimate": "2 hours",
+      "passes": false,
+      "notes": "Core code generation step. Success here validates entire OpenAPI integration approach.",
+      "dependsOn": [
+        "US-503"
+      ],
+      "technicalNotes": [
+        "Generated code location: $(BUILD_DIR)/GeneratedSources/openapi/",
+        "Build plugin handles generation automatically",
+        "Types include: Operations, Components.Schemas, path/query/header types",
+        "Generated client exposes async methods for each operation",
+        "Error types generated from OpenAPI error schemas",
+        "Import generated module: import TalariaAPI",
+        "If generation fails, check:",
+        "  - OpenAPI spec syntax validity",
+        "  - Generator config correctness",
+        "  - Build phase ordering",
+        "Generated code should include:",
+        "  - Client struct with async methods",
+        "  - Request/response body types",
+        "  - Path parameter types",
+        "  - Query parameter types",
+        "  - Header types"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Verify generated client compiles",
+          "Test generated types are accessible",
+          "Verify all expected endpoints are generated",
+          "Test Xcode autocomplete for generated API"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-505",
+      "title": "Create TalariaService Actor Wrapper",
+      "description": "As a developer, I want a TalariaService actor that wraps the generated OpenAPI client to provide actor isolation, domain model translation, and SwiftWing-specific business logic.",
+      "acceptanceCriteria": [
+        "Create Services/TalariaService.swift as an actor",
+        "Actor initializes with generated TalariaAPI.Client instance",
+        "Base URL hardcoded to production: https://api.oooefam.net",
+        "Implement uploadScan(image:deviceId:) async throws -> (jobId: String, streamUrl: URL)",
+        "Implement streamEvents(streamUrl:) -> AsyncThrowingStream<SSEEvent, Error>",
+        "Implement cleanup(jobId:) async throws",
+        "Translate generated API types to SwiftWing domain models (BookMetadata, SSEEvent)",
+        "Map generated error types to NetworkError enum"
+      ],
+      "priority": 5,
+      "estimate": "4 hours",
+      "passes": false,
+      "notes": "Adapter layer between generated client and SwiftWing domain. Critical for maintainability.",
+      "dependsOn": [
+        "US-504"
+      ],
+      "technicalNotes": [
+        "Actor provides thread-safe access to OpenAPI client",
+        "Client instance: private let client: TalariaAPI.Client",
+        "Domain translation: Components.Schemas.BookResult → BookMetadata",
+        "SSEEvent enum: .progress(String), .result(BookMetadata), .complete, .error(String)",
+        "Error mapping: TalariaAPI.APIError → NetworkError.serverError(Int, String)",
+        "Use nonisolated(unsafe) for URLSession access if needed",
+        "Keep existing NetworkError types from Epic 4",
+        "Initialize client:",
+        "  let client = TalariaAPI.Client(",
+        "    serverURL: try Servers.server1(),",
+        "    transport: URLSessionTransport()",
+        "  )",
+        "Translation functions should be private helpers in TalariaService"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test TalariaService initialization",
+          "Test domain model translation (API types → SwiftWing types)",
+          "Test error mapping (API errors → NetworkError)",
+          "Test actor isolation prevents data races"
+        ],
+        "required": true,
+        "estimatedTests": 4
+      }
+    },
+    {
+      "id": "US-506",
+      "title": "Implement SSE Streaming with Generated Client",
+      "description": "As a user, I want real-time scan progress updates via Server-Sent Events using the type-safe generated streaming API so that I see live feedback during AI processing.",
+      "acceptanceCriteria": [
+        "Use swift-openapi-generator's built-in SSE streaming support (if available)",
+        "If SSE not natively supported, implement custom AsyncSequence over generated types",
+        "streamEvents() returns AsyncThrowingStream<SSEEvent, Error>",
+        "Parse event types: progress, completed, failed, canceled",
+        "Extract structured data from each event using generated Codable types",
+        "Handle stream interruptions with error propagation",
+        "Close stream gracefully on completed or failed events",
+        "Integration test: Connect to real Talaria SSE stream and parse events"
+      ],
+      "priority": 6,
+      "estimate": "5 hours",
+      "passes": false,
+      "notes": "Complex async stream parsing. Critical for real-time UX. SSE may require manual implementation.",
+      "dependsOn": [
+        "US-505"
+      ],
+      "technicalNotes": [
+        "Check if OpenAPI spec defines SSE endpoint with text/event-stream content type",
+        "If generator doesn't support SSE natively, use URLSession.bytes(from:) with generated URL",
+        "Parse SSE format: event: <type>\\ndata: <json>\\n\\n",
+        "Use generated Codable types for event data payloads",
+        "Example: Components.Schemas.ProgressEvent, Components.Schemas.CompletedEvent",
+        "Stream must handle network timeouts (5 minute max)",
+        "Reconnect logic: exponential backoff (2s, 4s, 8s, max 3 attempts)",
+        "AsyncThrowingStream pattern:",
+        "  AsyncThrowingStream { continuation in",
+        "    Task {",
+        "      // Parse SSE lines and yield events",
+        "      continuation.finish()",
+        "    }",
+        "  }",
+        "Consider keeping existing SSE parsing logic from Epic 4 if generator doesn't support SSE"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test SSE parsing (progress event)",
+          "Test SSE parsing (completed event with book data)",
+          "Test SSE parsing (failed event)",
+          "Test SSE parsing (canceled event)",
+          "Test stream timeout handling",
+          "Test reconnect logic on stream interruption"
+        ],
+        "required": true,
+        "estimatedTests": 6
+      }
+    },
+    {
+      "id": "US-507",
+      "title": "Replace NetworkActor with TalariaService",
+      "description": "As a developer, I want to migrate all Talaria API calls from the manual NetworkActor implementation to the new TalariaService wrapper so that all network code uses the generated client.",
+      "acceptanceCriteria": [
+        "Update CameraViewModel to use TalariaService instead of NetworkActor",
+        "Replace all networkActor.uploadImage() calls with talariaService.uploadScan()",
+        "Replace SSE stream initialization with talariaService.streamEvents()",
+        "Replace cleanup calls with talariaService.cleanup()",
+        "Remove NetworkActor.swift file completely",
+        "Remove manual multipart encoding logic",
+        "Remove manual SSE parsing state machine",
+        "Build succeeds with zero errors or warnings"
+      ],
+      "priority": 7,
+      "estimate": "3 hours",
+      "passes": false,
+      "notes": "Migration step. Requires careful refactoring to maintain existing functionality.",
+      "dependsOn": [
+        "US-506"
+      ],
+      "technicalNotes": [
+        "Search for all references to NetworkActor in project",
+        "Update dependency injection in ViewModels",
+        "TalariaService should be initialized once and reused",
+        "Consider adding TalariaService to environment: @Environment(\\.talariaService)",
+        "Migration order: upload → streaming → cleanup",
+        "Test each migration step before proceeding to next",
+        "Keep NetworkError enum if it's used elsewhere",
+        "Update CameraViewModel properties:",
+        "  - Remove: private let networkActor: NetworkActor",
+        "  - Add: private let talariaService: TalariaService",
+        "Verify all Epic 4 user stories still work after migration"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test upload workflow with TalariaService",
+          "Test SSE streaming with TalariaService",
+          "Test cleanup with TalariaService",
+          "Verify no NetworkActor references remain"
+        ],
+        "required": true,
+        "estimatedTests": 4
+      }
+    },
+    {
+      "id": "US-508",
+      "title": "Remove Manual URLSession Code",
+      "description": "As a developer, I want to delete all manual URLSession network implementations for Talaria so that the codebase uses only the generated type-safe client.",
+      "acceptanceCriteria": [
+        "Delete manual multipart form-data encoding functions",
+        "Delete manual SSE response parsing logic",
+        "Delete custom JSON encoder/decoder configurations for Talaria",
+        "Delete NetworkActor.swift (from US-507)",
+        "Remove unused URLSession extension methods",
+        "Remove manual error parsing for Talaria responses",
+        "Verify no URLSession.shared calls remain for Talaria endpoints",
+        "Build succeeds with zero errors or warnings"
+      ],
+      "priority": 8,
+      "estimate": "2 hours",
+      "passes": false,
+      "notes": "Cleanup step. Reduces code complexity and maintenance burden.",
+      "dependsOn": [
+        "US-507"
+      ],
+      "technicalNotes": [
+        "Use Xcode 'Find in Project' to search for:",
+        "  - URLSession.shared.data",
+        "  - multipart/form-data",
+        "  - Manual boundary generation",
+        "  - SSE parsing state machines",
+        "Keep URLSession code for non-Talaria networking (if any)",
+        "Run full test suite after deletion",
+        "Commit with clear message: 'chore: remove manual URLSession in favor of OpenAPI client'",
+        "Files to potentially delete:",
+        "  - NetworkActor.swift (already removed in US-507)",
+        "  - Any Talaria-specific extension files",
+        "Verify Epic 4 integration tests still pass"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Run all existing tests after cleanup",
+          "Verify no manual URLSession code remains",
+          "Check for unused imports"
+        ],
+        "required": true,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-509",
+      "title": "Integration Testing with Real Talaria API",
+      "description": "As a developer, I want to verify the generated client works correctly with the live Talaria backend across all workflows so that I confirm API contract compatibility.",
+      "acceptanceCriteria": [
+        "Test upload workflow: POST /v3/jobs/scans returns valid jobId and streamUrl",
+        "Test SSE stream: Can receive progress, completed, and failed events",
+        "Test cleanup: DELETE /v3/jobs/scans/:jobId/cleanup succeeds",
+        "Verify generated types correctly deserialize real API responses",
+        "Test error cases: network failure, 429 rate limit, 5xx server errors",
+        "Test concurrent uploads: 5 simultaneous scans complete successfully",
+        "Verify all tests pass in iOS Simulator with real network",
+        "Document any OpenAPI spec discrepancies found during testing"
+      ],
+      "priority": 9,
+      "estimate": "4 hours",
+      "passes": false,
+      "notes": "Comprehensive validation. Ensures generated client matches real API behavior.",
+      "dependsOn": [
+        "US-508"
+      ],
+      "technicalNotes": [
+        "Use real test images from SwiftWing's test assets",
+        "Test on iOS Simulator (network conditions can be throttled in Xcode)",
+        "Monitor network traffic in Charles Proxy or Instruments",
+        "Compare request/response format to OpenAPI spec",
+        "If spec mismatches occur, update spec and regenerate",
+        "Create test suite: SwiftWingTests/Integration/TalariaAPITests.swift",
+        "Use XCTestExpectation for async SSE streams",
+        "Test scenarios:",
+        "  1. Happy path: upload → SSE progress → result → cleanup",
+        "  2. Error path: upload → SSE failed event",
+        "  3. Rate limit: 429 response handling",
+        "  4. Concurrent: 5 parallel uploads",
+        "Document findings in integration test comments"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Integration test: Upload and receive jobId/streamUrl",
+          "Integration test: SSE stream receives all event types",
+          "Integration test: Cleanup succeeds",
+          "Integration test: Error handling (429, 5xx)",
+          "Integration test: Concurrent uploads (5 parallel)"
+        ],
+        "required": true,
+        "estimatedTests": 5
+      }
+    },
+    {
+      "id": "US-510",
+      "title": "Update Documentation and Code Comments",
+      "description": "As a developer, I want updated documentation explaining the OpenAPI-based architecture so that future contributors understand the type-safe network layer.",
+      "acceptanceCriteria": [
+        "Update CLAUDE.md with swift-openapi-generator usage instructions",
+        "Add section explaining OpenAPI spec fetch workflow",
+        "Document TalariaService actor architecture",
+        "Add code comments to TalariaService explaining domain model translation",
+        "Update EPIC-4-STORIES.md to reference OpenAPI migration",
+        "Create README in Generated/ folder explaining auto-generated code",
+        "Add troubleshooting section for common OpenAPI build errors"
+      ],
+      "priority": 10,
+      "estimate": "2 hours",
+      "passes": false,
+      "notes": "Documentation is critical for maintainability and onboarding.",
+      "dependsOn": [
+        "US-509"
+      ],
+      "technicalNotes": [
+        "CLAUDE.md section: 'Talaria API Integration (OpenAPI-Based)'",
+        "Explain why OpenAPI was chosen over manual URLSession",
+        "Document how to handle OpenAPI spec updates",
+        "Include example of adding new Talaria endpoint",
+        "Troubleshooting: spec fetch failures, generator errors, type mismatches",
+        "README.md in Generated/: 'DO NOT EDIT - Auto-generated by swift-openapi-generator'",
+        "Add to CLAUDE.md:",
+        "  - Build phase script explanation",
+        "  - Generator configuration options",
+        "  - TalariaService architecture diagram (ASCII art)",
+        "  - Common errors and solutions",
+        "Update EPIC-4-STORIES.md with migration notes"
+      ],
+      "testCoverage": {
+        "unitTests": [],
+        "required": false,
+        "estimatedTests": 0
+      }
+    }
+  ],
+  "metadata": {
+    "created": "2026-01-24",
+    "epic_number": 5,
+    "total_epics": 6,
+    "estimated_duration": "1-2 weeks (solo dev, part-time)",
+    "dependencies": "Epic 4 (US-401 through US-411 - NetworkActor and Talaria integration)",
+    "ralph_tui_notes": "This epic has 10 user stories covering OpenAPI-based network layer migration: package setup, spec fetching, code generation, domain translation, SSE streaming, migration from manual code, cleanup, integration testing, and documentation. Prioritize US-501 through US-507 for functional completion. US-508 through US-510 are cleanup and validation.",
+    "architecture_notes": {
+      "approach": "Replace manual URLSession with Apple's official swift-openapi-generator",
+      "benefits": "Compile-time type safety, automatic API synchronization, reduced boilerplate",
+      "pattern": "Generated client wrapped in TalariaService actor for domain translation",
+      "concurrency": "Generated code compatible with Swift 6.2 strict concurrency",
+      "sse_handling": "May require manual implementation if generator doesn't support SSE natively"
+    },
+    "openapi_integration": {
+      "generator": "apple/swift-openapi-generator (latest stable)",
+      "spec_source": "Fetched from Talaria server on each build",
+      "spec_location": "swiftwing/Generated/openapi.yaml (auto-fetched, not committed)",
+      "generated_code_location": "$(BUILD_DIR)/GeneratedSources/openapi/",
+      "namespace": "TalariaAPI",
+      "transport": "URLSession (via swift-openapi-urlsession)"
+    },
+    "migration_strategy": {
+      "phase_1": "Add packages and configure generator (US-501 to US-504)",
+      "phase_2": "Create adapter layer and migrate code (US-505 to US-507)",
+      "phase_3": "Cleanup and validation (US-508 to US-510)",
+      "rollback_plan": "Keep Epic 4 NetworkActor code until US-509 integration tests pass"
+    },
+    "test_coverage_strategy": {
+      "unit_tests_required": 4,
+      "total_estimated_tests": 19,
+      "integration_tests": 5,
+      "coverage_target": "100% for TalariaService adapter layer, rely on generated code quality for client"
+    },
+    "critical_paths": [
+      "US-501 → US-502 → US-503 → US-504 (Package setup and code generation)",
+      "US-505 → US-506 (Adapter layer with SSE support)",
+      "US-507 → US-508 (Migration and cleanup)",
+      "US-509 (Integration testing - validates entire epic)"
+    ],
+    "skip_if_behind_schedule": [
+      "US-510 (Documentation - can be done incrementally)"
+    ],
+    "demo_scenario": "Build project → OpenAPI spec auto-fetched → Type-safe client generated → Scan book → Upload via generated client → Receive SSE events with compile-time safety → Book appears in library. Zero runtime JSON parsing errors.",
+    "risks": {
+      "sse_support": "swift-openapi-generator may not natively support SSE - may need manual implementation",
+      "spec_availability": "Talaria OpenAPI spec must be publicly accessible for build-time fetch",
+      "breaking_changes": "API contract changes will break builds (intentional, but requires coordination)",
+      "learning_curve": "Team must understand OpenAPI generator workflow and limitations"
+    },
+    "updatedAt": "2026-01-24T20:43:14.759Z"
+  }
+}
