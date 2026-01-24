@@ -622,7 +622,7 @@
         "Test-before-delete ordering is essential for safe migration"
       ]
     },
-    "updatedAt": "2026-01-24T22:04:59.030Z",
+    "updatedAt": "2026-01-24T22:05:00.092Z",
     "reviewedBy": "Claude Code + PAL Consensus (Grok, Gemini 2.5 Flash, Gemini 3 Pro)"
   }
 }
