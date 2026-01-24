@@ -1,0 +1,326 @@
+openapi: 3.1.0
+info:
+  title: Talaria Book Scanning API
+  version: 3.0.0
+  description: |
+    Talaria backend API for book spine scanning, AI enrichment, and metadata extraction.
+    This API provides multipart image upload, Server-Sent Events streaming for real-time progress,
+    and cleanup endpoints for job management.
+  contact:
+    name: Talaria API Support
+    url: https://api.oooefam.net
+
+servers:
+  - url: https://api.oooefam.net
+    description: Production server
+
+paths:
+  /v3/jobs/scans:
+    post:
+      operationId: createScanJob
+      summary: Upload book spine image for scanning
+      description: |
+        Uploads a book spine image and initiates AI-powered scanning workflow.
+        Returns a job ID and SSE stream URL for real-time progress updates.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+                - deviceId
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Book spine image (JPEG/PNG, max 10MB)
+                deviceId:
+                  type: string
+                  format: uuid
+                  description: Unique device identifier for tracking
+      responses:
+        '200':
+          description: Scan job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanJobResponse'
+        '400':
+          description: Invalid request (missing image, invalid format, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Image too large (exceeds 10MB limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v3/jobs/scans/{jobId}/stream:
+    get:
+      operationId: streamScanProgress
+      summary: Stream real-time scan progress via Server-Sent Events
+      description: |
+        Returns an SSE stream with real-time updates on scan processing.
+        Event types: progress, result, complete, error.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Job ID from createScanJob response
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream. Each event has format:
+                  event: <type>
+                  data: <json>
+
+                  Event types:
+                  - progress: { message: string }
+                  - result: { title: string, author: string, isbn: string, coverUrl?: string }
+                  - complete: {}
+                  - error: { message: string, code?: string }
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: Job expired or already cleaned up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v3/jobs/scans/{jobId}/cleanup:
+    delete:
+      operationId: cleanupScanJob
+      summary: Clean up scan job resources
+      description: |
+        Deletes uploaded image and processing artifacts after job completion.
+        Should be called after SSE stream ends (complete or error).
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Job ID to clean up
+      responses:
+        '204':
+          description: Cleanup successful (no content)
+        '404':
+          description: Job not found or already cleaned up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during cleanup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ScanJobResponse:
+      type: object
+      required:
+        - jobId
+        - streamUrl
+      properties:
+        jobId:
+          type: string
+          format: uuid
+          description: Unique identifier for this scan job
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        streamUrl:
+          type: string
+          format: uri
+          description: SSE stream endpoint URL
+          example: "https://api.oooefam.net/v3/jobs/scans/123e4567-e89b-12d3-a456-426614174000/stream"
+
+    BookMetadata:
+      type: object
+      required:
+        - title
+        - author
+        - isbn
+      properties:
+        title:
+          type: string
+          description: Book title extracted from spine/AI enrichment
+          example: "The Swift Programming Language"
+        author:
+          type: string
+          description: Primary author name
+          example: "Apple Inc."
+        isbn:
+          type: string
+          description: ISBN-10 or ISBN-13 identifier
+          pattern: '^(?:\d{10}|\d{13})$'
+          example: "9780134610993"
+        coverUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to high-resolution book cover image
+          example: "https://covers.openlibrary.org/b/isbn/9780134610993-L.jpg"
+        format:
+          type: string
+          enum: [hardcover, paperback, ebook, audiobook]
+          nullable: true
+          description: Book format/edition type
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+          description: AI confidence score for identification (0.0-1.0)
+          example: 0.95
+
+    SSEProgressEvent:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Human-readable progress message
+          enum:
+            - "Looking..."
+            - "Reading..."
+            - "Enriching..."
+            - "Finalizing..."
+          example: "Reading..."
+
+    SSEResultEvent:
+      type: object
+      required:
+        - title
+        - author
+        - isbn
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        isbn:
+          type: string
+        coverUrl:
+          type: string
+          format: uri
+          nullable: true
+        format:
+          type: string
+          enum: [hardcover, paperback, ebook, audiobook]
+          nullable: true
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+
+    SSECompleteEvent:
+      type: object
+      description: Empty object signaling job completion
+
+    SSEErrorEvent:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Error message describing what went wrong
+          example: "Failed to extract text from image"
+        code:
+          type: string
+          nullable: true
+          enum:
+            - "NO_TEXT_DETECTED"
+            - "MULTIPLE_BOOKS_DETECTED"
+            - "IMAGE_TOO_BLURRY"
+            - "UNSUPPORTED_FORMAT"
+            - "PROCESSING_TIMEOUT"
+          description: Machine-readable error code
+          example: "NO_TEXT_DETECTED"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type identifier
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Missing required field: image"
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Additional context about the error
+
+    RateLimitErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - retryAfter
+      properties:
+        error:
+          type: string
+          enum: ["RATE_LIMIT_EXCEEDED"]
+          description: Error type
+        message:
+          type: string
+          description: Human-readable rate limit message
+          example: "Too many requests. Please try again later."
+        retryAfter:
+          type: integer
+          description: Seconds until retry is allowed
+          example: 60
+        limit:
+          type: integer
+          nullable: true
+          description: Max requests allowed in time window
+          example: 100
+        remaining:
+          type: integer
+          nullable: true
+          description: Remaining requests in current window
+          example: 0
