@@ -10,13 +10,16 @@ class CameraManager: ObservableObject {
     private var videoDevice: AVCaptureDevice?
     private var isConfigured = false
 
+    /// Serial queue for blocking session configuration
+    private let sessionQueue = DispatchQueue(label: "com.swiftwing.sessionQueue")
+
     /// Session preset for camera quality (default: .high for 30 FPS battery efficiency)
     /// Can be overridden to .photo for higher quality or .medium for lower resource usage
     var sessionPreset: AVCaptureSession.Preset = .high
 
     /// Configures AVCaptureSession
     /// Performance target: < 0.5s cold start
-    func setupSession() throws {
+    func setupSession() async throws {
         let startTime = CFAbsoluteTimeGetCurrent()
 
         // Return if already configured
@@ -26,46 +29,69 @@ class CameraManager: ObservableObject {
             return
         }
 
-        let session = AVCaptureSession()
+        // Capture properties needed for configuration
+        let preset = sessionPreset
 
-        // Use configurable preset (default: .high for 30 FPS battery efficiency)
-        session.sessionPreset = sessionPreset
+        return try await withCheckedThrowingContinuation { continuation in
+            sessionQueue.async { [weak self] in
+                do {
+                    let session = AVCaptureSession()
 
-        // Get back camera device
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
-            throw CameraError.noCameraAvailable
+                    // Use configurable preset (default: .high for 30 FPS battery efficiency)
+                    session.sessionPreset = preset
+
+                    // Get back camera device
+                    guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+                        throw CameraError.noCameraAvailable
+                    }
+
+                    // Configure device input
+                    let input = try AVCaptureDeviceInput(device: camera)
+
+                    session.beginConfiguration()
+
+                    if session.canAddInput(input) {
+                        session.addInput(input)
+                    } else {
+                        throw CameraError.cannotAddInput
+                    }
+
+                    // Configure photo output
+                    let output = AVCapturePhotoOutput()
+                    if session.canAddOutput(output) {
+                        session.addOutput(output)
+                    } else {
+                        throw CameraError.cannotAddOutput
+                    }
+
+                    // Blocking call, moved to background queue
+                    session.commitConfiguration()
+
+                    // Update state on Main Actor
+                    DispatchQueue.main.async {
+                        guard let self = self else {
+                            // If self is gone, we just resume
+                            continuation.resume()
+                            return
+                        }
+
+                        self.captureSession = session
+                        self.photoOutput = output
+                        self.videoDevice = camera // Store reference for zoom/focus control
+                        self.isConfigured = true
+
+                        let duration = CFAbsoluteTimeGetCurrent() - startTime
+                        print("✅ Camera session configured in \(String(format: "%.3f", duration))s")
+
+                        continuation.resume()
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
         }
-
-        // Store reference for zoom/focus control
-        self.videoDevice = camera
-
-        // Configure device input
-        let input = try AVCaptureDeviceInput(device: camera)
-
-        session.beginConfiguration()
-
-        if session.canAddInput(input) {
-            session.addInput(input)
-        } else {
-            throw CameraError.cannotAddInput
-        }
-
-        // Configure photo output
-        let output = AVCapturePhotoOutput()
-        if session.canAddOutput(output) {
-            session.addOutput(output)
-            self.photoOutput = output
-        } else {
-            throw CameraError.cannotAddOutput
-        }
-
-        session.commitConfiguration()
-
-        self.captureSession = session
-        self.isConfigured = true
-
-        let duration = CFAbsoluteTimeGetCurrent() - startTime
-        print("✅ Camera session configured in \(String(format: "%.3f", duration))s")
     }
 
     /// Starts the capture session on background queue (non-blocking)
