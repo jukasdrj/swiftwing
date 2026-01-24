@@ -50,5 +50,8 @@ build.log
 # Ralph-TUI runtime
 .ralph-tui/
 
+# Generated files (fetched during build)
+swiftwing/Generated/
+
 # Legacy/Archive
 flutter-legacy/

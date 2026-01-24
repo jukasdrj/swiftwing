@@ -27,6 +27,8 @@
 		7F00001E0000000000000001 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F00001F0000000000000001 /* RootView.swift */; };
 		7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000210000000000000001 /* CameraPermissionPrimerView.swift */; };
 		7F0000220000000000000001 /* AsyncImageWithLoading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000230000000000000001 /* AsyncImageWithLoading.swift */; };
+		7F0000290000000000000001 /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000240000000000000001 /* OpenAPIRuntime */; };
+		7F00002A0000000000000001 /* OpenAPIURLSession in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000250000000000000001 /* OpenAPIURLSession */; };
 		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
 		9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */; };
 		A5A480302F23C145006CD05C /* LibraryPrefetchCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */; };
@@ -38,8 +40,6 @@
 		C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */; };
 		DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733AF8F390562E0E6977AD18 /* CameraManager.swift */; };
 		DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */; };
-		7F0000290000000000000001 /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000240000000000000001 /* OpenAPIRuntime */; };
-		7F00002A0000000000000001 /* OpenAPIURLSession in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000250000000000000001 /* OpenAPIURLSession */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -177,6 +177,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7F0000130000000000000001 /* Build configuration list for PBXNativeTarget "swiftwing" */;
 			buildPhases = (
+				EDEDAA114D594D6F2465F334 /* Fetch OpenAPI Spec */,
 				7F0000140000000000000001 /* Sources */,
 				7F00000C0000000000000001 /* Frameworks */,
 				7F0000150000000000000001 /* Resources */,
@@ -245,6 +246,30 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		EDEDAA114D594D6F2465F334 /* Fetch OpenAPI Spec */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Scripts/fetch-openapi-spec.sh",
+			);
+			name = "Fetch OpenAPI Spec";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/swiftwing/Generated/openapi.yaml",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/fetch-openapi-spec.sh\"";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		7F0000140000000000000001 /* Sources */ = {
