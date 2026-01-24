@@ -177,7 +177,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7F0000130000000000000001 /* Build configuration list for PBXNativeTarget "swiftwing" */;
 			buildPhases = (
-				EDEDAA114D594D6F2465F334 /* Fetch OpenAPI Spec */,
+				EDEDAA114D594D6F2465F334 /* Copy OpenAPI Spec */,
 				7F0000140000000000000001 /* Sources */,
 				7F00000C0000000000000001 /* Frameworks */,
 				7F0000150000000000000001 /* Resources */,
@@ -248,7 +248,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		EDEDAA114D594D6F2465F334 /* Fetch OpenAPI Spec */ = {
+		EDEDAA114D594D6F2465F334 /* Copy OpenAPI Spec */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -256,9 +256,10 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/Scripts/fetch-openapi-spec.sh",
+				"$(SRCROOT)/Scripts/copy-openapi-spec.sh",
+				"$(SRCROOT)/swiftwing/OpenAPI/talaria-openapi.yaml",
 			);
-			name = "Fetch OpenAPI Spec";
+			name = "Copy OpenAPI Spec";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -266,7 +267,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/fetch-openapi-spec.sh\"";
+			shellScript = "\"${SRCROOT}/Scripts/copy-openapi-spec.sh\"";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

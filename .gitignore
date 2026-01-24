@@ -50,8 +50,9 @@ build.log
 # Ralph-TUI runtime
 .ralph-tui/
 
-# Generated files (fetched during build)
-swiftwing/Generated/
+# OpenAPI specs are committed to repo (not generated during build)
+# See swiftwing/OpenAPI/talaria-openapi.yaml
+# Update with: scripts/update-api-spec.sh
 
 # Legacy/Archive
 flutter-legacy/

@@ -79,6 +79,9 @@ swiftwing/
 ├── Models/               # SwiftData @Model classes
 │   └── Book.swift        # Core data model
 ├── Services/             # NetworkService, actors (future)
+├── OpenAPI/              # Committed API specifications
+│   └── talaria-openapi.yaml  # Talaria backend spec
+├── Generated/            # Auto-generated code (not committed)
 ├── Theme.swift           # Swiss Glass design system
 └── Assets.xcassets/      # Colors, images, app icon
 ```
@@ -266,6 +269,51 @@ func streamEvents(from url: URL) -> AsyncThrowingStream<SSEEvent, Error> {
     }
 }
 ```
+
+**OpenAPI Specification Management:**
+
+The Talaria OpenAPI spec is **committed to the repository** for deterministic, offline-capable builds.
+
+**Location:**
+```
+swiftwing/OpenAPI/talaria-openapi.yaml  # Committed spec
+swiftwing/OpenAPI/.talaria-openapi.yaml.sha256  # Checksum verification
+```
+
+**Update Workflow:**
+```bash
+# Fetch latest spec from Talaria server
+scripts/update-api-spec.sh
+
+# Review changes before committing
+git diff swiftwing/OpenAPI/talaria-openapi.yaml
+
+# Commit if changes are intentional
+git add swiftwing/OpenAPI/
+git commit -m "chore: Update Talaria OpenAPI spec"
+
+# Rebuild to regenerate client code
+xcodebuild ... | xcsift
+```
+
+**Script Features:**
+- `--force` flag required to overwrite existing spec (safety)
+- SHA256 checksum verification for integrity
+- Shows diff preview before updating
+- Requires confirmation unless `--force` is used
+
+**Build Process:**
+- Build phase runs `Scripts/copy-openapi-spec.sh`
+- Copies committed spec to `swiftwing/Generated/openapi.yaml`
+- Swift OpenAPI Generator creates client code from Generated/
+- **No network calls during build** (offline-capable)
+
+**Why Committed Spec:**
+- ✅ Deterministic builds (same input = same output)
+- ✅ Offline builds (no internet required)
+- ✅ API changes go through code review
+- ✅ Version control history of API evolution
+- ✅ CI/CD reliability (no external dependencies)
 
 ### Performance Targets
 
