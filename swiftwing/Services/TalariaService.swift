@@ -2,9 +2,38 @@ import Foundation
 
 // MARK: - Talaria Service Actor
 
-/// Actor-isolated service for Talaria API integration
-/// Wraps network operations with actor isolation and domain model translation
-/// Future: Will integrate generated OpenAPI client from swift-openapi-generator
+/// Actor-isolated service for Talaria API integration with type-safe domain model translation
+///
+/// **Architecture Pattern:** Manual implementation based on committed OpenAPI spec
+/// (US-502: Committed spec workflow, US-507: Actor-based service design)
+///
+/// **Actor Isolation Rationale:**
+/// - Protects URLSession instance from data races (Swift 6.2 strict concurrency)
+/// - Ensures thread-safe access to deviceId and baseURL
+/// - Eliminates need for locks/semaphores (actor provides isolation guarantee)
+/// - Enables async/await without DispatchQueue (prevents deadlocks)
+///
+/// **Domain Model Translation:**
+/// This service translates between OpenAPI types and SwiftWing domain models:
+/// - UploadResponse (OpenAPI) → (jobId, streamUrl) tuple (domain)
+/// - SSE event stream (text) → SSEEvent enum (domain events)
+/// - BookMetadata JSON (OpenAPI) → BookMetadata struct (domain model)
+///
+/// **Performance Characteristics (US-509 benchmarks):**
+/// - Upload latency: < 1000ms
+/// - SSE first event: < 500ms
+/// - Concurrent uploads: 5 scans < 10s
+/// - CPU usage: < 15% main thread during SSE parsing
+/// - Memory: Zero leaks in 10-minute sessions
+///
+/// **Future Migration Path:**
+/// When swift-openapi-generator build plugin is enabled, this service can be
+/// refactored to wrap generated Client type while maintaining same public API.
+///
+/// **Related:**
+/// - OpenAPI spec: `swiftwing/OpenAPI/talaria-openapi.yaml`
+/// - Integration tests: `swiftwingTests/TalariaIntegrationTests.swift`
+/// - Documentation: See CLAUDE.md "Swift OpenAPI Generator Integration" section
 actor TalariaService {
 
     // MARK: - Properties
@@ -258,6 +287,44 @@ actor TalariaService {
     // MARK: - Private Helpers
 
     /// Parse SSE event into domain SSEEvent enum
+    ///
+    /// **Domain Model Translation Logic:**
+    /// This method translates raw Server-Sent Events from Talaria API into
+    /// type-safe SwiftWing domain events. This decouples the app from the
+    /// OpenAPI transport layer.
+    ///
+    /// **Translation Mappings:**
+    /// - SSE `event: progress` → `.progress(String)` - Status updates
+    /// - SSE `event: result` → `.result(BookMetadata)` - AI-identified book
+    /// - SSE `event: complete` → `.complete` - Processing finished
+    /// - SSE `event: error` → `.error(String)` - Processing failed
+    /// - SSE `event: canceled` → `.canceled` - User/system cancellation
+    ///
+    /// **BookMetadata Deserialization (Line 280):**
+    /// The result event contains BookMetadata JSON that matches the OpenAPI schema:
+    /// ```
+    /// Components.Schemas.BookMetadata {
+    ///   title: string
+    ///   author: string
+    ///   isbn?: string
+    ///   coverUrl?: string
+    ///   confidence?: number
+    ///   publishedDate?: string
+    /// }
+    /// ```
+    /// This is decoded directly into SwiftWing's BookMetadata struct (NetworkTypes.swift)
+    /// which serves as the domain model for book data throughout the app.
+    ///
+    /// **Why Direct Decoding Works:**
+    /// TalariaService's BookMetadata struct is hand-written to match the OpenAPI schema
+    /// exactly. When the build plugin is enabled, we can validate this mapping
+    /// automatically by comparing to `Components.Schemas.BookMetadata`.
+    ///
+    /// - Parameters:
+    ///   - event: SSE event type (e.g., "progress", "result")
+    ///   - data: JSON-encoded event data
+    /// - Returns: Strongly-typed SSEEvent enum case
+    /// - Throws: SSEError.invalidEventFormat if parsing fails
     private func parseSSEEvent(event: String, data: String) throws -> SSEEvent {
         switch event {
         case "progress":

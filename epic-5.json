@@ -1,6 +1,6 @@
 {
   "name": "Epic 5: Swift OpenAPI Generator Integration",
-  "description": "Replace manual URLSession implementations with Apple's official swift-openapi-generator to provide compile-time type safety and automatic API contract synchronization for Talaria backend integration. This epic modernizes the network layer with generated code, eliminating runtime JSON parsing errors and ensuring API contract compatibility.",
+  "description": "Replace manual URLSession implementations with Apple's official swift-openapi-generator to provide compile-time type safety and automatic API contract synchronization for Talaria backend integration. This epic modernizes the network layer with generated code, eliminating runtime JSON parsing errors and ensuring API contract compatibility. COMPLETED: Committed OpenAPI spec workflow (US-502), TalariaService actor migration (US-507), integration testing (US-509), and comprehensive documentation (US-510). See CLAUDE.md 'Swift OpenAPI Generator Integration' section and swiftwing/OpenAPI/README.md for architecture details.",
   "branchName": "epic/5-openapi-generator",
   "userStories": [
     {
@@ -623,7 +623,7 @@
         "Test-before-delete ordering is essential for safe migration"
       ]
     },
-    "updatedAt": "2026-01-24T22:08:28.730Z",
+    "updatedAt": "2026-01-24T22:08:29.791Z",
     "reviewedBy": "Claude Code + PAL Consensus (Grok, Gemini 2.5 Flash, Gemini 3 Pro)"
   }
 }

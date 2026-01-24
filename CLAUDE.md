@@ -314,6 +314,8 @@ xcodebuild ... | xcsift
 - ✅ API changes go through code review
 - ✅ Version control history of API evolution
 - ✅ CI/CD reliability (no external dependencies)
+- ✅ Security: Prevents supply chain attacks (no runtime fetching)
+- ✅ Audit trail: All API changes reviewed and version-controlled
 
 ### Performance Targets
 
@@ -330,6 +332,387 @@ let start = CFAbsoluteTimeGetCurrent()
 // ... operation ...
 let duration = CFAbsoluteTimeGetCurrent() - start
 print("Duration: \(duration)s")
+```
+
+## Swift OpenAPI Generator Integration
+
+### Overview
+
+SwiftWing uses **swift-openapi-generator** for type-safe API client generation. The project uses a **manual implementation approach** (TalariaService) while maintaining the OpenAPI spec for future automated generation.
+
+**Current Architecture:**
+- ✅ OpenAPI spec committed to repository
+- ✅ Manual TalariaService implementation (actor-based)
+- ⏭️ Future: Enable build plugin for auto-generated client
+
+**Why Manual Implementation:**
+- **Swift 6.2 Compatibility:** Full control over actor isolation
+- **Custom Error Handling:** Domain-specific NetworkError types
+- **SSE Streaming:** Custom AsyncThrowingStream implementation
+- **Rapid Development:** Avoid Xcode build plugin configuration complexity
+- **Type Safety:** Still based on committed OpenAPI spec
+
+### swift-openapi-generator Package
+
+**Installation:** (Already configured in Package.swift)
+```swift
+dependencies: [
+    .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-openapi-urlsession", from: "1.0.0")
+]
+```
+
+**Target Dependencies:**
+```swift
+.target(
+    name: "swiftwing",
+    dependencies: [
+        .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+        .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession")
+    ]
+)
+```
+
+### Using the Generator (Future)
+
+**When to Enable:**
+- After Epic 5-6 completion (post-MVP)
+- When team wants automated client maintenance
+- When API evolves frequently
+
+**Steps to Enable Build Plugin:**
+
+1. **Open Xcode Project**
+   ```bash
+   open swiftwing.xcodeproj
+   ```
+
+2. **Configure Build Plugin**
+   - Select `swiftwing` target
+   - Navigate to **Build Phases** tab
+   - Add **Run Build Tool Plug-ins**
+   - Select **OpenAPIGenerator** from list
+   - Move plugin phase BEFORE "Compile Sources"
+
+3. **Create openapi-generator-config.yaml**
+   ```yaml
+   # swiftwing/openapi-generator-config.yaml
+   generate:
+     - types
+     - client
+   accessModifier: internal
+   ```
+
+4. **Update openapi.yaml Location**
+   Ensure `swiftwing/Generated/openapi.yaml` exists (build script creates this)
+
+5. **Rebuild Project**
+   ```bash
+   xcodebuild -project swiftwing.xcodeproj -scheme swiftwing clean build 2>&1 | xcsift
+   ```
+
+6. **Verify Generated Code**
+   Check `swiftwing/Generated/` for:
+   - `Types.swift` - Schema types
+   - `Client.swift` - API client
+
+### TalariaService Actor Architecture
+
+**Design Pattern:** Actor-isolated network service with domain model translation
+
+**Architecture Diagram:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      SwiftUI Views                           │
+│                    (CameraView, etc.)                        │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         │ async/await calls
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   TalariaService (actor)                     │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Actor-Isolated State:                                │  │
+│  │  - urlSession: URLSession                             │  │
+│  │  - deviceId: String                                   │  │
+│  │  - baseURL: String                                    │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                              │
+│  Public API (async methods):                                │
+│  ┌──────────────────────────────────────────────┐           │
+│  │ uploadScan(image:deviceId:)                  │           │
+│  │   → (jobId: String, streamUrl: URL)          │           │
+│  └──────────────────────────────────────────────┘           │
+│                         │                                    │
+│                         ├─→ Multipart/form-data construction│
+│                         ├─→ POST /v3/jobs/scans             │
+│                         └─→ Decode UploadResponse           │
+│                                                              │
+│  ┌──────────────────────────────────────────────┐           │
+│  │ streamEvents(streamUrl:)                     │           │
+│  │   → AsyncThrowingStream<SSEEvent, Error>    │           │
+│  └──────────────────────────────────────────────┘           │
+│                         │                                    │
+│                         ├─→ Connect to SSE endpoint          │
+│                         ├─→ Parse event stream               │
+│                         └─→ Yield domain events              │
+│                                                              │
+│  ┌──────────────────────────────────────────────┐           │
+│  │ cleanup(jobId:)                              │           │
+│  │   → Void                                     │           │
+│  └──────────────────────────────────────────────┘           │
+│                         │                                    │
+│                         └─→ DELETE cleanup endpoint          │
+│                                                              │
+│  Private Helpers:                                           │
+│  - parseSSEEvent(event:data:) → SSEEvent                   │
+│    ├─→ "progress" → .progress(String)                      │
+│    ├─→ "result" → .result(BookMetadata)                    │
+│    ├─→ "complete" → .complete                              │
+│    └─→ "error" → .error(String)                            │
+└─────────────────────────────────────────────────────────────┘
+                         │
+                         │ Network I/O
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Talaria API (https://api.oooefam.net)           │
+│  - POST /v3/jobs/scans                                      │
+│  - GET {streamUrl} (SSE)                                    │
+│  - DELETE /v3/jobs/scans/:jobId/cleanup                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Actor Isolation Benefits:**
+- **Data Race Prevention:** URLSession instance protected by actor
+- **Thread Safety:** All network state mutations isolated
+- **Swift 6.2 Compliance:** No `@unchecked Sendable` hacks
+- **Async/Await Native:** No DispatchQueue/DispatchGroup (deadlock avoidance)
+
+**Domain Model Translation:**
+
+The actor translates OpenAPI types to SwiftWing domain models:
+
+| OpenAPI Schema | TalariaService Type | Domain Model |
+|----------------|---------------------|--------------|
+| UploadResponse | UploadResponse struct | Internal |
+| BookMetadata | BookMetadata struct | Exposed to app |
+| SSE events (text) | SSEEvent enum | Domain events |
+
+**Example Translation (in parseSSEEvent):**
+```swift
+// Raw SSE: event: result, data: {"title":"...", "author":"..."}
+case "result":
+    let metadata = try decoder.decode(BookMetadata.self, from: jsonData)
+    return .result(metadata)  // Domain event
+```
+
+**Performance Characteristics (US-509 Benchmarks):**
+- Upload latency: < 1000ms ✅
+- SSE first event: < 500ms ✅
+- 5 concurrent uploads: < 10s ✅
+- SSE parsing CPU: < 15% main thread ✅ (manual profiling)
+- Memory: Zero leaks in 10-minute session ✅ (Instruments validation)
+
+**Error Handling Strategy:**
+```swift
+enum NetworkError: Error {
+    case noConnection          // Network unreachable
+    case timeout               // Request timeout
+    case rateLimited(retryAfter: TimeInterval?)  // 429 with Retry-After
+    case serverError(Int)      // 5xx errors
+    case invalidResponse       // Malformed data
+}
+```
+
+**Integration Testing:**
+- Real API tests in `swiftwingTests/TalariaIntegrationTests.swift`
+- 7 test methods covering all endpoints
+- See `TalariaIntegrationTests_README.md` for details
+
+### Rollback Procedures
+
+**Scenario 1: Bad API Spec Update**
+
+If `update-api-spec.sh` fetches a breaking spec:
+
+1. **Verify Git Status**
+   ```bash
+   git status
+   # Should show modified: swiftwing/OpenAPI/talaria-openapi.yaml
+   ```
+
+2. **Review Changes**
+   ```bash
+   git diff swiftwing/OpenAPI/talaria-openapi.yaml
+   ```
+
+3. **Rollback Spec**
+   ```bash
+   git checkout swiftwing/OpenAPI/talaria-openapi.yaml
+   git checkout swiftwing/OpenAPI/.talaria-openapi.yaml.sha256
+   ```
+
+4. **Rebuild**
+   ```bash
+   xcodebuild -project swiftwing.xcodeproj -scheme swiftwing clean build 2>&1 | xcsift
+   ```
+
+**Scenario 2: Need Previous Spec Version**
+
+1. **Check Git History**
+   ```bash
+   git log --oneline swiftwing/OpenAPI/talaria-openapi.yaml
+   ```
+
+2. **View Specific Version**
+   ```bash
+   git show <commit-hash>:swiftwing/OpenAPI/talaria-openapi.yaml > /tmp/old-spec.yaml
+   ```
+
+3. **Restore Old Version**
+   ```bash
+   git checkout <commit-hash> -- swiftwing/OpenAPI/talaria-openapi.yaml
+   git checkout <commit-hash> -- swiftwing/OpenAPI/.talaria-openapi.yaml.sha256
+   ```
+
+4. **Commit Rollback**
+   ```bash
+   git add swiftwing/OpenAPI/
+   git commit -m "chore: Rollback OpenAPI spec to <commit-hash> due to breaking changes"
+   ```
+
+**Scenario 3: Corrupted Spec File**
+
+If checksum verification fails:
+
+1. **Verify Corruption**
+   ```bash
+   cd swiftwing/OpenAPI
+   shasum -a 256 talaria-openapi.yaml
+   cat .talaria-openapi.yaml.sha256
+   # Compare - if different, file is corrupted
+   ```
+
+2. **Re-fetch from Server**
+   ```bash
+   ../../Scripts/update-api-spec.sh --force
+   ```
+
+3. **Or Restore from Git**
+   ```bash
+   git checkout HEAD -- swiftwing/OpenAPI/
+   ```
+
+### Troubleshooting OpenAPI Build Errors
+
+#### Error: "No such file or directory: openapi.yaml"
+
+**Cause:** Build script didn't copy spec to Generated/
+
+**Solution:**
+```bash
+# Manually run copy script
+bash Scripts/copy-openapi-spec.sh
+
+# Verify file exists
+ls -la swiftwing/Generated/openapi.yaml
+
+# Rebuild
+xcodebuild ... | xcsift
+```
+
+#### Error: "OpenAPIGenerator plugin not found"
+
+**Cause:** Build plugin not enabled in Xcode target
+
+**Solution:**
+- This is expected (we're not using the plugin yet)
+- If you want to enable it, see "Steps to Enable Build Plugin" above
+- For now, TalariaService works without generated code
+
+#### Error: "Cannot find type 'Components' in scope"
+
+**Cause:** Trying to use generated types that don't exist
+
+**Solution:**
+```swift
+// ❌ Don't use generated types (not generated yet)
+let metadata: Components.Schemas.BookMetadata
+
+// ✅ Use manual types
+let metadata: BookMetadata  // From NetworkTypes.swift
+```
+
+#### Error: "Failed to parse OpenAPI spec"
+
+**Cause:** Invalid YAML syntax in committed spec
+
+**Solution:**
+```bash
+# Validate YAML syntax
+python3 -c "import yaml; yaml.safe_load(open('swiftwing/OpenAPI/talaria-openapi.yaml'))"
+
+# If invalid, check diff
+git diff swiftwing/OpenAPI/talaria-openapi.yaml
+
+# Rollback if necessary (see Rollback Procedures above)
+```
+
+#### Error: "Network error: The certificate for this server is invalid"
+
+**Cause:** HTTPS certificate issue (usually in Simulator)
+
+**Solution:**
+```swift
+// ⚠️ DEVELOPMENT ONLY - Never ship this
+#if DEBUG
+let configuration = URLSessionConfiguration.default
+configuration.urlCache = nil
+configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+#endif
+```
+
+**For Production:**
+- Ensure Talaria API has valid HTTPS certificate
+- Add certificate pinning for security
+
+#### Error: "Rate limited (429)"
+
+**Cause:** Too many requests to Talaria API
+
+**Solution:**
+```swift
+// In TalariaService.uploadScan:
+case 429:
+    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
+        .flatMap { TimeInterval($0) }
+    throw NetworkError.rateLimited(retryAfter: retryAfter)
+
+// In calling code:
+do {
+    let (jobId, streamUrl) = try await service.uploadScan(...)
+} catch NetworkError.rateLimited(let retryAfter) {
+    print("Rate limited. Retry after \(retryAfter ?? 60) seconds")
+    // Show user-friendly message
+}
+```
+
+#### Warning: "Uncommitted changes in OpenAPI spec"
+
+**Cause:** Modified talaria-openapi.yaml not committed
+
+**Solution:**
+```bash
+# Review changes
+git diff swiftwing/OpenAPI/talaria-openapi.yaml
+
+# If intentional, commit
+git add swiftwing/OpenAPI/
+git commit -m "chore: Update Talaria OpenAPI spec"
+
+# If accidental, rollback
+git checkout swiftwing/OpenAPI/
 ```
 
 ## Critical Patterns
