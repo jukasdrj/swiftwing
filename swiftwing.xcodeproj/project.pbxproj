@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAB4A6B0846BA3231888A50 /* TalariaService.swift */; };
+		C4D5F032A82E62917C7B51A5 /* NetworkTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */; };
 		073C5F55E358DC2A27012703 /* StreamManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77334C1AFF23F057B4627DC /* StreamManager.swift */; };
 		08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */; };
 		0A1AC8F5659CBE024EB318D3 /* NetworkActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28EF0C87C243DB06ECB02C3 /* NetworkActor.swift */; };
@@ -43,6 +45,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		BBAB4A6B0846BA3231888A50 /* TalariaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/TalariaService.swift; sourceTree = "<group>"; };
+		C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/NetworkTypes.swift; sourceTree = "<group>"; };
 		05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
 		20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
 		2B42B677D75020B244722F76 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
@@ -130,6 +134,8 @@
 				90075E8758F64E3095FAE717 /* PerformanceTestData.swift */,
 				59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */,
 				A28EF0C87C243DB06ECB02C3 /* NetworkActor.swift */,
+				BBAB4A6B0846BA3231888A50 /* TalariaService.swift */,
+				C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */,
 				20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */,
 				FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */,
 				A77334C1AFF23F057B4627DC /* StreamManager.swift */,
@@ -302,6 +308,8 @@
 				671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */,
 				DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */,
 				0A1AC8F5659CBE024EB318D3 /* NetworkActor.swift in Sources */,
+				F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */,
+				C4D5F032A82E62917C7B51A5 /* NetworkTypes.swift in Sources */,
 				9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */,
 				C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */,
 				073C5F55E358DC2A27012703 /* StreamManager.swift in Sources */,

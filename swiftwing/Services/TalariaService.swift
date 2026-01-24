@@ -10,7 +10,7 @@ actor TalariaService {
     // MARK: - Properties
 
     /// URLSession for network operations
-    private nonisolated(unsafe) let urlSession: URLSession
+    private let urlSession: URLSession
 
     /// Device identifier for API requests
     private let deviceId: String

@@ -460,7 +460,7 @@ struct CameraView: View {
         var queueItem: ProcessingItem?
         var tempFileURL: URL?
         var jobId: String?
-        let networkActor = NetworkActor()
+        let talariaService = TalariaService()
 
         // Cleanup task tracker when done
         defer {
@@ -535,15 +535,15 @@ struct CameraView: View {
             // Performance logging: start upload timer
             let uploadStart = CFAbsoluteTimeGetCurrent()
 
-            let uploadResponse = try await networkActor.uploadImage(uploadData)
-            jobId = uploadResponse.jobId
+            let (uploadedJobId, streamUrl) = try await talariaService.uploadScan(image: uploadData, deviceId: UUID().uuidString)
+            jobId = uploadedJobId
 
             // Performance logging: upload completed
             let uploadDuration = (CFAbsoluteTimeGetCurrent() - uploadStart) * 1000 // Convert to ms
-            print("📤 Upload took \(Int(uploadDuration))ms, jobId: \(uploadResponse.jobId)")
+            print("📤 Upload took \(Int(uploadDuration))ms, jobId: \(uploadedJobId)")
 
             // Store temp file URL and job ID for cleanup (US-406)
-            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResponse.jobId)
+            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadedJobId)
 
             // Switch to analyzing state
             updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
@@ -552,13 +552,13 @@ struct CameraView: View {
             let streamStart = CFAbsoluteTimeGetCurrent()
 
             // Stream SSE events from Talaria
-            let eventStream = await networkActor.streamEvents(from: uploadResponse.streamUrl)
+            let eventStream = await talariaService.streamEvents(streamUrl: streamUrl)
 
             for try await event in eventStream {
                 // Check for task cancellation (app backgrounding)
                 if Task.isCancelled {
                     print("🛑 SSE stream cancelled (app backgrounding)")
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService)
                     return
                 }
 
@@ -591,7 +591,7 @@ struct CameraView: View {
                     updateQueueItem(id: item.id, state: .done, message: nil)
 
                     // Cleanup resources (non-blocking)
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService)
 
                     // Auto-remove from queue after 5 seconds
                     await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
@@ -609,7 +609,7 @@ struct CameraView: View {
                     impactFeedback.impactOccurred()
 
                     // Cleanup resources even on error (non-blocking)
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService)
 
                     // Remove failed item after 5 seconds
 
@@ -621,7 +621,7 @@ struct CameraView: View {
                     updateQueueItem(id: item.id, state: .error, message: "Canceled")
 
                     // Cleanup resources (non-blocking)
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService)
 
                     // Remove canceled item after 3 seconds (shorter than errors)
                     await removeQueueItemAfterDelay(id: item.id, delay: 3.0)
@@ -676,7 +676,7 @@ struct CameraView: View {
                 impactFeedback.impactOccurred()
 
                 // Cleanup resources (non-blocking)
-                await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+                await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService)
 
                 // Remove failed item after 5 seconds
                 await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
@@ -749,11 +749,11 @@ struct CameraView: View {
     /// US-406: Cleanup resources after job completion or error
     /// Performs cleanup of both server-side job and local temporary file
     /// Non-blocking - failures are logged but don't crash the app
-    private func performCleanup(jobId: String?, tempFileURL: URL?, networkActor: NetworkActor) async {
+    private func performCleanup(jobId: String?, tempFileURL: URL?, talariaService: TalariaService) async {
         // Cleanup server-side job resources
         if let jobId = jobId {
             do {
-                try await networkActor.cleanupJob(jobId)
+                try await talariaService.cleanup(jobId: jobId)
                 print("🗑️ Server cleanup successful for job: \(jobId)")
             } catch {
                 // Log but don't crash - server cleanup failures shouldn't affect user
