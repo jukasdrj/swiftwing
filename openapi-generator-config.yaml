@@ -1,0 +1,41 @@
+# OpenAPI Generator Configuration for SwiftWing
+# Generates Swift 6.2 compatible code with strict concurrency for Talaria API
+
+generate:
+  - types
+  - client
+
+accessModifier: public
+
+# Swift 6.2 Strict Concurrency
+additionalImports:
+  - Foundation
+  - OpenAPIRuntime
+  - OpenAPIURLSession
+
+# Feature Flags
+featureFlags:
+  - SendableTypes       # All generated types conform to Sendable
+  - StrictConcurrency   # Swift 6.2 strict concurrency checking
+
+# Naming Configuration
+namingStrategy:
+  types: pascalCase
+  properties: camelCase
+  operations: camelCase
+
+# API Namespace
+apiNamespace: TalariaAPI
+
+# Multipart Upload Support (for spine image uploads)
+multipartFormDataEnabled: true
+
+# Server-Sent Events Support (for real-time scan progress)
+eventStreamEnabled: true
+
+# Response Handling
+responseValidation: true
+errorHandling: throws
+
+# Documentation
+includeDocumentation: true
