@@ -42,8 +42,17 @@ if curl --fail --silent --show-error \
     echo "   Size: $(wc -c < "${OUTPUT_FILE}" | xargs) bytes"
     exit 0
 else
-    echo "❌ Failed to fetch OpenAPI spec from ${SPEC_URL}"
-    echo "   Build cannot continue with stale API contract"
-    echo "   Ensure network connectivity and server availability"
-    exit 1
+    # Check if a local spec already exists (for development when server is down)
+    if [ -f "${OUTPUT_FILE}" ]; then
+        echo "⚠️  Failed to fetch from ${SPEC_URL}"
+        echo "   Using existing local spec for development"
+        echo "   Size: $(wc -c < "${OUTPUT_FILE}" | xargs) bytes"
+        echo "   WARNING: Build is using potentially stale API contract"
+        exit 0
+    else
+        echo "❌ Failed to fetch OpenAPI spec from ${SPEC_URL}"
+        echo "   Build cannot continue with stale API contract"
+        echo "   Ensure network connectivity and server availability"
+        exit 1
+    fi
 fi
