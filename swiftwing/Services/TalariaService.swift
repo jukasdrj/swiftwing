@@ -134,6 +134,7 @@ actor TalariaService {
     /// - .result(BookMetadata) - Book metadata from AI
     /// - .complete - Processing finished successfully
     /// - .error(String) - Processing failed
+    /// - .canceled - Processing was canceled by user or system
     func streamEvents(streamUrl: URL) -> AsyncThrowingStream<SSEEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
@@ -172,6 +173,9 @@ actor TalariaService {
                                         continuation.finish()
                                         return
                                     } else if case .error = sseEvent {
+                                        continuation.finish()
+                                        return
+                                    } else if case .canceled = sseEvent {
                                         continuation.finish()
                                         return
                                     }

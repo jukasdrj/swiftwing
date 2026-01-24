@@ -612,6 +612,19 @@ struct CameraView: View {
                     await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
 
                     // Remove failed item after 5 seconds
+
+                case .canceled:
+                    // Job was canceled by user or system (US-506)
+                    print("⚠️ SSE job canceled (jobId: \(jobId ?? "unknown"))")
+
+                    // Update queue item to show canceled state
+                    updateQueueItem(id: item.id, state: .error, message: "Canceled")
+
+                    // Cleanup resources (non-blocking)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, networkActor: networkActor)
+
+                    // Remove canceled item after 3 seconds (shorter than errors)
+                    await removeQueueItemAfterDelay(id: item.id, delay: 3.0)
                     await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
                 }
             }

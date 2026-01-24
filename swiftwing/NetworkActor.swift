@@ -61,6 +61,7 @@ enum SSEEvent: Sendable {
     case result(BookMetadata)       // Book metadata from AI
     case complete                   // Job finished successfully
     case error(String)              // Job failed with error message
+    case canceled                   // Job was canceled by user or system
 }
 
 // MARK: - SSE Error
@@ -438,6 +439,9 @@ actor NetworkActor {
                         } else if case .error = sseEvent {
                             continuation.finish()
                             return
+                        } else if case .canceled = sseEvent {
+                            continuation.finish()
+                            return
                         }
                     }
                 }
@@ -486,6 +490,10 @@ actor NetworkActor {
             } else {
                 return .error("Unknown error")
             }
+
+        case "canceled":
+            // Canceled event: job was canceled by user or system
+            return .canceled
 
         default:
             throw SSEError.invalidEventFormat

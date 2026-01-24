@@ -93,6 +93,8 @@ final class IntegrationTests: XCTestCase {
                 completedSuccessfully = true
             case .error(let message):
                 XCTFail("Unexpected error: \(message)")
+            case .canceled:
+                XCTFail("Unexpected canceled event")
             }
         }
 

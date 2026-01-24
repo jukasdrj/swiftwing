@@ -450,6 +450,50 @@ final class NetworkActorTests: XCTestCase {
         XCTAssertEqual(events.count, 0)
     }
 
+    /// Test SSE stream with canceled event (US-506)
+    func testStreamEventsCanceled() async throws {
+        // Arrange: Mock SSE stream that gets canceled
+        let sseData = """
+        event: progress
+        data: {"message": "Processing..."}
+
+        event: canceled
+        data: {}
+
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, sseData)
+        }
+
+        // Act: Stream events
+        let actor = createTestActor()
+        let streamUrl = URL(string: "https://api.talaria.example.com/v3/stream/canceled")!
+        var events: [SSEEvent] = []
+
+        for try await event in actor.streamEvents(from: streamUrl) {
+            events.append(event)
+        }
+
+        // Assert: Stream should close after canceled event
+        XCTAssertEqual(events.count, 2)
+
+        // Verify progress event
+        if case .progress(let message) = events[0] {
+            XCTAssertEqual(message, "Processing...")
+        } else {
+            XCTFail("Expected progress event")
+        }
+
+        // Verify canceled event
+        if case .canceled = events[1] {
+            // Success
+        } else {
+            XCTFail("Expected canceled event")
+        }
+    }
+
     // MARK: - Helper Methods
 
     /// Create NetworkActor configured with MockURLProtocol
