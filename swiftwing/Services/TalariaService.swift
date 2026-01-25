@@ -42,7 +42,7 @@ actor TalariaService {
     private let urlSession: URLSession
 
     /// Device identifier for API requests
-    private let deviceId: String
+    nonisolated private let deviceId: String
 
     /// Base URL for Talaria API (production)
     private let baseURL = "https://api.oooefam.net"
@@ -88,18 +88,14 @@ actor TalariaService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
 
         // Build multipart body
         var body = Data()
 
-        // Add deviceId field
+        // Add image field (API expects photos[] for batch upload support)
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"deviceId\"\r\n\r\n".data(using: .utf8)!)
-        body.append("\(deviceId)\r\n".data(using: .utf8)!)
-
-        // Add image field
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"image\"; filename=\"spine.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"photos[]\"; filename=\"spine.jpg\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
         body.append(image)
         body.append("\r\n".data(using: .utf8)!)
@@ -120,10 +116,13 @@ actor TalariaService {
 
             // Check status code
             switch httpResponse.statusCode {
-            case 200:
-                // Parse response
+            case 200, 202:
+                // Parse response (202 Accepted is the standard response)
                 let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: data)
-                return (jobId: uploadResponse.jobId, streamUrl: uploadResponse.streamUrl)
+                guard uploadResponse.success else {
+                    throw NetworkError.invalidResponse
+                }
+                return (jobId: uploadResponse.data.jobId, streamUrl: uploadResponse.data.sseUrl)
 
             case 429:
                 // Rate limited
@@ -164,12 +163,14 @@ actor TalariaService {
     /// - .complete - Processing finished successfully
     /// - .error(String) - Processing failed
     /// - .canceled - Processing was canceled by user or system
-    func streamEvents(streamUrl: URL) -> AsyncThrowingStream<SSEEvent, Error> {
+    nonisolated func streamEvents(streamUrl: URL) -> AsyncThrowingStream<SSEEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 do {
-                    // Connect to SSE stream
-                    let (bytes, response) = try await URLSession.shared.bytes(from: streamUrl)
+                    // Connect to SSE stream with device ID header
+                    var request = URLRequest(url: streamUrl)
+                    request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
                     // Validate response
                     guard let httpResponse = response as? HTTPURLResponse,
@@ -325,7 +326,7 @@ actor TalariaService {
     ///   - data: JSON-encoded event data
     /// - Returns: Strongly-typed SSEEvent enum case
     /// - Throws: SSEError.invalidEventFormat if parsing fails
-    private func parseSSEEvent(event: String, data: String) throws -> SSEEvent {
+    nonisolated private func parseSSEEvent(event: String, data: String) throws -> SSEEvent {
         switch event {
         case "progress":
             // Progress event with message

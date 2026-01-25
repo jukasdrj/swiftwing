@@ -22,6 +22,14 @@ paths:
       description: |
         Uploads a book spine image and initiates AI-powered scanning workflow.
         Returns a job ID and SSE stream URL for real-time progress updates.
+      parameters:
+        - name: X-Device-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique device identifier (UUID v4 format)
       requestBody:
         required: true
         content:
@@ -29,20 +37,19 @@ paths:
             schema:
               type: object
               required:
-                - image
-                - deviceId
+                - photos[]
               properties:
-                image:
-                  type: string
-                  format: binary
-                  description: Book spine image (JPEG/PNG, max 10MB)
-                deviceId:
-                  type: string
-                  format: uuid
-                  description: Unique device identifier for tracking
+                photos[]:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  minItems: 1
+                  maxItems: 5
+                  description: Book spine images (JPEG/PNG, max 10MB each)
       responses:
-        '200':
-          description: Scan job created successfully
+        '202':
+          description: Scan job accepted and processing
           content:
             application/json:
               schema:
@@ -153,19 +160,36 @@ components:
     ScanJobResponse:
       type: object
       required:
-        - jobId
-        - streamUrl
+        - success
+        - data
       properties:
-        jobId:
-          type: string
-          format: uuid
-          description: Unique identifier for this scan job
-          example: "123e4567-e89b-12d3-a456-426614174000"
-        streamUrl:
-          type: string
-          format: uri
-          description: SSE stream endpoint URL
-          example: "https://api.oooefam.net/v3/jobs/scans/123e4567-e89b-12d3-a456-426614174000/stream"
+        success:
+          type: boolean
+          description: Whether the request succeeded
+          example: true
+        data:
+          type: object
+          required:
+            - jobId
+            - sseUrl
+          properties:
+            jobId:
+              type: string
+              format: uuid
+              description: Unique identifier for this scan job
+              example: "123e4567-e89b-12d3-a456-426614174000"
+            sseUrl:
+              type: string
+              format: uri
+              description: SSE stream endpoint URL
+              example: "https://api.oooefam.net/v3/jobs/scans/123e4567-e89b-12d3-a456-426614174000/stream"
+            authToken:
+              type: string
+              description: Authentication token for WebSocket connections
+            statusUrl:
+              type: string
+              format: uri
+              description: Job status polling endpoint
 
     BookMetadata:
       type: object

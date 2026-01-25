@@ -34,8 +34,15 @@ enum NetworkError: Error {
 
 /// Response from image upload to Talaria API
 struct UploadResponse: Codable, Sendable {
+    let success: Bool
+    let data: UploadResponseData
+}
+
+struct UploadResponseData: Codable, Sendable {
     let jobId: String
-    let streamUrl: URL
+    let sseUrl: URL
+    let authToken: String?
+    let statusUrl: URL?
 }
 
 // MARK: - Book Metadata
