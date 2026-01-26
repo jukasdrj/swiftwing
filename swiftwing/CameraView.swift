@@ -97,24 +97,7 @@ struct CameraView: View {
 
                     // US-409: Offline indicator with queued count
                     if !viewModel.networkMonitor.isConnected {
-                        HStack(spacing: 8) {
-                            Image(systemName: "wifi.slash")
-                                .font(.caption)
-                                .foregroundColor(.swissError)
-
-                            Text("OFFLINE")
-                                .font(.jetBrainsMono)
-                                .foregroundColor(.swissError)
-
-                            if viewModel.offlineQueuedCount > 0 {
-                                Text("(\(viewModel.offlineQueuedCount))")
-                                    .font(.jetBrainsMono)
-                                    .foregroundColor(.swissText.opacity(0.7))
-                            }
-                        }
-                        .swissGlassOverlay()
-                        .padding(.top, 60)
-                        .padding(.trailing, 8)
+                        OfflineIndicatorView(offlineQueuedCount: viewModel.offlineQueuedCount)
                     }
 
                     Text(String(format: "%.1fx", viewModel.cameraManager.currentZoomFactor))
