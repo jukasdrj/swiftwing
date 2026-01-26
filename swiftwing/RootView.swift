@@ -3,7 +3,9 @@ import SwiftData
 import AVFoundation
 
 struct RootView: View {
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var cameraPermissionStatus: CameraPermissionStatus = .notDetermined
+    @State private var showOnboarding = false
     @Query private var books: [Book]
 
     enum CameraPermissionStatus {
@@ -14,17 +16,29 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            switch cameraPermissionStatus {
-            case .notDetermined, .denied:
-                CameraPermissionPrimerView(isPermissionGranted: Binding(
-                    get: { cameraPermissionStatus == .authorized },
-                    set: { if $0 { cameraPermissionStatus = .authorized } }
-                ))
-            case .authorized:
-                MainTabView(bookCount: books.count)
+            if showOnboarding {
+                // Show onboarding on first launch
+                OnboardingView(onComplete: {
+                    showOnboarding = false
+                })
+            } else {
+                // Normal app flow
+                switch cameraPermissionStatus {
+                case .notDetermined, .denied:
+                    CameraPermissionPrimerView(isPermissionGranted: Binding(
+                        get: { cameraPermissionStatus == .authorized },
+                        set: { if $0 { cameraPermissionStatus = .authorized } }
+                    ))
+                case .authorized:
+                    MainTabView(bookCount: books.count)
+                }
             }
         }
         .onAppear {
+            // Check if this is first launch
+            if !hasCompletedOnboarding {
+                showOnboarding = true
+            }
             checkCameraPermission()
         }
     }
