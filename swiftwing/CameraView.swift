@@ -98,6 +98,9 @@ struct CameraView: View {
                     // US-409: Offline indicator with queued count
                     if !viewModel.networkMonitor.isConnected {
                         OfflineIndicatorView(offlineQueuedCount: viewModel.offlineQueuedCount)
+                            .padding(.top, 60)
+                            .padding(.trailing, 8)
+                            .transition(.opacity)
                     }
 
                     Text(String(format: "%.1fx", viewModel.cameraManager.currentZoomFactor))

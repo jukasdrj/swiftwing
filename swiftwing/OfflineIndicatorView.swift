@@ -10,6 +10,7 @@ struct OfflineIndicatorView: View {
             Image(systemName: "wifi.slash")
                 .font(.caption)
                 .foregroundColor(.swissError)
+                .accessibilityHidden(true)  // Hide redundant icon from VoiceOver
 
             Text("OFFLINE")
                 .font(.jetBrainsMono)
@@ -22,8 +23,10 @@ struct OfflineIndicatorView: View {
             }
         }
         .swissGlassOverlay()
-        .padding(.top, 60)
-        .padding(.trailing, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(offlineQueuedCount > 0
+            ? "Offline, \(offlineQueuedCount) scans queued"
+            : "Offline")
     }
 }
 
