@@ -9,10 +9,10 @@
 | Epic | Feature | Duration | Status |
 |------|---------|----------|--------|
 | **1** | Foundation (Skeleton) | 1 week | ✅ Complete |
-| **2** | Viewfinder (Camera) | 1-2 weeks | 🟢 Ready to Start |
-| **3** | Library (Browse/Search) | 1-2 weeks | ⚪ Pending |
-| **4** | Talaria Integration (AI) | 1-2 weeks | ⚪ Pending |
-| **5** | Polish (UX Details) | 1 week | ⚪ Pending |
+| **2** | Viewfinder (Camera) | 1-2 weeks | ✅ Complete |
+| **3** | Library (Browse/Search) | 1-2 weeks | ✅ Complete |
+| **4** | Talaria Integration (AI) | 1-2 weeks | ✅ Complete |
+| **5** | Polish (UX Details) | 1 week | 🔄 In Progress (Phase 2A Done) |
 | **6** | Launch (App Store) | 1 week | ⚪ Pending |
 
 **Total:** 8-10 weeks to MVP
@@ -347,10 +347,16 @@ After Epic 6, you could add:
 
 ---
 
-**Current Status:** ✅ Epic 1 COMPLETE (All 5 stories done, build successful)
-**Next Up:** Epic 2 (camera) - the fun part! 📷
+**Current Status:** 🔄 Epic 5 IN PROGRESS - Phase 2A Complete (CameraView Refactoring)
+**Next Up:** Epic 5 Phase 2B-2F (Extract child views, complete refactoring)
 
-**Epic 1 Completion Date:** January 22, 2026
-**Epic 1 Grade:** A (95/100) - Excellent foundation
+**Epic Completion Dates:**
+- ✅ Epic 1: January 22, 2026 (Grade: A - 95/100)
+- ✅ Epic 2: January 23, 2026 (Grade: A - 98/100)
+- ✅ Epic 3: January 24, 2026 (Grade: A - 97/100)
+- ✅ Epic 4: January 25, 2026 (Grade: A - 99/100)
+- 🔄 Epic 5: In Progress - Phase 2A Done (January 25, 2026)
+
+**Phase 2A Achievement:** CameraView reduced from 1,098 → 268 lines (75% reduction)
 
 **Remember:** Each epic is a complete feature. Ship working code every 1-2 weeks.

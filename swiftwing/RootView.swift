@@ -70,6 +70,7 @@ struct MainTabView: View {
                     Label("Camera", systemImage: "camera")
                 }
         }
+        .tint(.internationalOrange)  // Swiss Glass accent color for selected tab
     }
 }
 
