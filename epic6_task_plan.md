@@ -112,24 +112,49 @@
 
 ---
 
-### Phase 4: Privacy Policy & Terms (US-603) ⚪ pending
+### Phase 4: Privacy Policy & Terms (US-603) ✅ complete
 **Objective:** Document privacy practices and terms of service for App Store compliance.
 
 **Tasks:**
-1. Create PRIVACY.md with camera/network data usage
-2. Explain Talaria API integration and data handling
-3. Document what data is collected (scanned images, book metadata)
-4. Clarify data retention policy (local SwiftData, no cloud storage)
-5. Create TERMS.md with basic terms of service
-6. Link privacy policy in app (Settings or About screen)
-7. Prepare App Store privacy nutrition labels data
+1. ✅ Create PRIVACY.md with camera/network data usage
+2. ✅ Explain Talaria API integration and data handling
+3. ✅ Document what data is collected (scanned images, book metadata)
+4. ✅ Clarify data retention policy (local SwiftData, no cloud storage)
+5. ✅ Create TERMS.md with basic terms of service
+6. ⏭️ Link privacy policy in app (future: Settings or About screen)
+7. ✅ Prepare App Store privacy nutrition labels data
 
-**Expected Output:**
-- PRIVACY.md (500+ words)
-- TERMS.md (300+ words)
-- App Store privacy answers documented
+**Actual Output:**
+- ✅ PRIVACY.md (1,400+ words)
+  - Camera data collection and deletion
+  - Book metadata storage (local-only)
+  - Talaria API integration details
+  - GDPR/CCPA compliance sections
+  - Children's privacy (13+)
+  - Contact information
 
-**Estimated Duration:** 2 hours
+- ✅ TERMS.md (1,100+ words)
+  - Service description
+  - User responsibilities
+  - AI accuracy disclaimer
+  - Rate limiting policy
+  - Offline mode terms
+  - Limitation of liability
+
+- ✅ APP_STORE_PRIVACY.md (submission guide)
+  - Privacy nutrition label breakdown
+  - Question-by-question answers
+  - Data NOT linked to user
+  - Compliance checklist
+
+**Actual Duration:** ~20 minutes
+
+**Implementation Notes:**
+- Privacy-first messaging: No tracking, no accounts, local-only storage
+- Transparency: Clear disclosure of Talaria API usage
+- User control: Explains how to revoke permissions and delete data
+- Compliance: GDPR, CCPA, COPPA requirements addressed
+- App Store ready: Privacy label shows minimal data collection
 
 ---
 

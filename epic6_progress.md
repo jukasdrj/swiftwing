@@ -52,10 +52,10 @@
 **Completed Phases:**
 - ✅ Phase 2: App Icon & Launch Screen (US-601) - COMPLETE
 - ✅ Phase 3: Onboarding Flow (US-602) - COMPLETE
+- ✅ Phase 4: Privacy Policy & Terms (US-603) - COMPLETE
 
 **Upcoming Phases:**
-- Phase 4: Privacy Policy (US-603)
-- Phase 5: Screenshots (US-604)
+- Phase 5: Screenshots & Metadata (US-604)
 - Phase 6: TestFlight (US-605)
 
 ### Questions/Blockers
@@ -117,11 +117,15 @@
 
 ### Next Steps
 
-**Immediate (Phase 4):**
-- [ ] Create PRIVACY.md with camera/network data usage
-- [ ] Explain Talaria API integration and data handling
-- [ ] Create TERMS.md with basic terms of service
-- [ ] Document App Store privacy nutrition labels data
+**Immediate (Phase 5):**
+- [ ] Capture 6-8 screenshots in iPhone 17 Pro Max simulator
+- [ ] Screenshot 1: Camera view with scanning in progress
+- [ ] Screenshot 2: Processing queue with live results
+- [ ] Screenshot 3: Library grid with books
+- [ ] Screenshot 4: Book detail view
+- [ ] Screenshot 5: Offline mode indicator
+- [ ] Screenshot 6: AI results from Talaria
+- [ ] Draft App Store description and metadata
 
 ---
 
@@ -201,12 +205,88 @@
 
 ---
 
+## Session 4: Privacy Policy & Terms (Phase 4)
+
+**Time:** 8:50 PM - 9:10 PM
+
+### Actions Taken
+
+1. **Created PRIVACY.md** ✅
+   - Comprehensive privacy policy (1,400+ words)
+   - Camera data handling explained
+   - Book metadata storage (local-only)
+   - Network activity disclosure (Talaria API)
+   - GDPR and CCPA compliance sections
+   - Children's privacy (13+ age requirement)
+
+2. **Created TERMS.md** ✅
+   - Terms of Service (1,100+ words)
+   - AI accuracy disclaimer
+   - Rate limiting explanation
+   - No user accounts policy
+   - Intellectual property rights
+   - Limitation of liability
+
+3. **Created APP_STORE_PRIVACY.md** ✅
+   - App Store privacy nutrition labels guide
+   - Detailed question-by-question answers
+   - Data collection breakdown
+   - Privacy label preview
+   - Compliance checklist
+
+### Deliverables
+
+- ✅ PRIVACY.md (comprehensive privacy policy)
+  - Data collection explained (camera, metadata, network)
+  - Third-party services (Talaria API)
+  - User rights (access, delete, revoke permissions)
+  - Contact information (privacy@oooefam.net)
+
+- ✅ TERMS.md (terms of service)
+  - Service description
+  - User responsibilities
+  - AI accuracy disclaimer
+  - Offline mode terms
+  - Governing law (California)
+
+- ✅ APP_STORE_PRIVACY.md (submission guide)
+  - Privacy nutrition label: Data NOT linked to user
+  - Photos: Used for app functionality (not stored)
+  - User Content: Local storage only
+  - No tracking, no third-party sharing
+
+### Key Privacy Highlights
+
+**Privacy-First Design:**
+- ❌ No user accounts
+- ❌ No tracking or analytics
+- ❌ No cloud sync
+- ✅ Local-only storage (SwiftData)
+- ✅ Photos deleted after AI processing
+- ✅ HTTPS encryption
+
+**Compliance:**
+- GDPR (data minimization, right to erasure)
+- CCPA (California privacy rights)
+- COPPA (13+ age requirement)
+- App Store privacy labels ready
+
+### Next Steps
+
+**Immediate (Phase 5):**
+- [ ] Capture App Store screenshots (6-8 images)
+- [ ] Draft App Store description (4000 char max)
+- [ ] Write keywords (100 char max)
+- [ ] Create promotional text (170 char max)
+
+---
+
 ## Metrics
 
-- **Phases Complete:** 3/7 (Phase 1 Planning, Phase 2 App Icon & Launch, Phase 3 Onboarding)
-- **User Stories Complete:** 2/5 (US-601 ✅, US-602 ✅)
+- **Phases Complete:** 4/7 (Planning, App Icon & Launch, Onboarding, Privacy & Terms)
+- **User Stories Complete:** 3/5 (US-601 ✅, US-602 ✅, US-603 ✅)
 - **Build Status:** ✅ 0 errors, 0 warnings
-- **Files Created:** 7 (3 planning files, LaunchScreenView.swift, OnboardingView.swift, AppIcon.png, generate-app-icon.swift)
+- **Files Created:** 10 (3 planning, 2 views, 3 legal docs, AppIcon.png, generate-app-icon.swift)
 - **Files Modified:** 4 (Info.plist, AppIcon Contents.json, RootView.swift, project.pbxproj)
 
 ---
