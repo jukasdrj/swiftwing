@@ -267,8 +267,8 @@ struct CameraView: View {
         }
 
         do {
-            // Configure session (now async and off-main thread)
-            try await cameraManager.setupSession()
+            // Configure session (must be on main thread per AVFoundation docs)
+            try cameraManager.setupSession()
 
             // Start session on background thread (non-blocking)
             cameraManager.startSession()
