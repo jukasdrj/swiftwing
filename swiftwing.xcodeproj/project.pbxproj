@@ -9,14 +9,15 @@
 /* Begin PBXBuildFile section */
 		073C5F55E358DC2A27012703 /* StreamManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77334C1AFF23F057B4627DC /* StreamManager.swift */; };
 		08E60B7F11CBC9DD92B19F18 /* HelloWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */; };
+		13D8148661AABC54AB421ADC /* OfflineIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */; };
 		297CACB39DDD705A8166A4A6 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */; };
 		2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B42B677D75020B244722F76 /* CameraPreviewView.swift */; };
 		369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5FA190CF9E5B8B778E942 /* CameraView.swift */; };
+		420A170E7A7CA72194C885D9 /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */; };
 		4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */; };
 		5BBE000C15164F08B85C9DC8 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */; };
 		671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90075E8758F64E3095FAE717 /* PerformanceTestData.swift */; };
 		6F97989D8D79A34FDE104ECA /* ProcessingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */; };
-		13D8148661AABC54AB421ADC /* OfflineIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */; };
 		7B2A93E4D8FF47B0A02715CD /* DuplicateDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */; };
 		7F0000010000000000000001 /* SwiftwingApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000020000000000000001 /* SwiftwingApp.swift */; };
 		7F0000030000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000040000000000000001 /* ContentView.swift */; };
@@ -39,11 +40,11 @@
 		ACBEEDDC92CAE5BFB17A2AFB /* OfflineQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CABBB6D46005235B0EE24D0 /* OfflineQueueManager.swift */; };
 		BBFC697E2E23D044AC8EF131 /* ProcessingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */; };
 		C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */; };
-		C4D5F032A82E62917C7B51A5 /* Services/NetworkTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48EF5A601C80414ED1B7BBB /* Services/NetworkTypes.swift */; };
+		C4D5F032A82E62917C7B51A5 /* NetworkTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */; };
 		C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */; };
 		DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733AF8F390562E0E6977AD18 /* CameraManager.swift */; };
 		DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */; };
-		F6160EAA1D7539CA137F91D9 /* Services/TalariaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAB4A6B0846BA3231888A50 /* Services/TalariaService.swift */; };
+		F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAB4A6B0846BA3231888A50 /* TalariaService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,9 +61,9 @@
 		05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
 		20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
 		2B42B677D75020B244722F76 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
+		2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		518C6845C092FC50A655B339 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProcessingQueueView.swift; sourceTree = "<group>"; };
-		F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineIndicatorView.swift; sourceTree = "<group>"; };
 		59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceLogger.swift; sourceTree = "<group>"; };
 		59FB6D56A60C6F1B554499EB /* HelloWorldView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HelloWorldView.swift; sourceTree = "<group>"; };
 		61AA37A8BF1D45E7A09593F7 /* DuplicateBookAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateBookAlert.swift; sourceTree = "<group>"; };
@@ -88,17 +89,20 @@
 		A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCacheManager.swift; sourceTree = "<group>"; };
 		A77334C1AFF23F057B4627DC /* StreamManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StreamManager.swift; sourceTree = "<group>"; };
 		A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProcessingItem.swift; sourceTree = "<group>"; };
-		BBAB4A6B0846BA3231888A50 /* Services/TalariaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/TalariaService.swift; sourceTree = "<group>"; };
-		C48EF5A601C80414ED1B7BBB /* Services/NetworkTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/NetworkTypes.swift; sourceTree = "<group>"; };
+		BBAB4A6B0846BA3231888A50 /* TalariaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/TalariaService.swift; sourceTree = "<group>"; };
+		C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/NetworkTypes.swift; sourceTree = "<group>"; };
 		CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateDetection.swift; sourceTree = "<group>"; };
 		D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
+		F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineIndicatorView.swift; sourceTree = "<group>"; };
 		FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A589307A2F268AA000629770 /* swiftwingTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = swiftwingTests;
 			sourceTree = "<group>";
 		};
@@ -165,11 +169,12 @@
 				A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */,
 				90075E8758F64E3095FAE717 /* PerformanceTestData.swift */,
 				59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */,
-				BBAB4A6B0846BA3231888A50 /* Services/TalariaService.swift */,
-				C48EF5A601C80414ED1B7BBB /* Services/NetworkTypes.swift */,
+				BBAB4A6B0846BA3231888A50 /* TalariaService.swift */,
+				C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */,
 				20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */,
 				FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */,
 				A77334C1AFF23F057B4627DC /* StreamManager.swift */,
+				2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */,
 			);
 			path = swiftwing;
 			sourceTree = "<group>";
@@ -250,8 +255,6 @@
 				A589307A2F268AA000629770 /* swiftwingTests */,
 			);
 			name = swiftwingTests;
-			packageProductDependencies = (
-			);
 			productName = swiftwingTests;
 			productReference = A58930792F268AA000629770 /* swiftwingTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -376,11 +379,12 @@
 				671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */,
 				A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */,
 				DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */,
-				F6160EAA1D7539CA137F91D9 /* Services/TalariaService.swift in Sources */,
-				C4D5F032A82E62917C7B51A5 /* Services/NetworkTypes.swift in Sources */,
+				F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */,
+				C4D5F032A82E62917C7B51A5 /* NetworkTypes.swift in Sources */,
 				9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */,
 				C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */,
 				073C5F55E358DC2A27012703 /* StreamManager.swift in Sources */,
+				420A170E7A7CA72194C885D9 /* LaunchScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
