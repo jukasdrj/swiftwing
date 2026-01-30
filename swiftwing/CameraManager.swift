@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import UIKit
 
 /// Camera session manager for SwiftUI
 /// AVCaptureSession must be managed on main thread per Apple documentation
@@ -7,8 +8,17 @@ class CameraManager: ObservableObject {
     @Published private(set) var captureSession: AVCaptureSession?
     @Published var currentZoomFactor: CGFloat = 1.0
     private var photoOutput: AVCapturePhotoOutput?
+    private var videoOutput: AVCaptureVideoDataOutput?
     private var videoDevice: AVCaptureDevice?
     private var isConfigured = false
+
+    // Retain delegates during capture (AVCapturePhotoOutput does not retain them)
+    private var activeDelegates: [Int64: PhotoCaptureDelegate] = [:]
+
+    // Vision processing
+    let frameProcessor = FrameProcessor() // Exposed for adaptive throttling control
+    private let videoProcessingQueue = DispatchQueue(label: "com.swiftwing.videoprocessing", qos: .userInitiated)
+    var onVisionResult: ((VisionResult) -> Void)?
 
     /// Session preset for camera quality (default: .high for 30 FPS battery efficiency)
     /// Can be overridden to .photo for higher quality or .medium for lower resource usage
@@ -57,6 +67,26 @@ class CameraManager: ObservableObject {
             self.photoOutput = output
         } else {
             throw CameraError.cannotAddOutput
+        }
+
+        // Add video data output for Vision processing
+        let videoOutput = AVCaptureVideoDataOutput()
+        videoOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        ]
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.setSampleBufferDelegate(frameProcessor, queue: videoProcessingQueue)
+
+        if session.canAddOutput(videoOutput) {
+            session.addOutput(videoOutput)
+            self.videoOutput = videoOutput
+        }
+
+        // Wire frame processor callback
+        frameProcessor.onFrameProcessed = { [weak self] result in
+            Task { @MainActor in
+                self?.onVisionResult?(result)
+            }
         }
 
         session.commitConfiguration()
@@ -108,10 +138,44 @@ class CameraManager: ObservableObject {
 
         let settings = AVCapturePhotoSettings()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            let delegate = PhotoCaptureDelegate { result in
-                continuation.resume(with: result)
+        // Set photo orientation from effectiveGeometry (iOS 26 API)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            let orientation = windowScene.effectiveGeometry.interfaceOrientation
+
+            // Map UIInterfaceOrientation to video rotation angle
+            let rotationAngle: CGFloat
+            switch orientation {
+            case .portrait:
+                rotationAngle = 90
+            case .portraitUpsideDown:
+                rotationAngle = 270
+            case .landscapeLeft:
+                rotationAngle = 180
+            case .landscapeRight:
+                rotationAngle = 0
+            case .unknown:
+                rotationAngle = 90
+            @unknown default:
+                rotationAngle = 90
             }
+
+            // Set rotation on photo connection
+            if let photoConnection = photoOutput.connection(with: .video) {
+                if photoConnection.isVideoRotationAngleSupported(rotationAngle) {
+                    photoConnection.videoRotationAngle = rotationAngle
+                }
+            }
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let delegate = PhotoCaptureDelegate { [weak self] result in
+                continuation.resume(with: result)
+                // Release delegate
+                self?.activeDelegates[settings.uniqueID] = nil
+            }
+            
+            // Retain delegate
+            activeDelegates[settings.uniqueID] = delegate
 
             // Keep delegate alive until capture completes
             photoOutput.capturePhoto(with: settings, delegate: delegate)
@@ -168,6 +232,11 @@ class CameraManager: ObservableObject {
             print("❌ Failed to set focus point: \(error)")
         }
     }
+
+    /// Enables or disables Vision processing on video frames
+    func setVisionEnabled(_ enabled: Bool) {
+        videoOutput?.connection(with: .video)?.isEnabled = enabled
+    }
 }
 
 // MARK: - Photo Capture Delegate
@@ -193,12 +262,47 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     }
 }
 
+// MARK: - Frame Processor Delegate
+
+/// Bridge between AVCaptureVideoDataOutput and VisionService
+/// - Note: @unchecked Sendable is required because AVCaptureVideoDataOutputSampleBufferDelegate
+///   is an Objective-C protocol that cannot express Sendable. This is safe because:
+///   (a) no mutable shared state (visionService is let, onFrameProcessed set once)
+///   (b) all callbacks dispatched to single serial DispatchQueue
+///   (c) standard Apple pattern for AVFoundation delegates in Swift 6.2
+final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
+    var onFrameProcessed: ((VisionResult) -> Void)?
+    let visionService = VisionService() // Exposed for adaptive throttling control
+
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        // Throttle processing
+        guard visionService.shouldProcessFrame() else { return }
+
+        // Extract CVPixelBuffer
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        // Determine orientation from connection
+        let orientation: CGImagePropertyOrientation = .up // TODO: Map from videoRotationAngle
+
+        // Process frame
+        let result = visionService.processFrame(pixelBuffer, orientation: orientation)
+
+        // Invoke callback
+        onFrameProcessed?(result)
+    }
+
+    func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        print("[Vision] Frame dropped")
+    }
+}
+
 // MARK: - Errors
 enum CameraError: LocalizedError {
     case noCameraAvailable
     case cannotAddInput
     case cannotAddOutput
     case photoOutputNotConfigured
+    case visionProcessingFailed
 
     var errorDescription: String? {
         switch self {
@@ -210,6 +314,8 @@ enum CameraError: LocalizedError {
             return "Cannot add photo output to session"
         case .photoOutputNotConfigured:
             return "Photo output not configured"
+        case .visionProcessingFailed:
+            return "Vision framework processing failed"
         }
     }
 }

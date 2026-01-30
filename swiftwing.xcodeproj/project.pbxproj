@@ -12,9 +12,11 @@
 		13D8148661AABC54AB421ADC /* OfflineIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */; };
 		297CACB39DDD705A8166A4A6 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */; };
 		2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B42B677D75020B244722F76 /* CameraPreviewView.swift */; };
+		32F4A5B6C7D8E9F0A1B2C3D4 /* CaptureGuidanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */; };
 		369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5FA190CF9E5B8B778E942 /* CameraView.swift */; };
 		420A170E7A7CA72194C885D9 /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */; };
 		4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */; };
+		4ED9283B69C74BA2B6452ADF /* VisionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */; };
 		5BBE000C15164F08B85C9DC8 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */; };
 		671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90075E8758F64E3095FAE717 /* PerformanceTestData.swift */; };
 		6F97989D8D79A34FDE104ECA /* ProcessingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */; };
@@ -31,9 +33,9 @@
 		7F0000290000000000000001 /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000240000000000000001 /* OpenAPIRuntime */; };
 		7F00002A0000000000000001 /* OpenAPIURLSession in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000250000000000000001 /* OpenAPIURLSession */; };
 		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
+		92F6E063027BB1606D340CF6 /* VisionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCC3A90A3E43A15C862A285 /* VisionOverlayView.swift */; };
 		9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */; };
 		A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A589308A2F26D83900629770 /* CameraViewModel.swift */; };
-		A589308C2F26D83900629770 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A589308A2F26D83900629770 /* CameraViewModel.swift */; };
 		A5A480302F23C145006CD05C /* LibraryPrefetchCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */; };
 		A5A480382F23CF0D006CD05C /* ImageCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */; };
 		AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61AA37A8BF1D45E7A09593F7 /* DuplicateBookAlert.swift */; };
@@ -43,6 +45,7 @@
 		C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */; };
 		C4D5F032A82E62917C7B51A5 /* NetworkTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */; };
 		C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */; };
+		DABC14EAB6449A528531BAEE /* VisionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51482BF923E8B4E6C0098A07 /* VisionTypes.swift */; };
 		DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733AF8F390562E0E6977AD18 /* CameraManager.swift */; };
 		DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */; };
 		F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAB4A6B0846BA3231888A50 /* TalariaService.swift */; };
@@ -63,6 +66,9 @@
 		20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
 		2B42B677D75020B244722F76 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
+		3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureGuidanceView.swift; sourceTree = "<group>"; };
+		4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VisionService.swift; path = Services/VisionService.swift; sourceTree = "<group>"; };
+		51482BF923E8B4E6C0098A07 /* VisionTypes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VisionTypes.swift; path = Services/VisionTypes.swift; sourceTree = "<group>"; };
 		518C6845C092FC50A655B339 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProcessingQueueView.swift; sourceTree = "<group>"; };
 		59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceLogger.swift; sourceTree = "<group>"; };
@@ -91,6 +97,7 @@
 		A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCacheManager.swift; sourceTree = "<group>"; };
 		A77334C1AFF23F057B4627DC /* StreamManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StreamManager.swift; sourceTree = "<group>"; };
 		A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProcessingItem.swift; sourceTree = "<group>"; };
+		ACCC3A90A3E43A15C862A285 /* VisionOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VisionOverlayView.swift; sourceTree = "<group>"; };
 		BBAB4A6B0846BA3231888A50 /* TalariaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/TalariaService.swift; sourceTree = "<group>"; };
 		C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/NetworkTypes.swift; sourceTree = "<group>"; };
 		CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateDetection.swift; sourceTree = "<group>"; };
@@ -164,6 +171,7 @@
 				733AF8F390562E0E6977AD18 /* CameraManager.swift */,
 				2B42B677D75020B244722F76 /* CameraPreviewView.swift */,
 				8FF5FA190CF9E5B8B778E942 /* CameraView.swift */,
+				3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */,
 				A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */,
 				55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */,
 				F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */,
@@ -178,6 +186,8 @@
 				A77334C1AFF23F057B4627DC /* StreamManager.swift */,
 				2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */,
 				5D36FFC3AF4B7AF115115DEC /* OnboardingView.swift */,
+				ACCC3A90A3E43A15C862A285 /* VisionOverlayView.swift */,
+				F5F8FC1FF0A6DBF1A1FBDB2C /* Services */,
 			);
 			path = swiftwing;
 			sourceTree = "<group>";
@@ -214,6 +224,15 @@
 				D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */,
 			);
 			path = Fonts;
+			sourceTree = "<group>";
+		};
+		F5F8FC1FF0A6DBF1A1FBDB2C /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				51482BF923E8B4E6C0098A07 /* VisionTypes.swift */,
+				4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */,
+			);
+			name = Services;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -373,6 +392,7 @@
 				A5A480382F23CF0D006CD05C /* ImageCacheManager.swift in Sources */,
 				2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */,
 				369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */,
+				32F4A5B6C7D8E9F0A1B2C3D4 /* CaptureGuidanceView.swift in Sources */,
 				BBFC697E2E23D044AC8EF131 /* ProcessingItem.swift in Sources */,
 				6F97989D8D79A34FDE104ECA /* ProcessingQueueView.swift in Sources */,
 				13D8148661AABC54AB421ADC /* OfflineIndicatorView.swift in Sources */,
@@ -389,6 +409,9 @@
 				073C5F55E358DC2A27012703 /* StreamManager.swift in Sources */,
 				420A170E7A7CA72194C885D9 /* LaunchScreenView.swift in Sources */,
 				B2484F92C9D489D1C6BC5394 /* OnboardingView.swift in Sources */,
+				92F6E063027BB1606D340CF6 /* VisionOverlayView.swift in Sources */,
+				DABC14EAB6449A528531BAEE /* VisionTypes.swift in Sources */,
+				4ED9283B69C74BA2B6452ADF /* VisionService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -396,7 +419,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A589308C2F26D83900629770 /* CameraViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

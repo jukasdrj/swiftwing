@@ -48,6 +48,15 @@ final class CameraViewModel {
     // MARK: - US-410: Stream Concurrency Manager
     let streamManager = StreamManager()
 
+    // MARK: - Vision Framework State
+    var isVisionEnabled: Bool = true
+    var detectedText: [TextRegion] = []
+    var detectedISBN: String? = nil
+    var captureGuidance: CaptureGuidance = .noBookDetected
+
+    // MARK: - Haptic Feedback
+    private let hapticGenerator = UIImpactFeedbackGenerator(style: .medium)
+
     // MARK: - ModelContext (injected by view)
     var modelContext: ModelContext?
 
@@ -69,6 +78,40 @@ final class CameraViewModel {
         do {
             // Configure session (must be on main thread per AVFoundation docs)
             try cameraManager.setupSession()
+
+            // Prepare haptic generator for faster response
+            hapticGenerator.prepare()
+
+            // Wire Vision processing callback
+            cameraManager.onVisionResult = { [weak self] result in
+                Task { @MainActor in
+                    guard let self else { return }
+
+                    switch result {
+                    case .textRegions(let regions):
+                        self.detectedText = regions
+                        // Generate guidance based on detected text regions
+                        self.captureGuidance = self.generateGuidance(from: regions)
+
+                    case .barcode(let barcodeResult):
+                        if barcodeResult.isValidISBN {
+                            self.detectedISBN = barcodeResult.isbn
+                            self.captureGuidance = .spineDetected
+                            // Haptic feedback when spine detected
+                            self.hapticGenerator.impactOccurred()
+                        }
+
+                    case .noContent:
+                        self.detectedText = []
+                        self.captureGuidance = .noBookDetected
+                    }
+
+                    // TODO 6.1: Adaptive throttling based on activity
+                    // Adjust VisionService processing rate based on guidance
+                    let isActivelyScanning = (self.captureGuidance == .spineDetected)
+                    self.cameraManager.frameProcessor.visionService.setProcessingRate(active: isActivelyScanning)
+                }
+            }
 
             // Start session on background thread (non-blocking)
             cameraManager.startSession()
@@ -93,6 +136,11 @@ final class CameraViewModel {
 
     func stopCamera() {
         cameraManager.stopSession()
+    }
+
+    func toggleVision() {
+        isVisionEnabled.toggle()
+        cameraManager.setVisionEnabled(isVisionEnabled)
     }
 
     // MARK: - Image Capture
@@ -162,7 +210,8 @@ final class CameraViewModel {
                 print("📴 Offline mode - queueing scan for later upload")
 
                 // Add to processing queue with offline state
-                let item = ProcessingItem(imageData: imageData, state: .offline, progressMessage: "Queued (offline)")
+                var item = ProcessingItem(imageData: imageData, state: .offline, progressMessage: "Queued (offline)")
+                item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
                 withAnimation(.swissSpring) {
                     processingQueue.append(item)
                 }
@@ -231,7 +280,7 @@ final class CameraViewModel {
             let streamStart = CFAbsoluteTimeGetCurrent()
 
             // Stream SSE events from Talaria
-            let eventStream = await talariaService.streamEvents(streamUrl: streamUrl)
+            let eventStream = talariaService.streamEvents(streamUrl: streamUrl)
 
             for try await event in eventStream {
                 // Check for task cancellation (app backgrounding)
@@ -258,10 +307,7 @@ final class CameraViewModel {
                         rawJSON = nil
                     }
 
-                    guard let ctx = self.modelContext else {
-                        fatalError("ModelContext not injected into ViewModel")
-                    }
-                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, modelContext: ctx)
+                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, modelContext: modelContext)
 
                 case .complete:
                     let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
@@ -325,7 +371,7 @@ final class CameraViewModel {
             }
 
             // Other errors:
-            print("❌ Image processing/upload failed: \(error)")
+            print("❌ Image processing/upload failed: \(error.localizedDescription)")
 
             await showProcessingErrorOverlay(error.localizedDescription)
 
@@ -344,7 +390,8 @@ final class CameraViewModel {
 
     // MARK: - Queue Management
     private func addToQueue(imageData: Data) -> ProcessingItem {
-        let item = ProcessingItem(imageData: imageData, state: .uploading)
+        var item = ProcessingItem(imageData: imageData, state: .uploading)
+        item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
         withAnimation(.swissSpring) {
             processingQueue.append(item)
         }
@@ -732,6 +779,20 @@ final class CameraViewModel {
         let renderer = UIGraphicsImageRenderer(size: newSize)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+
+    // MARK: - Vision Guidance Generation
+    private func generateGuidance(from regions: [TextRegion]) -> CaptureGuidance {
+        // Simple heuristic: if we have text regions with high confidence, spine is detected
+        let highConfidenceRegions = regions.filter { $0.confidence > 0.7 }
+
+        if highConfidenceRegions.count >= 3 {
+            return .spineDetected
+        } else if highConfidenceRegions.count > 0 {
+            return .moveCloser
+        } else {
+            return .noBookDetected
         }
     }
 }

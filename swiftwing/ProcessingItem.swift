@@ -14,6 +14,7 @@ struct ProcessingItem: Identifiable, Equatable {
     var originalImageData: Data?  // Original full-size image for retry (US-407)
     var tempFileURL: URL?  // Temporary JPEG file URL for cleanup (US-406)
     var jobId: String?     // Talaria job ID for server cleanup (US-406)
+    var preScannedISBN: String? = nil  // Vision-detected ISBN from barcode scanner (TODO 4.4)
 
     init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil) {
         self.id = UUID()

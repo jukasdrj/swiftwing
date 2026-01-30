@@ -27,6 +27,15 @@ struct CameraView: View {
                     .ignoresSafeArea()
             }
 
+            // Vision Framework Overlays (conditionally shown)
+            if viewModel.isVisionEnabled {
+                VisionOverlayView(textRegions: viewModel.detectedText)
+                    .allowsHitTesting(false)
+
+                CaptureGuidanceView(guidance: viewModel.captureGuidance)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // Loading spinner (only shown if > 200ms)
             if viewModel.isLoading {
                 ProgressView()
