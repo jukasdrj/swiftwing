@@ -171,8 +171,10 @@ private struct CaptureGuidanceAnimationPreview: View {
 
         var currentIndex = 0
         Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
-            currentIndex = (currentIndex + 1) % states.count
-            currentGuidance = states[currentIndex]
+            Task { @MainActor in
+                currentIndex = (currentIndex + 1) % states.count
+                currentGuidance = states[currentIndex]
+            }
         }
     }
 }

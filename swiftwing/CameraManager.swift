@@ -282,7 +282,7 @@ final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
         // Determine orientation from connection
-        let orientation: CGImagePropertyOrientation = .up // TODO: Map from videoRotationAngle
+        let orientation = CGImagePropertyOrientation(from: connection.videoRotationAngle)
 
         // Process frame
         let result = visionService.processFrame(pixelBuffer, orientation: orientation)
@@ -293,6 +293,31 @@ final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 
     func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         print("[Vision] Frame dropped")
+    }
+}
+
+// MARK: - Orientation Conversion
+
+extension CGImagePropertyOrientation {
+    /// Convert AVCaptureConnection videoRotationAngle to CGImagePropertyOrientation
+    init(from videoRotationAngle: CGFloat) {
+        // videoRotationAngle:
+        // 0° = landscapeRight (home button right)
+        // 90° = portrait (home button bottom)
+        // 180° = landscapeLeft (home button left)
+        // 270° = portraitUpsideDown (home button top)
+        switch videoRotationAngle {
+        case 0:
+            self = .right      // landscapeRight
+        case 90:
+            self = .up         // portrait
+        case 180:
+            self = .left       // landscapeLeft
+        case 270:
+            self = .down       // portraitUpsideDown
+        default:
+            self = .up         // Default to portrait
+        }
     }
 }
 

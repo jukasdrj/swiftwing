@@ -70,7 +70,7 @@ final class VisionService {
 
             // Extract text observations
             var textRegions: [TextRegion] = []
-            if let textObservations = textRequest.results as? [VNRecognizedTextObservation] {
+            if let textObservations = textRequest.results {
                 for observation in textObservations {
                     guard observation.confidence > 0.5 else { continue }
 
@@ -86,7 +86,7 @@ final class VisionService {
             }
 
             // Extract barcode observations
-            if let barcodeObservations = barcodeRequest.results as? [VNBarcodeObservation] {
+            if let barcodeObservations = barcodeRequest.results {
                 for observation in barcodeObservations {
                     if let isbn = observation.payloadStringValue {
                         let isValid = validateISBN13(isbn)
