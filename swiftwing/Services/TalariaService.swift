@@ -119,9 +119,22 @@ actor TalariaService {
             case 200, 202:
                 // Parse response (202 Accepted is the standard response)
                 let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: data)
+
                 guard uploadResponse.success else {
+                    print("❌ Upload failed: success=false in response")
                     throw NetworkError.invalidResponse
                 }
+
+                print("✅ Upload response received:")
+                print("   JobID: \(uploadResponse.data.jobId)")
+                print("   SSE URL: \(uploadResponse.data.sseUrl)")
+                #if DEBUG
+                print("   Auth Token: \(uploadResponse.data.authToken ?? "none")")
+                #else
+                print("   Auth Token: \(uploadResponse.data.authToken != nil ? "[REDACTED]" : "none")")
+                #endif
+                print("   Status URL: \(uploadResponse.data.statusUrl?.absoluteString ?? "none")")
+
                 return (jobId: uploadResponse.data.jobId, streamUrl: uploadResponse.data.sseUrl)
 
             case 429:
@@ -153,76 +166,150 @@ actor TalariaService {
         }
     }
 
-    /// Stream real-time scan progress events via Server-Sent Events
-    /// - Parameter streamUrl: SSE endpoint URL from uploadScan response
+    /// Stream real-time scan progress events via Server-Sent Events with automatic retry
+    /// - Parameters:
+    ///   - streamUrl: SSE endpoint URL from uploadScan response
+    ///   - maxAttempts: Maximum number of connection attempts on failure (default: 3 = 1 initial + 2 retries)
     /// - Returns: AsyncThrowingStream of SSEEvent
-    ///
-    /// Events emitted:
-    /// - .progress(String) - Status updates ("Looking...", "Reading...", etc.)
-    /// - .result(BookMetadata) - Book metadata from AI
-    /// - .complete - Processing finished successfully
-    /// - .error(String) - Processing failed
-    /// - .canceled - Processing was canceled by user or system
-    nonisolated func streamEvents(streamUrl: URL) -> AsyncThrowingStream<SSEEvent, Error> {
+    nonisolated func streamEvents(streamUrl: URL, maxAttempts: Int = 3) -> AsyncThrowingStream<SSEEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
-                do {
-                    // Connect to SSE stream with device ID header
-                    var request = URLRequest(url: streamUrl)
-                    request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                // Create session once before retry loop
+                let sessionConfig = URLSessionConfiguration.default
+                sessionConfig.timeoutIntervalForRequest = 300 // 5 minutes
+                let session = URLSession(configuration: sessionConfig)
 
-                    // Validate response
-                    guard let httpResponse = response as? HTTPURLResponse,
-                          httpResponse.statusCode == 200 else {
-                        throw SSEError.connectionFailed
-                    }
+                defer {
+                    session.finishTasksAndInvalidate()
+                }
 
-                    // Parse SSE events
-                    var currentEvent: String?
-                    var currentData: String?
+                var attempt = 0
 
-                    for try await line in bytes.lines {
-                        // SSE format:
-                        // event: <type>
-                        // data: <json>
-                        // (blank line = event complete)
+                while attempt < maxAttempts {
+                    do {
+                        // Connect to SSE stream with device ID header
+                        var request = URLRequest(url: streamUrl)
+                        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
 
-                        if line.hasPrefix("event:") {
-                            currentEvent = String(line.dropFirst(6).trimmingCharacters(in: .whitespaces))
-                        } else if line.hasPrefix("data:") {
-                            currentData = String(line.dropFirst(5).trimmingCharacters(in: .whitespaces))
-                        } else if line.isEmpty {
-                            // Parse complete event
-                            if let event = currentEvent, let data = currentData {
-                                if let sseEvent = try? self.parseSSEEvent(event: event, data: data) {
-                                    continuation.yield(sseEvent)
+                        let (bytes, response) = try await session.bytes(for: request)
 
-                                    // Close stream on terminal events
-                                    if case .complete = sseEvent {
+                        // Validate response with comprehensive diagnostics
+                        guard let httpResponse = response as? HTTPURLResponse else {
+                            print("❌ SSE: Response is not HTTPURLResponse - \(type(of: response))")
+                            throw SSEError.connectionFailed
+                        }
+
+                        print("🔍 SSE Connection attempt \(attempt + 1):")
+                        print("   Status: \(httpResponse.statusCode)")
+                        print("   URL: \(streamUrl)")
+                        #if DEBUG
+                        print("   Headers: \(httpResponse.allHeaderFields)")
+                        #else
+                        print("   Headers: [redacted in production]")
+                        #endif
+
+                        guard httpResponse.statusCode == 200 else {
+                            print("❌ SSE: Expected 200, got \(httpResponse.statusCode)")
+                            throw SSEError.connectionFailed
+                        }
+
+                        print("✅ SSE: Connection established successfully")
+
+                        // Parse SSE events
+                        var currentEvent: String?
+                        var currentData: String?
+
+                        for try await line in bytes.lines {
+                            if line.hasPrefix("event:") {
+                                currentEvent = String(line.dropFirst(6).trimmingCharacters(in: .whitespaces))
+                                print("📨 SSE: Received event type: \(currentEvent ?? "nil")")
+                            } else if line.hasPrefix("data:") {
+                                currentData = String(line.dropFirst(5).trimmingCharacters(in: .whitespaces))
+                                print("📦 SSE: Received data: \(currentData?.prefix(100) ?? "nil")...")
+                            } else if line.isEmpty {
+                                // Parse event
+                                if let event = currentEvent, let data = currentData {
+                                    print("🔄 SSE: Processing event '\(event)' with data")
+
+                                    if event == "complete" {
+                                        // V3 Architecture: Fetch results from URL provided in complete event
+                                        // 1. Decode complete event to get resultsUrl
+                                        // 2. Fetch results
+                                        // 3. Emit .result for each book
+                                        // 4. Emit .complete
+
+                                        do {
+                                            guard let resultsUrl = try self.extractResultsUrl(from: data) else {
+                                                print("❌ SSE: No results URL in complete event")
+                                                throw SSEError.invalidEventFormat
+                                            }
+                                            print("✅ SSE: Extracted results URL: \(resultsUrl)")
+
+                                            // Fetch and emit results
+                                            let books = try await self.fetchResults(from: resultsUrl)
+                                            print("📚 SSE: Fetched \(books.count) books from results endpoint")
+
+                                            for book in books {
+                                                continuation.yield(.result(book))
+                                            }
+                                        } catch {
+                                            print("❌ SSE: Failed to process complete event: \(error)")
+                                        }
+
+                                        continuation.yield(.complete)
                                         continuation.finish()
                                         return
-                                    } else if case .error = sseEvent {
-                                        continuation.finish()
-                                        return
-                                    } else if case .canceled = sseEvent {
-                                        continuation.finish()
-                                        return
+                                    } else {
+                                        // Handle other events (progress, error)
+                                        do {
+                                            let sseEvent = try self.parseSSEEvent(event: event, data: data)
+                                            print("✅ SSE: Parsed event successfully: \(sseEvent)")
+                                            continuation.yield(sseEvent)
+
+                                            if case .error(let message) = sseEvent {
+                                                print("❌ SSE: Error event received: \(message)")
+                                                continuation.finish()
+                                                return
+                                            } else if case .canceled = sseEvent {
+                                                print("🛑 SSE: Canceled event received")
+                                                continuation.finish()
+                                                return
+                                            }
+                                        } catch {
+                                            print("❌ SSE: Failed to parse event '\(event)': \(error)")
+                                        }
                                     }
                                 }
+
+                                // Reset for next event
+                                currentEvent = nil
+                                currentData = nil
                             }
-
-                            // Reset for next event
-                            currentEvent = nil
-                            currentData = nil
                         }
+
+                        print("✅ SSE: Stream completed normally")
+                        continuation.finish()
+                        return // Success - exit retry loop
+
+                    } catch let error as SSEError where error == SSEError.connectionFailed {
+                        attempt += 1
+                        if attempt < maxAttempts {
+                            let delay = pow(2.0, Double(attempt))
+                            print("🔄 SSE retry \(attempt)/\(maxAttempts - 1) in \(delay)s")
+                            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                        } else {
+                            print("❌ SSE: Max retries exceeded after \(maxAttempts) attempts")
+                            continuation.finish(throwing: SSEError.maxRetriesExceeded)
+                            return
+                        }
+                    } catch {
+                        // Don't retry non-connection errors
+                        print("❌ SSE: Stream error (non-retryable): \(error)")
+                        print("   Error type: \(type(of: error))")
+                        print("   Error description: \(error.localizedDescription)")
+                        continuation.finish(throwing: error)
+                        return
                     }
-
-                    // Stream ended
-                    continuation.finish()
-
-                } catch {
-                    continuation.finish(throwing: error)
                 }
             }
         }
@@ -237,11 +324,16 @@ actor TalariaService {
     func cleanup(jobId: String) async throws {
         // Construct cleanup endpoint
         guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)/cleanup") else {
+            print("❌ Cleanup: Invalid URL for jobId: \(jobId)")
             throw NetworkError.invalidResponse
         }
 
+        print("🗑️ Cleanup initiated: \(jobId)")
+        print("   URL: \(url)")
+
         // Create DELETE request
         var request = URLRequest(url: url)
+        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
         request.httpMethod = "DELETE"
 
         do {
@@ -249,29 +341,38 @@ actor TalariaService {
 
             // Validate HTTP response
             guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ Cleanup: Invalid response type")
                 throw NetworkError.invalidResponse
             }
+
+            print("🗑️ Cleanup response: HTTP \(httpResponse.statusCode)")
 
             // Check status code
             switch httpResponse.statusCode {
             case 200, 204:
                 // Success
+                print("✅ Cleanup successful for job: \(jobId)")
                 return
 
             case 404:
                 // Job not found (already cleaned up)
+                print("ℹ️ Job not found (already cleaned): \(jobId)")
                 return
 
             case 500...599:
+                print("❌ Cleanup failed: HTTP \(httpResponse.statusCode)")
                 throw NetworkError.serverError(httpResponse.statusCode)
 
             default:
+                print("❌ Cleanup failed: HTTP \(httpResponse.statusCode)")
                 throw NetworkError.serverError(httpResponse.statusCode)
             }
 
         } catch let error as NetworkError {
+            print("❌ Cleanup NetworkError: \(error.localizedDescription)")
             throw error
         } catch let urlError as URLError {
+            print("❌ Cleanup URLError: \(urlError.localizedDescription)")
             switch urlError.code {
             case .notConnectedToInternet, .networkConnectionLost:
                 throw NetworkError.noConnection
@@ -281,11 +382,48 @@ actor TalariaService {
                 throw NetworkError.invalidResponse
             }
         } catch {
+            print("❌ Cleanup error: \(error.localizedDescription)")
             throw NetworkError.invalidResponse
         }
     }
-
+    
     // MARK: - Private Helpers
+    
+    /// Extract resultsUrl from complete event JSON
+    nonisolated private func extractResultsUrl(from jsonString: String) throws -> URL? {
+        guard let data = jsonString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let path = json["resultsUrl"] as? String else {
+            return nil
+        }
+        return URL(string: "\(baseURL)\(path)")
+    }
+    
+    /// Fetch full job results from the API
+    private func fetchResults(from url: URL) async throws -> [BookMetadata] {
+        var request = URLRequest(url: url)
+        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let (data, response) = try await urlSession.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.invalidResponse
+        }
+        
+        // Decode JobResultsResponse (V3 API)
+        // Structure: { success: true, data: { results: [BookMetadata], ... } }
+        struct JobResultsResponse: Codable {
+            let success: Bool
+            let data: JobResultsData
+        }
+        
+        struct JobResultsData: Codable {
+            let results: [BookMetadata]
+        }
+        
+        let resultsResponse = try JSONDecoder().decode(JobResultsResponse.self, from: data)
+        return resultsResponse.data.results
+    }
 
     /// Parse SSE event into domain SSEEvent enum
     ///

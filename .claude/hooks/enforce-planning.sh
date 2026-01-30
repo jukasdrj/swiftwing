@@ -97,10 +97,10 @@ if [ "$COMPLEXITY_SCORE" -ge "$THRESHOLD" ]; then
     cat <<EOF
 
 ╔════════════════════════════════════════════════════════════════╗
-║  🚨 COMPLEXITY THRESHOLD EXCEEDED (Score: $COMPLEXITY_SCORE/$THRESHOLD)           ║
+║  💡 COMPLEX TASK DETECTED (Score: $COMPLEXITY_SCORE/$THRESHOLD)                   ║
 ║                                                                ║
 ║  This task appears to require >3 tool calls.                   ║
-║  MANDATORY: Use /planning-with-files skill first               ║
+║  RECOMMENDED: Use /planning-with-files skill first             ║
 ║                                                                ║
 ║  Recommended Workflow:                                         ║
 ║  1. /planning-with-files - Create structured plan              ║
@@ -114,21 +114,11 @@ if [ "$COMPLEXITY_SCORE" -ge "$THRESHOLD" ]; then
 ║  ✓ Error tracking (avoid repeating failed fixes)              ║
 ║  ✓ Expert validation via PAL tools                             ║
 ║                                                                ║
-║  To override (not recommended):                                ║
-║  Add "skip-planning" to your prompt                            ║
+║  You can proceed without planning, but consider the benefits!  ║
 ╚════════════════════════════════════════════════════════════════╝
 
 EOF
-
-    # Check for override
-    if echo "$PROMPT" | grep -qiE "skip-planning"; then
-        echo "⚠️  Planning check overridden by user - proceeding without planning"
-        exit 0
-    else
-        # Block execution - require planning
-        echo "❌ BLOCKED: Please invoke /planning-with-files before proceeding"
-        exit 1
-    fi
+    # Suggestion only - don't block execution
 fi
 
 # Low complexity - allow through

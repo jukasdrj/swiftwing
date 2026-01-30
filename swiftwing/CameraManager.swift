@@ -9,7 +9,7 @@ class CameraManager: ObservableObject {
     @Published var currentZoomFactor: CGFloat = 1.0
     private var photoOutput: AVCapturePhotoOutput?
     private var videoOutput: AVCaptureVideoDataOutput?
-    private var videoDevice: AVCaptureDevice?
+    private(set) var videoDevice: AVCaptureDevice?  // Exposed for RotationCoordinator
     private var isConfigured = false
 
     // Retain delegates during capture (AVCapturePhotoOutput does not retain them)

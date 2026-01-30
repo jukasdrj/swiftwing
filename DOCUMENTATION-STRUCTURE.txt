@@ -1,0 +1,110 @@
+SwiftWing Repository Structure (After Reorganization)
+════════════════════════════════════════════════════
+
+Root Directory (14 essential .md files)
+├── AGENTS.md ⭐ (NEW - AI agent reference, 700+ lines)
+├── CLAUDE.md (AI instructions - CRITICAL)
+├── PRD.md (Product requirements)
+├── START-HERE.md (Orientation guide)
+├── CURRENT-STATUS.md (Real-time status)
+├── task_plan.md (Active planning)
+├── findings.md (Research)
+├── progress.md (Session log)
+├── EPIC-1-STORIES.md (Epic 1)
+├── EPIC-5-REVIEW-SUMMARY.md (Epic 5)
+├── US-swift.md (User stories)
+├── PRIVACY.md (Privacy policy)
+├── TERMS.md (Terms of service)
+└── APP_STORE_PRIVACY.md (App Store privacy)
+
+.archive/ (NEW - Completed work, 41 files)
+├── README.md (Archive documentation)
+├── WARNINGS_RESOLVED.md (Historical fixes)
+└── planning/
+    ├── epics/
+    │   ├── build_fix_*.md (3 files)
+    │   ├── warnings_fix_*.md (2 files)
+    │   ├── fix_review_*.md (3 files)
+    │   ├── epic5_review_*.md (3 files)
+    │   ├── e2e_validation_*.md (3 files)
+    │   ├── epic6_*.md (3 files)
+    │   └── pre-epic3-cleanup-plan.md
+    ├── user-stories/
+    │   ├── us401_*.md (3 files)
+    │   ├── us408_*.md (3 files)
+    │   ├── US-410_*.md (3 files)
+    │   ├── us504_*.md (3 files)
+    │   ├── us509_*.md (3 files)
+    │   └── us510_*.md (3 files)
+    └── camera-rotation-fix-summary.md
+        ROTATION-FIX-TESTING.md
+
+docs/ (NEW - Organized documentation)
+├── AGENTS.md ⭐ (NEW - Docs reference, 342 lines)
+├── README.md (Documentation index)
+├── architecture/
+│   ├── DESIGN-DECISION.md (Swiss Glass theme)
+│   ├── VERTICAL-SLICES.md (Epic strategy)
+│   └── EPIC-ROADMAP.md (6-epic plan)
+├── testing/
+│   ├── TESTING-CHECKLIST.md
+│   ├── TEST_COVERAGE_SUMMARY.md
+│   ├── INTEGRATION_TEST_SETUP.md
+│   ├── E2E_VALIDATION_COMPLETE.md
+│   ├── PHASE-2A-TEST-RESULTS.md
+│   └── EPIC-5-PHASE-2A-AUTOMATED-TEST-REPORT.md
+└── guides/
+    ├── US-315-VOICEOVER-TEST.md
+    ├── US-408-TEST-INSTRUCTIONS.md
+    ├── US-504-COMPLETION-GUIDE.md
+    └── US-509_SUMMARY.md
+
+swiftwing/ (Main iOS app)
+├── AGENTS.md ⭐ (NEW - Source code reference, 845 lines)
+├── SwiftwingApp.swift (Entry point)
+├── CameraView.swift (UI - 250 lines after refactor)
+├── CameraViewModel.swift (Logic - 727 lines)
+├── CameraManager.swift (AVFoundation actor - 224 lines)
+├── CameraPreviewView.swift (Rotation fix - 183 lines)
+├── LibraryView.swift (Library grid)
+├── Models/
+│   └── Book.swift (SwiftData @Model)
+├── Services/
+│   ├── TalariaService.swift (AI backend actor - 508 lines)
+│   └── NetworkTypes.swift (Domain models)
+└── OpenAPI/
+    └── README.md (API spec documentation)
+
+.claude/ (Claude Code configuration)
+├── AGENTS.md ⭐ (NEW - Config reference, 936 lines)
+├── README.md (OMC orchestration)
+├── settings.json (Project settings)
+├── rules/ (MANDATORY - 5 rule files)
+│   ├── swift-conventions.md (Swift 6.2 patterns)
+│   ├── build-workflow.md (xcodebuild + xcsift)
+│   ├── planning-mandatory.md (When to plan)
+│   ├── planning-workflow.md (How to plan)
+│   └── swiftdata-patterns.md (Environment keys)
+├── hooks/
+│   ├── README.md (Hook system docs)
+│   ├── enforce-planning.sh (Complexity detection)
+│   └── pm-epic-review.sh (PM workflow)
+├── skills/
+│   ├── gogo.md (Quick commit + push)
+│   └── idb-ui-test.md (iOS UI testing)
+└── commands/
+    ├── build-sim.md (Simulator build)
+    ├── update-api.md (API spec update)
+    └── epic-status.md (Epic progress)
+
+═══════════════════════════════════════════════════
+Summary:
+- 4 AGENTS.md files (2,823 lines total) ⭐
+- 14 essential files in root (down from 87)
+- 41 files archived to .archive/
+- Documentation organized into docs/{architecture,testing,guides}
+- All .claude/ configuration documented
+
+Legend:
+⭐ = New file created during reorganization
+═══════════════════════════════════════════════════

@@ -5,6 +5,7 @@ import Combine
 
 /// UIViewRepresentable wrapper for AVCaptureVideoPreviewLayer
 /// Displays live camera feed with edge-to-edge layout
+/// Uses AVCaptureDevice.RotationCoordinator for automatic orientation handling (iOS 17+)
 struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
     let onZoomChange: (CGFloat) -> Void
@@ -20,9 +21,6 @@ struct CameraPreviewView: UIViewRepresentable {
         view.layer.addSublayer(previewLayer)
         context.coordinator.previewLayer = previewLayer
 
-        // Set initial rotation using RotationCoordinator
-        context.coordinator.updateOrientation(for: view)
-
         // Add pinch gesture for zoom
         let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
         view.addGestureRecognizer(pinchGesture)
@@ -31,38 +29,104 @@ struct CameraPreviewView: UIViewRepresentable {
         let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         view.addGestureRecognizer(tapGesture)
 
+        // Setup rotation coordinator when session starts running
+        context.coordinator.setupRotationCoordinator()
+
         return view
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
         // Update preview layer frame to match view bounds
-        DispatchQueue.main.async {
-            if let previewLayer = context.coordinator.previewLayer {
-                previewLayer.frame = uiView.bounds
-                // Update rotation when bounds change (handles rotation)
-                context.coordinator.updateOrientation(for: uiView)
-            }
+        if let previewLayer = context.coordinator.previewLayer {
+            previewLayer.frame = uiView.bounds
         }
     }
 
-
-
     func makeCoordinator() -> Coordinator {
-        Coordinator(onZoomChange: onZoomChange, onFocusTap: onFocusTap)
+        Coordinator(session: session, onZoomChange: onZoomChange, onFocusTap: onFocusTap)
     }
 
     @MainActor
     class Coordinator: NSObject {
         var previewLayer: AVCaptureVideoPreviewLayer?
+        let session: AVCaptureSession
         let onZoomChange: (CGFloat) -> Void
         let onFocusTap: (CGPoint) -> Void
         private var baseZoomFactor: CGFloat = 1.0
-        private var cancellables = Set<AnyCancellable>()
+        private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+        private var rotationObservation: NSKeyValueObservation?
 
-        init(onZoomChange: @escaping (CGFloat) -> Void, onFocusTap: @escaping (CGPoint) -> Void) {
+        init(session: AVCaptureSession, onZoomChange: @escaping (CGFloat) -> Void, onFocusTap: @escaping (CGPoint) -> Void) {
+            self.session = session
             self.onZoomChange = onZoomChange
             self.onFocusTap = onFocusTap
             super.init()
+        }
+
+        deinit {
+            rotationObservation?.invalidate()
+        }
+
+        /// Setup AVCaptureDevice.RotationCoordinator for automatic orientation handling
+        /// Called after preview layer is created
+        func setupRotationCoordinator() {
+            // Wait for session to be running and device to be available
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self else { return }
+
+                // Poll until session is running (max 2 seconds)
+                var attempts = 0
+                while !self.session.isRunning && attempts < 20 {
+                    Thread.sleep(forTimeInterval: 0.1)
+                    attempts += 1
+                }
+
+                guard self.session.isRunning else {
+                    print("⚠️ Session not running after 2s - rotation coordinator setup failed")
+                    return
+                }
+
+                // Get video device from session input
+                guard let videoInput = self.session.inputs.compactMap({ $0 as? AVCaptureDeviceInput }).first(where: { $0.device.hasMediaType(.video) }),
+                      let previewLayer = self.previewLayer else {
+                    print("⚠️ Could not find video device for rotation coordinator")
+                    return
+                }
+
+                let device = videoInput.device
+
+                Task { @MainActor in
+                    // Create rotation coordinator
+                    let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+                    self.rotationCoordinator = coordinator
+
+                    // Apply initial rotation
+                    if let connection = previewLayer.connection {
+                        connection.videoRotationAngle = coordinator.videoRotationAngleForHorizonLevelPreview
+                        print("📱 Initial rotation set: \(coordinator.videoRotationAngleForHorizonLevelPreview)°")
+                    }
+
+                    // Observe rotation changes
+                    self.rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.new]) { [weak self] coordinator, change in
+                        guard let self,
+                              let previewLayer = self.previewLayer,
+                              let connection = previewLayer.connection,
+                              let newAngle = change.newValue else {
+                            return
+                        }
+
+                        Task { @MainActor in
+                            CATransaction.begin()
+                            CATransaction.setAnimationDuration(0.3)
+                            CATransaction.setDisableActions(false)
+                            connection.videoRotationAngle = newAngle
+                            CATransaction.commit()
+
+                            print("📱 Rotation updated: \(newAngle)°")
+                        }
+                    }
+                }
+            }
         }
 
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
@@ -98,45 +162,6 @@ struct CameraPreviewView: UIViewRepresentable {
             let devicePoint = previewLayer.captureDevicePointConverted(fromLayerPoint: tapPoint)
 
             onFocusTap(devicePoint)
-        }
-
-        /// Update preview orientation using UIWindowScene geometry
-        /// iOS 26 approach using effectiveGeometry for automatic rotation handling
-        func updateOrientation(for view: UIView) {
-            guard let previewLayer = previewLayer,
-                  let connection = previewLayer.connection,
-                  let windowScene = view.window?.windowScene else {
-                return
-            }
-
-            // Get interface orientation from window scene geometry
-            let orientation = windowScene.effectiveGeometry.interfaceOrientation
-
-            // Map interface orientation to video rotation angle
-            // Camera sensor is landscape by default, need to rotate to match device orientation
-            let rotationAngle: CGFloat
-            switch orientation {
-            case .portrait:
-                rotationAngle = 90
-            case .portraitUpsideDown:
-                rotationAngle = 270
-            case .landscapeLeft:
-                rotationAngle = 0
-            case .landscapeRight:
-                rotationAngle = 180
-            case .unknown:
-                rotationAngle = 90
-            @unknown default:
-                rotationAngle = 90
-            }
-
-            // Animate rotation change
-            CATransaction.begin()
-            CATransaction.setAnimationDuration(0.3)
-            connection.videoRotationAngle = rotationAngle
-            CATransaction.commit()
-
-            print("📱 effectiveGeometry orientation changed - video rotation: \(rotationAngle)°")
         }
     }
 }
