@@ -20,10 +20,8 @@ struct CameraPreviewView: UIViewRepresentable {
         view.layer.addSublayer(previewLayer)
         context.coordinator.previewLayer = previewLayer
 
-        // Set initial rotation based on current orientation
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-            context.coordinator.updateRotation(for: windowScene.effectiveGeometry.interfaceOrientation)
-        }
+        // Set initial rotation using RotationCoordinator
+        context.coordinator.updateOrientation(for: view)
 
         // Add pinch gesture for zoom
         let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
@@ -32,11 +30,6 @@ struct CameraPreviewView: UIViewRepresentable {
         // Add tap gesture for focus
         let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         view.addGestureRecognizer(tapGesture)
-
-        // Defer geometry observation until view is in window hierarchy
-        DispatchQueue.main.async {
-            context.coordinator.observeGeometryChanges(for: view)
-        }
 
         return view
     }
@@ -47,9 +40,7 @@ struct CameraPreviewView: UIViewRepresentable {
             if let previewLayer = context.coordinator.previewLayer {
                 previewLayer.frame = uiView.bounds
                 // Update rotation when bounds change (handles rotation)
-                if let windowScene = uiView.window?.windowScene {
-                    context.coordinator.updateRotation(for: windowScene.effectiveGeometry.interfaceOrientation)
-                }
+                context.coordinator.updateOrientation(for: uiView)
             }
         }
     }
@@ -109,31 +100,20 @@ struct CameraPreviewView: UIViewRepresentable {
             onFocusTap(devicePoint)
         }
 
-        /// Observe device orientation changes using NotificationCenter
-        /// (KVO on effectiveGeometry.interfaceOrientation is not supported)
-        nonisolated func observeGeometryChanges(for view: UIView) {
-            // Use NotificationCenter instead of KVO to avoid crash
-            NotificationCenter.default.addObserver(
-                forName: UIDevice.orientationDidChangeNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor [weak self, weak view] in
-                    guard let self, let view, let windowScene = view.window?.windowScene else { return }
-                    self.updateRotation(for: windowScene.effectiveGeometry.interfaceOrientation)
-                }
-            }
-        }
-
-        deinit {
-            NotificationCenter.default.removeObserver(self)
-        }
-
-        func updateRotation(for orientation: UIInterfaceOrientation) {
+        /// Update preview orientation using UIWindowScene geometry
+        /// iOS 26 approach using effectiveGeometry for automatic rotation handling
+        func updateOrientation(for view: UIView) {
             guard let previewLayer = previewLayer,
-                  let connection = previewLayer.connection else { return }
+                  let connection = previewLayer.connection,
+                  let windowScene = view.window?.windowScene else {
+                return
+            }
+
+            // Get interface orientation from window scene geometry
+            let orientation = windowScene.effectiveGeometry.interfaceOrientation
 
             // Map interface orientation to video rotation angle
+            // Camera sensor is landscape by default, need to rotate to match device orientation
             let rotationAngle: CGFloat
             switch orientation {
             case .portrait:
@@ -141,9 +121,9 @@ struct CameraPreviewView: UIViewRepresentable {
             case .portraitUpsideDown:
                 rotationAngle = 270
             case .landscapeLeft:
-                rotationAngle = 180
-            case .landscapeRight:
                 rotationAngle = 0
+            case .landscapeRight:
+                rotationAngle = 180
             case .unknown:
                 rotationAngle = 90
             @unknown default:
