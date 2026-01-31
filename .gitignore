@@ -56,3 +56,4 @@ build.log
 
 # Legacy/Archive
 flutter-legacy/
+.mcp.json
