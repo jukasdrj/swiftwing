@@ -250,10 +250,14 @@ actor TalariaService {
                                             print("📚 SSE: Fetched \(books.count) books from results endpoint")
 
                                             for book in books {
+                                                print("📚 Yielding .result event for: \(book.title)")
                                                 continuation.yield(.result(book))
                                             }
                                         } catch {
                                             print("❌ SSE: Failed to process complete event: \(error)")
+                                            continuation.yield(.error("Failed to fetch results: \(error.localizedDescription)"))
+                                            continuation.finish()
+                                            return  // Don't yield .complete on error
                                         }
 
                                         continuation.yield(.complete)
@@ -391,37 +395,62 @@ actor TalariaService {
     
     /// Extract resultsUrl from complete event JSON
     nonisolated private func extractResultsUrl(from jsonString: String) throws -> URL? {
-        guard let data = jsonString.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let path = json["resultsUrl"] as? String else {
+        print("🔍 Extracting resultsUrl from complete event data")
+        guard let data = jsonString.data(using: .utf8) else {
+            print("❌ Failed to convert JSON string to Data")
             return nil
         }
-        return URL(string: "\(baseURL)\(path)")
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("❌ Failed to parse JSON: \(jsonString.prefix(200))...")
+            return nil
+        }
+        guard let path = json["resultsUrl"] as? String else {
+            print("❌ No resultsUrl field in JSON. Available keys: \(json.keys)")
+            return nil
+        }
+        let fullUrl = URL(string: "\(baseURL)\(path)")
+        print("✅ Extracted resultsUrl: \(fullUrl?.absoluteString ?? "nil")")
+        return fullUrl
     }
     
     /// Fetch full job results from the API
     private func fetchResults(from url: URL) async throws -> [BookMetadata] {
+        print("🌐 Fetching results from: \(url)")
         var request = URLRequest(url: url)
         request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
 
         let (data, response) = try await urlSession.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ Response is not HTTPURLResponse")
             throw NetworkError.invalidResponse
         }
-        
+
+        print("📡 Results fetch HTTP \(httpResponse.statusCode)")
+
+        guard httpResponse.statusCode == 200 else {
+            print("❌ Expected 200, got \(httpResponse.statusCode)")
+            #if DEBUG
+            if let responseBody = String(data: data, encoding: .utf8) {
+                print("   Response body: \(responseBody.prefix(500))")
+            }
+            #endif
+            throw NetworkError.invalidResponse
+        }
+
         // Decode JobResultsResponse (V3 API)
         // Structure: { success: true, data: { results: [BookMetadata], ... } }
         struct JobResultsResponse: Codable {
             let success: Bool
             let data: JobResultsData
         }
-        
+
         struct JobResultsData: Codable {
             let results: [BookMetadata]
         }
-        
+
         let resultsResponse = try JSONDecoder().decode(JobResultsResponse.self, from: data)
+        print("✅ Decoded \(resultsResponse.data.results.count) books from results endpoint")
         return resultsResponse.data.results
     }
 
