@@ -19,7 +19,7 @@ struct ProcessingQueueView: View {
                     }
                     .padding(.horizontal, 16)
                 }
-                .frame(height: 40)
+                .frame(height: 60)  // Accommodate larger thumbnails
             }
 
             // Count badge (only show if > 3 items)
@@ -38,25 +38,25 @@ struct ProcessingQueueView: View {
 }
 
 /// Individual thumbnail in the processing queue
-/// 40x60px with state-based border color and progress text overlay
+/// 60x90px with state-based border color and progress text overlay
 struct ProcessingThumbnailView: View {
     let item: ProcessingItem
     let onRetry: (ProcessingItem) -> Void  // US-407: Retry callback
 
     var body: some View {
         ZStack {
-            // Thumbnail image (pre-processed to 40x60px for performance)
+            // Thumbnail image (pre-processed to 60x90px for performance)
             if let uiImage = UIImage(data: item.thumbnailData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 40, height: 60)
+                    .frame(width: 60, height: 90)
                     .clipped()
                     .cornerRadius(4)
             } else {
                 // Fallback for invalid image data
                 Color.gray.opacity(0.3)
-                    .frame(width: 40, height: 60)
+                    .frame(width: 60, height: 90)
                     .cornerRadius(4)
             }
 
@@ -65,7 +65,7 @@ struct ProcessingThumbnailView: View {
                 VStack {
                     Spacer()
                     Text(progressMessage)
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
@@ -73,7 +73,7 @@ struct ProcessingThumbnailView: View {
                         .cornerRadius(2)
                         .padding(.bottom, 2)
                 }
-                .frame(width: 40, height: 60)
+                .frame(width: 60, height: 90)
             }
 
             // US-407: Error icon overlay (if error state)
@@ -89,7 +89,7 @@ struct ProcessingThumbnailView: View {
                 VStack {
                     Spacer()
                     Text(errorMessage)
-                        .font(.system(size: 7, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.white)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
@@ -99,13 +99,13 @@ struct ProcessingThumbnailView: View {
                         .cornerRadius(2)
                         .padding(.bottom, 2)
                 }
-                .frame(width: 40, height: 60)
+                .frame(width: 60, height: 90)
             }
 
             // State-based border
             RoundedRectangle(cornerRadius: 4)
                 .strokeBorder(item.state.borderColor, lineWidth: 2)
-                .frame(width: 40, height: 60)
+                .frame(width: 60, height: 90)
 
             // US-407: Retry button overlay (only for error state)
             if item.state == .error {

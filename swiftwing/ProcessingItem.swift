@@ -6,7 +6,7 @@ import UIKit
 /// Used for live UI feedback during image capture and processing
 struct ProcessingItem: Identifiable, Equatable {
     let id: UUID
-    let thumbnailData: Data  // Pre-processed 40x60px thumbnail for performance
+    let thumbnailData: Data  // Pre-processed 60x90px thumbnail for performance
     let captureDate: Date
     var state: ProcessingState
     var progressMessage: String?  // Real-time progress text from SSE (e.g., "Looking...", "Reading...")
@@ -28,15 +28,15 @@ struct ProcessingItem: Identifiable, Equatable {
         self.jobId = nil
     }
 
-    /// Generates optimized 40x60px thumbnail from full image data
+    /// Generates optimized 60x90px thumbnail from full image data
     /// Performance optimization for ProcessingQueueView
     private static func generateThumbnail(from imageData: Data) -> Data {
         guard let image = UIImage(data: imageData) else {
             return imageData // Fallback to original data if processing fails
         }
 
-        // Calculate size maintaining aspect ratio (40x60px target)
-        let targetSize = CGSize(width: 40, height: 60)
+        // Calculate size maintaining aspect ratio (60x90px target)
+        let targetSize = CGSize(width: 60, height: 90)
         let size = image.size
         let aspectRatio = size.width / size.height
         let thumbnailAspectRatio = targetSize.width / targetSize.height
