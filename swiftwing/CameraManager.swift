@@ -1,5 +1,11 @@
-@preconcurrency import AVFoundation
+import AVFoundation
+
+#if canImport(UIKit)
 import UIKit
+#endif
+
+// Import Vision framework types and service
+import Vision
 
 /// Camera session manager for SwiftUI
 /// AVCaptureSession must be managed on main thread per Apple documentation
@@ -14,6 +20,14 @@ class CameraManager: ObservableObject {
 
     // Retain delegates during capture (AVCapturePhotoOutput does not retain them)
     private var activeDelegates: [Int64: PhotoCaptureDelegate] = [:]
+
+    // Orientation handling (iOS 17+: Use RotationCoordinator instead of manual orientation)
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var rotationObservers = [AnyObject]()
+
+    // Interruption handling
+    @Published var isInterrupted = false
+    private var notificationTasks: [Task<Void, Never>] = []
 
     // Vision processing
     let frameProcessor = FrameProcessor() // Exposed for adaptive throttling control
@@ -65,6 +79,23 @@ class CameraManager: ObservableObject {
         if session.canAddOutput(output) {
             session.addOutput(output)
             self.photoOutput = output
+
+            // Configure iOS 26 performance features
+            output.isResponsiveCaptureEnabled = output.isResponsiveCaptureSupported
+            output.isFastCapturePrioritizationEnabled = output.isFastCapturePrioritizationSupported
+            output.maxPhotoQualityPrioritization = .balanced  // Balance speed and quality for book scanning
+
+            // Configure optimal resolution for Gemini Vision API token efficiency
+            // Target: 1024×768 provides sufficient detail for book spine OCR
+            // while minimizing Gemini token usage (2 tiles = 516 tokens vs 3000-12000 at full res)
+            let targetDimensions = CMVideoDimensions(width: 1024, height: 768)
+
+            // Find closest supported dimension
+            if let closestDimension = camera.activeFormat.supportedMaxPhotoDimensions
+                .min(by: { abs($0.width - targetDimensions.width) < abs($1.width - targetDimensions.width) }) {
+                output.maxPhotoDimensions = closestDimension
+                print("📐 Photo output configured: \(closestDimension.width)×\(closestDimension.height) (optimized for Gemini Vision API)")
+            }
         } else {
             throw CameraError.cannotAddOutput
         }
@@ -80,6 +111,9 @@ class CameraManager: ObservableObject {
         if session.canAddOutput(videoOutput) {
             session.addOutput(videoOutput)
             self.videoOutput = videoOutput
+
+            // iOS 17+: Rotation coordinator will be configured after preview layer is ready
+            // See configureRotation(previewLayer:) called from CameraViewModel
         }
 
         // Wire frame processor callback
@@ -94,6 +128,9 @@ class CameraManager: ObservableObject {
         self.captureSession = session
         self.isConfigured = true
 
+        // Observe session notifications for interruption handling
+        observeNotifications()
+
         let duration = CFAbsoluteTimeGetCurrent() - startTime
         print("✅ Camera session configured in \(String(format: "%.3f", duration))s")
     }
@@ -101,6 +138,8 @@ class CameraManager: ObservableObject {
     /// Starts the capture session on background queue (non-blocking)
     func startSession() {
         guard let session = captureSession else { return }
+
+        // iOS 17+: Rotation handled by RotationCoordinator, no manual observer needed
 
         // Start on background queue to avoid blocking UI
         // AVCaptureSession is not Sendable but is thread-safe for startRunning()
@@ -119,6 +158,14 @@ class CameraManager: ObservableObject {
     func stopSession() {
         guard let session = captureSession else { return }
 
+        // Clean up rotation coordinator and KVO observers
+        rotationObservers.removeAll()
+        rotationCoordinator = nil
+
+        // Cancel notification observation tasks
+        notificationTasks.forEach { $0.cancel() }
+        notificationTasks.removeAll()
+
         // AVCaptureSession is not Sendable but is thread-safe for stopRunning()
         nonisolated(unsafe) let unsafeSession = session
         DispatchQueue.global(qos: .userInitiated).async {
@@ -129,6 +176,71 @@ class CameraManager: ObservableObject {
         }
     }
 
+    /// Configure rotation coordinator with connected preview layer and KVO observers
+    /// Must be called after preview layer is available (from CameraViewModel)
+    /// Reference: AVCam sample code (CaptureService.swift lines 368-406)
+    func configureRotation(previewLayer: AVCaptureVideoPreviewLayer) {
+        guard let device = videoDevice else { return }
+
+        // Create rotation coordinator with connected preview layer
+        rotationCoordinator = AVCaptureDevice.RotationCoordinator(
+            device: device,
+            previewLayer: previewLayer
+        )
+
+        guard let coordinator = rotationCoordinator else { return }
+
+        // Set initial rotation state on connections
+        if let previewConnection = previewLayer.connection {
+            previewConnection.videoRotationAngle = coordinator.videoRotationAngleForHorizonLevelPreview
+        }
+
+        if let photoConnection = photoOutput?.connection(with: .video) {
+            photoConnection.videoRotationAngle = coordinator.videoRotationAngleForHorizonLevelCapture
+        }
+
+        if let videoConnection = videoOutput?.connection(with: .video) {
+            videoConnection.videoRotationAngle = coordinator.videoRotationAngleForHorizonLevelCapture
+        }
+
+        // Cancel previous observations
+        rotationObservers.removeAll()
+
+        // Observe preview rotation angle changes
+        let previewObserver = coordinator.observe(
+            \.videoRotationAngleForHorizonLevelPreview,
+            options: .new
+        ) { [weak self] _, change in
+            guard let self, let newAngle = change.newValue else { return }
+            Task { @MainActor in
+                previewLayer.connection?.videoRotationAngle = newAngle
+            }
+        }
+        rotationObservers.append(previewObserver)
+
+        // Observe capture rotation angle changes
+        let captureObserver = coordinator.observe(
+            \.videoRotationAngleForHorizonLevelCapture,
+            options: .new
+        ) { [weak self] _, change in
+            guard let self, let newAngle = change.newValue else { return }
+            Task { @MainActor in
+                // Update photo output connection
+                if let photoConnection = self.photoOutput?.connection(with: .video) {
+                    photoConnection.videoRotationAngle = newAngle
+                }
+
+                // Update video output connection (for Vision processing)
+                if let videoConnection = self.videoOutput?.connection(with: .video) {
+                    videoConnection.videoRotationAngle = newAngle
+                }
+            }
+        }
+        rotationObservers.append(captureObserver)
+
+        print("📱 Rotation coordinator configured with \(rotationObservers.count) KVO observers")
+    }
+
     /// Captures a photo and returns the image data
     /// Must be called from main actor since photoOutput is @MainActor
     func capturePhoto() async throws -> Data {
@@ -137,35 +249,13 @@ class CameraManager: ObservableObject {
         }
 
         let settings = AVCapturePhotoSettings()
+        settings.photoQualityPrioritization = .balanced
 
-        // Set photo orientation from effectiveGeometry (iOS 26 API)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-            let orientation = windowScene.effectiveGeometry.interfaceOrientation
+        // Use configured photo dimensions (optimized for Gemini Vision API)
+        settings.maxPhotoDimensions = photoOutput.maxPhotoDimensions
 
-            // Map UIInterfaceOrientation to video rotation angle
-            let rotationAngle: CGFloat
-            switch orientation {
-            case .portrait:
-                rotationAngle = 90
-            case .portraitUpsideDown:
-                rotationAngle = 270
-            case .landscapeLeft:
-                rotationAngle = 180
-            case .landscapeRight:
-                rotationAngle = 0
-            case .unknown:
-                rotationAngle = 90
-            @unknown default:
-                rotationAngle = 90
-            }
-
-            // Set rotation on photo connection
-            if let photoConnection = photoOutput.connection(with: .video) {
-                if photoConnection.isVideoRotationAngleSupported(rotationAngle) {
-                    photoConnection.videoRotationAngle = rotationAngle
-                }
-            }
-        }
+        // Rotation is now handled automatically by RotationCoordinator's KVO observers
+        // No manual orientation setup needed - the coordinator keeps connections up-to-date
 
         return try await withCheckedThrowingContinuation { continuation in
             let delegate = PhotoCaptureDelegate { [weak self] result in
@@ -185,6 +275,7 @@ class CameraManager: ObservableObject {
     /// Sets zoom level (1.0x to 4.0x)
     /// Persists zoom level during session
     func setZoom(_ factor: CGFloat) {
+        #if !os(macOS)
         guard let device = videoDevice else { return }
 
         // Clamp zoom to 1.0x - 4.0x range
@@ -200,6 +291,7 @@ class CameraManager: ObservableObject {
         } catch {
             print("❌ Failed to set zoom: \(error)")
         }
+        #endif
     }
 
     /// Sets focus point at normalized coordinates (0.0-1.0)
@@ -236,6 +328,50 @@ class CameraManager: ObservableObject {
     /// Enables or disables Vision processing on video frames
     func setVisionEnabled(_ enabled: Bool) {
         videoOutput?.connection(with: .video)?.isEnabled = enabled
+    }
+
+    // MARK: - Notification Observation
+    /// Observe session notifications for interruption handling
+    private func observeNotifications() {
+        // Interruption started
+        let interruptTask = Task { @MainActor [weak self] in
+            for await notification in NotificationCenter.default.notifications(
+                named: AVCaptureSession.wasInterruptedNotification
+            ) {
+                guard let self else { return }
+                if let reason = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as AnyObject?,
+                   let reasonValue = AVCaptureSession.InterruptionReason(rawValue: reason.integerValue) {
+                    self.isInterrupted = [.audioDeviceInUseByAnotherClient, .videoDeviceInUseByAnotherClient].contains(reasonValue)
+                }
+            }
+        }
+        notificationTasks.append(interruptTask)
+
+        // Interruption ended
+        let endTask = Task { @MainActor [weak self] in
+            for await _ in NotificationCenter.default.notifications(
+                named: AVCaptureSession.interruptionEndedNotification
+            ) {
+                self?.isInterrupted = false
+            }
+        }
+        notificationTasks.append(endTask)
+
+        // Runtime error (media services reset)
+        let errorTask = Task { @MainActor [weak self] in
+            for await notification in NotificationCenter.default.notifications(
+                named: AVCaptureSession.runtimeErrorNotification
+            ) {
+                guard let self else { return }
+                if let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError,
+                   error.code == .mediaServicesWereReset {
+                    if let session = self.captureSession, !session.isRunning {
+                        self.startSession()
+                    }
+                }
+            }
+        }
+        notificationTasks.append(errorTask)
     }
 }
 

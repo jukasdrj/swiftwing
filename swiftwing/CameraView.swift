@@ -19,6 +19,9 @@ struct CameraView: View {
                     },
                     onFocusTap: { devicePoint in
                         viewModel.handleFocusTap(devicePoint)
+                    },
+                    onPreviewLayerReady: { previewLayer in
+                        viewModel.configureRotationCoordinator(previewLayer: previewLayer)
                     }
                 )
                 .ignoresSafeArea()
@@ -133,14 +136,18 @@ struct CameraView: View {
 
                 // Shutter button (80x80px white ring at bottom center)
                 // US-408: Disabled during rate limit cooldown
+                // Task 2.2: Disable when camera is interrupted
                 Button(action: viewModel.captureImage) {
                     Circle()
-                        .strokeBorder(viewModel.isRateLimited ? .gray : .white, lineWidth: 4)
+                        .strokeBorder(
+                            viewModel.isRateLimited || viewModel.isInterrupted ? .gray : .white,
+                            lineWidth: 4
+                        )
                         .frame(width: 80, height: 80)
                         .contentShape(Circle())
-                        .opacity(viewModel.isRateLimited ? 0.3 : 1.0)
+                        .opacity(viewModel.isRateLimited || viewModel.isInterrupted ? 0.3 : 1.0)
                 }
-                .disabled(viewModel.isRateLimited)
+                .disabled(viewModel.isRateLimited || viewModel.isInterrupted)
                 .haptic(.impact, trigger: viewModel.showFlash)
                 .padding(.bottom, 40)
             }
@@ -151,6 +158,30 @@ struct CameraView: View {
                     remainingSeconds: viewModel.rateLimitCountdown,
                     queuedScansCount: viewModel.queuedScansCount
                 )
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+
+            // Task 2.2: Camera interruption overlay (phone call, FaceTime, etc.)
+            if viewModel.isInterrupted {
+                VStack(spacing: 12) {
+                    Image(systemName: "phone.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(.orange)
+
+                    VStack(spacing: 8) {
+                        Text("Camera Interrupted")
+                            .font(.headline.weight(.semibold))
+                            .foregroundColor(.swissText)
+
+                        Text("Phone call or FaceTime in progress")
+                            .font(.subheadline)
+                            .foregroundColor(.swissText.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(24)
+                .swissGlassCard()
+                .padding(.horizontal, 32)
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
 
