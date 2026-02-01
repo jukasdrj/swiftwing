@@ -75,9 +75,9 @@ actor TalariaService {
     /// - Parameters:
     ///   - image: Image data (JPEG format)
     ///   - deviceId: Unique device identifier
-    /// - Returns: Tuple containing jobId and streamUrl for SSE
+    /// - Returns: Tuple containing jobId, streamUrl for SSE, and optional authToken
     /// - Throws: NetworkError on failure
-    func uploadScan(image: Data, deviceId: String) async throws -> (jobId: String, streamUrl: URL) {
+    func uploadScan(image: Data, deviceId: String) async throws -> (jobId: String, streamUrl: URL, authToken: String?) {
         // Construct upload endpoint
         guard let url = URL(string: "\(baseURL)/v3/jobs/scans") else {
             throw NetworkError.invalidResponse
@@ -135,7 +135,7 @@ actor TalariaService {
                 #endif
                 print("   Status URL: \(uploadResponse.data.statusUrl?.absoluteString ?? "none")")
 
-                return (jobId: uploadResponse.data.jobId, streamUrl: uploadResponse.data.sseUrl)
+                return (jobId: uploadResponse.data.jobId, streamUrl: uploadResponse.data.sseUrl, authToken: uploadResponse.data.authToken)
 
             case 429:
                 // Rate limited
@@ -169,9 +169,11 @@ actor TalariaService {
     /// Stream real-time scan progress events via Server-Sent Events with automatic retry
     /// - Parameters:
     ///   - streamUrl: SSE endpoint URL from uploadScan response
+    ///   - deviceId: Device identifier (must match deviceId used in uploadScan)
+    ///   - authToken: Optional authentication token from upload response
     ///   - maxAttempts: Maximum number of connection attempts on failure (default: 3 = 1 initial + 2 retries)
     /// - Returns: AsyncThrowingStream of SSEEvent
-    nonisolated func streamEvents(streamUrl: URL, maxAttempts: Int = 3) -> AsyncThrowingStream<SSEEvent, Error> {
+    nonisolated func streamEvents(streamUrl: URL, deviceId: String, authToken: String? = nil, maxAttempts: Int = 3) -> AsyncThrowingStream<SSEEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 // Create session once before retry loop
@@ -187,9 +189,13 @@ actor TalariaService {
 
                 while attempt < maxAttempts {
                     do {
-                        // Connect to SSE stream with device ID header
+                        // Connect to SSE stream with required headers
                         var request = URLRequest(url: streamUrl)
-                        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+                        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+                        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                        if let authToken = authToken {
+                            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+                        }
 
                         let (bytes, response) = try await session.bytes(for: request)
 
@@ -231,7 +237,7 @@ actor TalariaService {
                                 if let event = currentEvent, let data = currentData {
                                     print("🔄 SSE: Processing event '\(event)' with data")
 
-                                    if event == "complete" {
+                                    if event == "complete" || event == "completed" {
                                         // V3 Architecture: Fetch results from URL provided in complete event
                                         // 1. Decode complete event to get resultsUrl
                                         // 2. Fetch results
@@ -246,7 +252,7 @@ actor TalariaService {
                                             print("✅ SSE: Extracted results URL: \(resultsUrl)")
 
                                             // Fetch and emit results
-                                            let books = try await self.fetchResults(from: resultsUrl)
+                                            let books = try await self.fetchResults(from: resultsUrl, authToken: authToken)
                                             print("📚 SSE: Fetched \(books.count) books from results endpoint")
 
                                             for book in books {
@@ -320,12 +326,14 @@ actor TalariaService {
     }
 
     /// Cleanup job resources on Talaria server
-    /// - Parameter jobId: Job ID from uploadScan response
+    /// - Parameters:
+    ///   - jobId: Job ID from uploadScan response
+    ///   - authToken: Optional authentication token from upload response
     /// - Throws: NetworkError on failure
     ///
     /// Sends DELETE request to free server resources after scan completion.
     /// Should be called after receiving .complete or .error SSE events.
-    func cleanup(jobId: String) async throws {
+    func cleanup(jobId: String, authToken: String? = nil) async throws {
         // Construct cleanup endpoint
         guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)/cleanup") else {
             print("❌ Cleanup: Invalid URL for jobId: \(jobId)")
@@ -338,6 +346,9 @@ actor TalariaService {
         // Create DELETE request
         var request = URLRequest(url: url)
         request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let authToken = authToken {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        }
         request.httpMethod = "DELETE"
 
         do {
@@ -414,10 +425,13 @@ actor TalariaService {
     }
     
     /// Fetch full job results from the API
-    private func fetchResults(from url: URL) async throws -> [BookMetadata] {
+    private func fetchResults(from url: URL, authToken: String? = nil) async throws -> [BookMetadata] {
         print("🌐 Fetching results from: \(url)")
         var request = URLRequest(url: url)
         request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+        if let authToken = authToken {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        }
 
         let (data, response) = try await urlSession.data(for: request)
 
@@ -517,7 +531,7 @@ actor TalariaService {
 
             return .result(metadata)
 
-        case "complete":
+        case "complete", "completed":
             return .complete
 
         case "error":

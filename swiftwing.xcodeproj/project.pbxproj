@@ -140,8 +140,6 @@
 		7F00000D0000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				A589308A2F26D83900629770 /* CameraViewModel.swift */,
-				A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */,
 				7F00000E0000000000000001 /* swiftwing */,
 				A589307A2F268AA000629770 /* swiftwingTests */,
 				7F00000F0000000000000001 /* Products */,
@@ -171,11 +169,13 @@
 				733AF8F390562E0E6977AD18 /* CameraManager.swift */,
 				2B42B677D75020B244722F76 /* CameraPreviewView.swift */,
 				8FF5FA190CF9E5B8B778E942 /* CameraView.swift */,
+				A589308A2F26D83900629770 /* CameraViewModel.swift */,
 				3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */,
 				A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */,
 				55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */,
 				F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */,
 				7F0000230000000000000001 /* AsyncImageWithLoading.swift */,
+				A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */,
 				A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */,
 				90075E8758F64E3095FAE717 /* PerformanceTestData.swift */,
 				59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */,
@@ -588,7 +588,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -625,7 +625,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;

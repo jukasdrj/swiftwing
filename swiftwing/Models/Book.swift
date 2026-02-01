@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 // Epic 5: Reading status tracking
-enum ReadingStatus: String, Codable {
+public enum ReadingStatus: String, Codable {
     case toRead = "to_read"
     case reading = "reading"
     case completed = "completed"
@@ -10,10 +10,10 @@ enum ReadingStatus: String, Codable {
 }
 
 @Model
-final class Book {
+public final class Book {
     @Attribute(.unique) var isbn: String
-    var id: UUID
-    var title: String
+    public var id: UUID
+    public var title: String
     var author: String
 
     // Epic 3 - Full metadata fields
