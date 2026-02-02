@@ -120,6 +120,10 @@ final class CameraViewModel {
                         }
 
                     case .objects(let objects):
+                        print("🎯 CameraViewModel: Received \(objects.count) objects from Vision")
+                        for (index, object) in objects.enumerated() {
+                            print("   Object \(index+1): confidence=\(String(format: "%.2f", object.confidence)), uuid=\(object.observationUUID)")
+                        }
                         self.detectedObjects = objects
                         // Generate guidance based on detected objects
                         self.captureGuidance = self.generateObjectGuidance(from: objects)

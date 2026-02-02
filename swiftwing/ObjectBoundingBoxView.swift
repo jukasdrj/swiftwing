@@ -15,6 +15,8 @@ struct ObjectBoundingBoxView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let _ = print("🎨 ObjectBoundingBoxView: Rendering \(detectedObjects.count) boxes, viewSize=\(geometry.size)")
+
             ForEach(detectedObjects, id: \.observationUUID) { object in
                 let rect = convertToViewCoordinates(
                     visionRect: object.boundingBox,

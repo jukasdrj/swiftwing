@@ -65,6 +65,8 @@ final class VisionService {
             return VisionResult.noContent
         }
 
+        print("🔍 Vision: Processing frame with orientation: \(orientation)")
+
         do {
             // Create handler for this frame
             let handler = VNImageRequestHandler(
@@ -75,6 +77,16 @@ final class VisionService {
 
             // Perform all requests on the same frame
             try handler.perform([textRequest, barcodeRequest, rectangleRequest])
+
+            // Log rectangle detection results
+            if let rectangleObservations = rectangleRequest.results {
+                print("📦 Vision: Rectangle request returned \(rectangleObservations.count) observations")
+                for (index, observation) in rectangleObservations.enumerated() {
+                    print("   Rectangle \(index+1): confidence=\(String(format: "%.2f", observation.confidence)), bbox=\(observation.boundingBox)")
+                }
+            } else {
+                print("📦 Vision: Rectangle request returned nil")
+            }
 
             // Extract text observations
             var textRegions: [TextRegion] = []
