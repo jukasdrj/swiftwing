@@ -23,6 +23,8 @@ final class CameraViewModel {
     var showFocusIndicator = false
     var processingErrorMessage: String?
     var showProcessingError = false
+    var enrichmentDegradedMessage: String?
+    var showEnrichmentDegradedBanner = false
 
     // MARK: - US-405: Duplicate Detection State
     var duplicateBook: Book?
@@ -76,8 +78,13 @@ final class CameraViewModel {
     // MARK: - ModelContext (injected by view)
     var modelContext: ModelContext?
 
+    // MARK: - Device Identity
+    private let deviceId: String
+
     // MARK: - Initialization
-    init() {}
+    init(deviceId: String = DeviceIdentifier.current) {
+        self.deviceId = deviceId
+    }
 
     // MARK: - Camera Setup
     func setupCamera() async {
@@ -303,10 +310,8 @@ final class CameraViewModel {
             // Performance logging: start upload timer
             let uploadStart = CFAbsoluteTimeGetCurrent()
 
-            // Generate consistent device ID for this scan operation
-            let scanDeviceId = UUID().uuidString
-
-            let (uploadedJobId, streamUrl, uploadedAuthToken) = try await talariaService.uploadScan(image: uploadData, deviceId: scanDeviceId)
+            // Use persistent device ID (stored in UserDefaults)
+            let (uploadedJobId, streamUrl, uploadedAuthToken) = try await talariaService.uploadScan(image: uploadData, deviceId: self.deviceId)
             jobId = uploadedJobId
             authToken = uploadedAuthToken
 
@@ -329,7 +334,7 @@ final class CameraViewModel {
             let streamStart = CFAbsoluteTimeGetCurrent()
 
             // Stream SSE events from Talaria (use same deviceId as upload)
-            let eventStream = talariaService.streamEvents(streamUrl: streamUrl, deviceId: scanDeviceId, authToken: authToken)
+            let eventStream = talariaService.streamEvents(streamUrl: streamUrl, deviceId: self.deviceId, authToken: authToken)
 
             for try await event in eventStream {
                 // Check for task cancellation (app backgrounding)
@@ -358,51 +363,68 @@ final class CameraViewModel {
 
                     handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, modelContext: modelContext)
 
-                case .complete(let resultsUrl):
+                case .complete(let resultsUrl, let inlineBooks):
                     let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
                     print("✅ SSE stream lasted \(String(format: "%.1f", streamDuration))s")
 
-                    // Fetch actual book results from URL
-                    if let url = resultsUrl,
-                       let jid = jobId,
-                       let authToken = jobAuthTokens[jid] {
+                    var books: [BookMetadata] = []
+
+                    // First, check for inline books (modern API)
+                    if let inlineBooks = inlineBooks, !inlineBooks.isEmpty {
+                        print("📚 Using inline books from completion event (\(inlineBooks.count) books)")
+                        books = inlineBooks
+                    }
+                    // Fallback to fetching from resultsUrl (legacy API)
+                    else if let url = resultsUrl,
+                            let jid = jobId,
+                            let authToken = jobAuthTokens[jid] {
                         print("📥 Fetching book results from: \(url)")
 
                         do {
-                            let books = try await talariaService.fetchResults(
+                            books = try await talariaService.fetchResults(
                                 resultsUrl: url,
                                 authToken: authToken
                             )
 
                             print("📚 Received \(books.count) books from results API")
-
-                            // Process each book
-                            for book in books {
-                                // Encode to raw JSON for debugging
-                                let rawJSON: String?
-                                if let jsonData = try? JSONEncoder().encode(book),
-                                   let jsonString = String(data: jsonData, encoding: .utf8) {
-                                    rawJSON = jsonString
-                                } else {
-                                    rawJSON = nil
-                                }
-
-                                handleBookResult(metadata: book, rawJSON: rawJSON, modelContext: modelContext)
-                            }
-
-                            // Success - mark as done
-                            updateQueueItem(id: item.id, state: .done, message: nil)
-
                         } catch {
                             print("❌ Failed to fetch results: \(error)")
-                            // Set error state so user knows something went wrong
                             updateQueueItemError(id: item.id, errorMessage: "Failed to retrieve results")
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                            if let jid = jobId {
+                                jobAuthTokens.removeValue(forKey: jid)
+                            }
+                            await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+                            return
                         }
                     } else {
-                        // Missing resultsUrl - treat as error (shouldn't happen in normal flow)
-                        print("⚠️ No resultsUrl in completion event - marking as error")
+                        // Missing both inline books and resultsUrl
+                        print("⚠️ No results available in completion event")
                         updateQueueItemError(id: item.id, errorMessage: "No results available")
+                        await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                        if let jid = jobId {
+                            jobAuthTokens.removeValue(forKey: jid)
+                        }
+                        await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+                        return
                     }
+
+                    // Process all books
+                    for book in books {
+                        // Encode to raw JSON for debugging
+                        let rawJSON: String?
+                        if let jsonData = try? JSONEncoder().encode(book),
+                           let jsonString = String(data: jsonData, encoding: .utf8) {
+                            rawJSON = jsonString
+                        } else {
+                            rawJSON = nil
+                        }
+
+                        handleBookResult(metadata: book, rawJSON: rawJSON, modelContext: modelContext)
+                    }
+
+                    // Success - mark as done
+                    updateQueueItem(id: item.id, state: .done, message: nil)
 
                     // Cleanup resources (non-blocking)
                     await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
@@ -415,21 +437,66 @@ final class CameraViewModel {
                     // Auto-remove from queue after 5 seconds
                     await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
 
-                case .error(let errorMessage):
-                    print("❌ SSE error (jobId: \(jobId ?? "unknown")): \(errorMessage)")
+                case .error(let errorInfo):
+                    print("❌ SSE error (jobId: \(jobId ?? "unknown")): \(errorInfo.message), retryable: \(errorInfo.retryable ?? false)")
 
-                    updateQueueItemError(id: item.id, errorMessage: errorMessage)
-                    await showProcessingErrorOverlay(errorMessage)
+                    // Handle retryable errors with automatic retry
+                    if errorInfo.retryable == true {
+                        print("🔄 Error is retryable - attempting automatic retry once")
+                        updateQueueItemProgress(id: item.id, message: "Retrying...")
 
-                    // Trigger error haptic feedback
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-                    impactFeedback.impactOccurred()
+                        // Auto-retry once (without user action)
+                        // TODO: Implement exponential backoff if multiple retries needed in future
+                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 second delay
 
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                        // Restart the scan (already have imageData and modelContext)
+                        if let originalImageData = item.originalImageData {
+                            // Remove failed item
+                            withAnimation(.swissSpring) {
+                                processingQueue.removeAll { $0.id == item.id }
+                            }
 
-                    // Remove auth token (job is done)
-                    if let jid = jobId {
-                        jobAuthTokens.removeValue(forKey: jid)
+                            // Cleanup partial resources
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                            if let jid = jobId {
+                                jobAuthTokens.removeValue(forKey: jid)
+                            }
+
+                            // Retry with new item ID
+                            let retryItemId = UUID()
+                            let retryTask = Task {
+                                await processCaptureWithImageData(itemId: retryItemId, imageData: originalImageData, modelContext: modelContext)
+                            }
+                            activeStreamingTasks[retryItemId] = retryTask
+                        } else {
+                            // No original image data - treat as permanent error
+                            updateQueueItemError(id: item.id, errorMessage: errorInfo.message)
+                            await showProcessingErrorOverlay(errorInfo.message)
+
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                            impactFeedback.impactOccurred()
+
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                            if let jid = jobId {
+                                jobAuthTokens.removeValue(forKey: jid)
+                            }
+                        }
+                    } else {
+                        // Non-retryable error - show immediately
+                        print("❌ Error is NOT retryable - showing permanent error")
+                        updateQueueItemError(id: item.id, errorMessage: errorInfo.message)
+                        await showProcessingErrorOverlay(errorInfo.message)
+
+                        // Trigger error haptic feedback
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                        impactFeedback.impactOccurred()
+
+                        await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+
+                        // Remove auth token (job is done)
+                        if let jid = jobId {
+                            jobAuthTokens.removeValue(forKey: jid)
+                        }
                     }
 
                 case .canceled:
@@ -454,6 +521,25 @@ final class CameraViewModel {
                 case .bookProgress(let progress):
                     print("📊 Book progress: \(progress.current)/\(progress.total)")
                     updateQueueItemBookProgress(id: item.id, current: progress.current, total: progress.total)
+
+                case .ping:
+                    // SSE keepalive - no action needed
+                    print("💓 SSE ping received")
+
+                case .enrichmentDegraded(let info):
+                    // Log enrichment degradation for debugging
+                    print("⚠️ Enrichment degraded: \(info.reason ?? "unknown reason")")
+                    if let isbn = info.isbn {
+                        print("   ISBN: \(isbn)")
+                    }
+                    if let fallback = info.fallbackSource {
+                        print("   Fallback: \(fallback)")
+                    }
+
+                    // Show user-friendly banner (non-blocking info message)
+                    await showEnrichmentDegradedBanner(reason: info.reason)
+
+                    // Continue processing - degraded enrichment is not fatal
                 }
             }
 
@@ -705,6 +791,26 @@ final class CameraViewModel {
         processingErrorMessage = nil
     }
 
+    private func showEnrichmentDegradedBanner(reason: String?) async {
+        enrichmentDegradedMessage = "Some book details may be limited (enrichment service degraded)"
+        if let reason = reason {
+            enrichmentDegradedMessage! += ": \(reason)"
+        }
+
+        withAnimation(.swissSpring) {
+            showEnrichmentDegradedBanner = true
+        }
+
+        // Auto-dismiss after 5 seconds
+        try? await Task.sleep(nanoseconds: 5_000_000_000)
+        withAnimation(.swissSpring) {
+            showEnrichmentDegradedBanner = false
+        }
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        enrichmentDegradedMessage = nil
+    }
+
     // MARK: - Focus Handling
     func handleFocusTap(_ devicePoint: CGPoint) {
         cameraManager.setFocusPoint(devicePoint)
@@ -904,7 +1010,8 @@ final class CameraViewModel {
             pageCount: metadata.pageCount,
             spineConfidence: metadata.confidence,
             addedDate: Date(),
-            rawJSON: rawJSON
+            rawJSON: rawJSON,
+            enrichmentStatus: metadata.enrichmentStatus?.rawValue
         )
 
         modelContext.insert(newBook)
