@@ -416,8 +416,13 @@ final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         // Throttle processing
         guard visionService.shouldProcessFrame() else { return }
 
+        print("📹 FrameProcessor: Frame received, processing...")
+
         // Extract CVPixelBuffer
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            print("❌ FrameProcessor: Failed to extract pixel buffer")
+            return
+        }
 
         // Determine orientation from connection
         let orientation = CGImagePropertyOrientation(from: connection.videoRotationAngle)
@@ -426,7 +431,11 @@ final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         let result = visionService.processFrame(pixelBuffer, orientation: orientation)
 
         // Invoke callback
-        onFrameProcessed?(result)
+        if let callback = onFrameProcessed {
+            callback(result)
+        } else {
+            print("⚠️ FrameProcessor: onFrameProcessed callback is nil!")
+        }
     }
 
     func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
