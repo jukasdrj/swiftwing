@@ -30,8 +30,15 @@ final class CameraViewModel {
     var pendingBookMetadata: BookMetadata?
     var pendingRawJSON: String?
 
+    // MARK: - Review Queue State
+    var pendingReviewBooks: [PendingBookResult] = []
+    var pendingBookBeingApproved: PendingBookResult?
+
     // MARK: - US-406: Active Streaming Tasks
     var activeStreamingTasks: [UUID: Task<Void, Never>] = [:]
+
+    // NEW: Job ID to auth token mapping for cleanup calls
+    private var jobAuthTokens: [String: String] = [:]
 
     // MARK: - US-408: Rate Limit State
     let rateLimitState: RateLimitState = RateLimitState()
@@ -61,6 +68,9 @@ final class CameraViewModel {
 
     // MARK: - Haptic Feedback
     private let hapticGenerator = UIImpactFeedbackGenerator(style: .medium)
+
+    // MARK: - Image Preprocessing
+    private let imagePreprocessor = ImagePreprocessor()
 
     // MARK: - ModelContext (injected by view)
     var modelContext: ModelContext?
@@ -240,13 +250,18 @@ final class CameraViewModel {
                 return
             }
 
-            // Add to processing queue immediately with thumbnail (uploading state)
+            // Add to processing queue immediately with thumbnail (preprocessing state)
             queueItem = addToQueue(imageData: imageData)
 
             guard let item = queueItem else { return }
 
-            // Process image: resize + compress + save
-            let fileURL = try await Self.processImage(imageData)
+            // Step 1: Preprocess image (contrast, brightness, denoising, rotation)
+            updateQueueItem(id: item.id, state: .preprocessing, message: "Preprocessing...")
+            let preprocessResult = await imagePreprocessor.preprocess(imageData)
+            print("✨ Preprocessing: \(preprocessResult.processingTimeMs)ms, rotated: \(preprocessResult.wasRotated), brightness adj: \(preprocessResult.brightnessAdjustment)")
+
+            // Step 2: Process (resize + compress) the preprocessed image
+            let fileURL = try await Self.processImage(preprocessResult.processedData)
             tempFileURL = fileURL
 
             let duration = CFAbsoluteTimeGetCurrent() - startTime
@@ -281,6 +296,11 @@ final class CameraViewModel {
             let (uploadedJobId, streamUrl, uploadedAuthToken) = try await talariaService.uploadScan(image: uploadData, deviceId: scanDeviceId)
             jobId = uploadedJobId
             authToken = uploadedAuthToken
+
+            // NEW: Store auth token for disconnect cleanup
+            if let uploadedAuthToken = uploadedAuthToken {
+                jobAuthTokens[uploadedJobId] = uploadedAuthToken
+            }
 
             // Performance logging: upload completed
             let uploadDuration = (CFAbsoluteTimeGetCurrent() - uploadStart) * 1000 // Convert to ms
@@ -334,6 +354,11 @@ final class CameraViewModel {
                     // Cleanup resources (non-blocking)
                     await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
 
+                    // Remove auth token (job is done)
+                    if let jid = jobId {
+                        jobAuthTokens.removeValue(forKey: jid)
+                    }
+
                     // Auto-remove from queue after 5 seconds
                     await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
 
@@ -349,6 +374,11 @@ final class CameraViewModel {
 
                     await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
 
+                    // Remove auth token (job is done)
+                    if let jid = jobId {
+                        jobAuthTokens.removeValue(forKey: jid)
+                    }
+
                 case .canceled:
                     print("⚠️ SSE job canceled (jobId: \(jobId ?? "unknown"))")
 
@@ -356,7 +386,21 @@ final class CameraViewModel {
 
                     await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
 
+                    // Remove auth token (job is done)
+                    if let jid = jobId {
+                        jobAuthTokens.removeValue(forKey: jid)
+                    }
+
                     await removeQueueItemAfterDelay(id: item.id, delay: 3.0)
+
+                // NEW: Progressive results event handling
+                case .segmented(let preview):
+                    print("📸 Segmented preview: \(preview.totalBooks) books detected (\(preview.imageData.count) bytes)")
+                    updateQueueItemSegmented(id: item.id, preview: preview)
+
+                case .bookProgress(let progress):
+                    print("📊 Book progress: \(progress.current)/\(progress.total)")
+                    updateQueueItemBookProgress(id: item.id, current: progress.current, total: progress.total)
                 }
             }
 
@@ -406,7 +450,7 @@ final class CameraViewModel {
 
     // MARK: - Queue Management
     private func addToQueue(imageData: Data) -> ProcessingItem {
-        var item = ProcessingItem(imageData: imageData, state: .uploading)
+        var item = ProcessingItem(imageData: imageData, state: .preprocessing)
         item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
         withAnimation(.swissSpring) {
             processingQueue.append(item)
@@ -435,6 +479,11 @@ final class CameraViewModel {
             withAnimation(.swissSpring) {
                 processingQueue[index].state = state
                 processingQueue[index].progressMessage = message
+
+                // Release memory when transitioning to .done
+                if state == .done {
+                    processingQueue[index].segmentedPreview = nil
+                }
             }
         }
     }
@@ -444,6 +493,24 @@ final class CameraViewModel {
             withAnimation(.swissSpring) {
                 processingQueue[index].state = .error
                 processingQueue[index].errorMessage = errorMessage
+            }
+        }
+    }
+
+    private func updateQueueItemSegmented(id: UUID, preview: SegmentedPreview) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].segmentedPreview = preview.imageData
+                processingQueue[index].detectedBookCount = preview.totalBooks
+            }
+        }
+    }
+
+    private func updateQueueItemBookProgress(id: UUID, current: Int, total: Int) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].currentBookIndex = current
+                processingQueue[index].progressMessage = "Processing book \(current)/\(total)"
             }
         }
     }
@@ -528,11 +595,45 @@ final class CameraViewModel {
 
     // MARK: - US-406: Stream Cancellation
     func cancelAllStreamingTasks() {
-        print("🛑 Cancelling \(activeStreamingTasks.count) active SSE streams (app backgrounding)")
+        let taskCount = activeStreamingTasks.count
+        guard taskCount > 0 else { return }
+
+        print("Cancelling \(taskCount) active SSE streams (navigation/backgrounding)")
+
+        // Cancel all Swift Task instances (triggers Task.isCancelled in stream loops)
         for (_, task) in activeStreamingTasks {
             task.cancel()
         }
         activeStreamingTasks.removeAll()
+
+        // Collect all in-progress job IDs that need backend cleanup
+        let activeJobIds = processingQueue
+            .filter { $0.state == .uploading || $0.state == .analyzing }
+            .compactMap { $0.jobId }
+
+        // Fire-and-forget cleanup calls to backend with stored auth tokens
+        for activeJobId in activeJobIds {
+            let storedAuthToken = jobAuthTokens[activeJobId]
+            Task {
+                let service = TalariaService()
+                do {
+                    try await service.cleanup(jobId: activeJobId, authToken: storedAuthToken)
+                    print("Backend cleanup sent for disconnected job: \(activeJobId)")
+                } catch {
+                    print("Backend cleanup failed for \(activeJobId): \(error.localizedDescription)")
+                }
+            }
+        }
+
+        // Clear all auth tokens (all jobs are being abandoned)
+        jobAuthTokens.removeAll()
+
+        // Remove in-progress items from queue with animation
+        withAnimation(.swissSpring) {
+            processingQueue.removeAll {
+                $0.state == .uploading || $0.state == .analyzing
+            }
+        }
     }
 
     // MARK: - Error Display
@@ -643,29 +744,94 @@ final class CameraViewModel {
 
     // MARK: - US-405: Book Result Handling
     func handleBookResult(metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
-        let isbn = metadata.isbn ?? "Unknown"
+        print("🔍 DEBUG: handleBookResult called for: \(metadata.title)")
 
+        // Route ALL results to review queue (no auto-add)
+        let pendingBook = PendingBookResult(
+            metadata: metadata,
+            rawJSON: rawJSON,
+            thumbnailData: nil
+        )
+
+        print("🔍 DEBUG: PendingBookResult created successfully, id: \(pendingBook.id)")
+
+        withAnimation(.swissSpring) {
+            pendingReviewBooks.append(pendingBook)
+        }
+
+        print("🔍 DEBUG: Appended to pendingReviewBooks, new count: \(pendingReviewBooks.count)")
+
+        print("📋 Book added to review queue: \(metadata.title) (pending: \(pendingReviewBooks.count))")
+
+        // Haptic feedback for new review item
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    }
+
+    // MARK: - Review Queue Actions
+    func approveBook(_ pendingBook: PendingBookResult, modelContext: ModelContext) {
+        let isbn = pendingBook.metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)"
+
+        // Duplicate detection at approve time
         do {
             if let duplicate = try DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
-                pendingBookMetadata = metadata
-                pendingRawJSON = rawJSON
+                pendingBookBeingApproved = pendingBook
+                pendingBookMetadata = pendingBook.metadata
+                pendingRawJSON = pendingBook.rawJSON
                 duplicateBook = duplicate
-
                 withAnimation(.swissSpring) {
                     showDuplicateAlert = true
                 }
-            } else {
-                addBookToLibrary(metadata: metadata, rawJSON: rawJSON, modelContext: modelContext)
+                return
             }
         } catch {
-            Task {
-                await showProcessingErrorOverlay("Failed to check for duplicates: \(error.localizedDescription)")
-            }
-            addBookToLibrary(metadata: metadata, rawJSON: rawJSON, modelContext: modelContext)
+            // Proceed with add on detection failure
         }
+
+        // Use resolved values (prefers user edits over AI results)
+        addBookToLibrary(
+            title: pendingBook.resolvedTitle,
+            author: pendingBook.resolvedAuthor,
+            metadata: pendingBook.metadata,
+            rawJSON: pendingBook.rawJSON,
+            modelContext: modelContext
+        )
+
+        withAnimation(.swissSpring) {
+            pendingReviewBooks.removeAll { $0.id == pendingBook.id }
+        }
+
+        print("✅ Book approved and added to library: \(pendingBook.resolvedTitle)")
     }
 
-    func addBookToLibrary(metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
+    func rejectBook(_ pendingBook: PendingBookResult) {
+        withAnimation(.swissSpring) {
+            pendingReviewBooks.removeAll { $0.id == pendingBook.id }
+        }
+
+        print("❌ Book rejected from review queue: \(pendingBook.metadata.title)")
+    }
+
+    func approveAllBooks(modelContext: ModelContext) {
+        let count = pendingReviewBooks.count
+        for book in pendingReviewBooks {
+            addBookToLibrary(
+                title: book.resolvedTitle,
+                author: book.resolvedAuthor,
+                metadata: book.metadata,
+                rawJSON: book.rawJSON,
+                modelContext: modelContext
+            )
+        }
+
+        withAnimation(.swissSpring) {
+            pendingReviewBooks.removeAll()
+        }
+
+        print("✅ All \(count) books approved and added to library")
+    }
+
+    func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
         let publishedDate: Date?
         if let dateString = metadata.publishedDate {
             let formatter = ISO8601DateFormatter()
@@ -675,9 +841,9 @@ final class CameraViewModel {
         }
 
         let newBook = Book(
-            title: metadata.title,
-            author: metadata.author,
-            isbn: metadata.isbn ?? "Unknown",
+            title: title ?? metadata.title,        // Use override if provided
+            author: author ?? metadata.author,      // Use override if provided
+            isbn: metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)",
             coverUrl: metadata.coverUrl,
             format: metadata.format,
             publisher: metadata.publisher,
@@ -692,7 +858,7 @@ final class CameraViewModel {
 
         do {
             try modelContext.save()
-            print("✅ Book added to library: \(metadata.title)")
+            print("✅ Book added to library: \(title ?? metadata.title)")
 
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
@@ -702,12 +868,20 @@ final class CameraViewModel {
         }
     }
 
+    func updatePendingBookEdits(id: UUID, title: String?, author: String?) {
+        if let index = pendingReviewBooks.firstIndex(where: { $0.id == id }) {
+            pendingReviewBooks[index].editedTitle = title
+            pendingReviewBooks[index].editedAuthor = author
+        }
+    }
+
     func dismissDuplicateAlert() {
         withAnimation(.swissSpring) {
             showDuplicateAlert = false
             duplicateBook = nil
             pendingBookMetadata = nil
             pendingRawJSON = nil
+            pendingBookBeingApproved = nil
         }
     }
 
@@ -717,9 +891,14 @@ final class CameraViewModel {
             if let metadata = pendingBookMetadata {
                 addBookToLibrary(metadata: metadata, rawJSON: pendingRawJSON, modelContext: modelContext)
             }
+            // Remove from review queue if it was an approve-time duplicate
+            if let pending = pendingBookBeingApproved {
+                pendingReviewBooks.removeAll { $0.id == pending.id }
+            }
             duplicateBook = nil
             pendingBookMetadata = nil
             pendingRawJSON = nil
+            pendingBookBeingApproved = nil
         }
     }
 

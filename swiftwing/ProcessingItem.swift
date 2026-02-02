@@ -15,6 +15,9 @@ struct ProcessingItem: Identifiable, Equatable {
     var tempFileURL: URL?  // Temporary JPEG file URL for cleanup (US-406)
     var jobId: String?     // Talaria job ID for server cleanup (US-406)
     var preScannedISBN: String? = nil  // Vision-detected ISBN from barcode scanner (TODO 4.4)
+    var segmentedPreview: Data?  // Segmented image preview with bounding boxes (Task 5)
+    var detectedBookCount: Int?  // Number of books detected in segmented preview (Task 5)
+    var currentBookIndex: Int?   // Current book being processed in multi-book scan (Task 5)
 
     init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil) {
         self.id = UUID()
@@ -61,14 +64,17 @@ struct ProcessingItem: Identifiable, Equatable {
     }
 
     enum ProcessingState: Equatable {
-        case uploading   // Yellow border - uploading image to Talaria
-        case analyzing   // Blue border - AI is analyzing the book spine
-        case done        // Green border - successfully identified
-        case error       // Red border - processing failed
-        case offline     // Gray border - queued for upload when network returns (US-409)
+        case preprocessing  // Purple border - preprocessing (CIFilter pipeline)
+        case uploading      // Yellow border - uploading image to Talaria
+        case analyzing      // Blue border - AI is analyzing the book spine
+        case done           // Green border - successfully identified
+        case error          // Red border - processing failed
+        case offline        // Gray border - queued for upload when network returns (US-409)
 
         var borderColor: Color {
             switch self {
+            case .preprocessing:
+                return .purple
             case .uploading:
                 return .yellow
             case .analyzing:
