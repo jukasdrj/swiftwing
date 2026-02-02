@@ -94,7 +94,8 @@ final class SwiftWingComprehensiveTests: XCTestCase {
             publishedDate: "2024-01-01",
             pageCount: 100,
             format: "Hardcover",
-            confidence: 0.9
+            confidence: 0.9,
+            enrichmentStatus: nil
         )
 
         let event = NetworkTypes.SSEEvent.result(metadata)
@@ -111,7 +112,7 @@ final class SwiftWingComprehensiveTests: XCTestCase {
     }
 
     func testSSEEventComplete() {
-        let event = NetworkTypes.SSEEvent.complete
+        let event = NetworkTypes.SSEEvent.complete(resultsUrl: nil, books: nil)
 
         if case .complete = event {
             XCTAssertTrue(true)
@@ -121,10 +122,16 @@ final class SwiftWingComprehensiveTests: XCTestCase {
     }
 
     func testSSEEventError() {
-        let event = NetworkTypes.SSEEvent.error("Test error")
+        let errorInfo = SSEErrorInfo(
+            message: "Test error",
+            code: nil,
+            retryable: nil,
+            jobId: nil
+        )
+        let event = NetworkTypes.SSEEvent.error(errorInfo)
 
-        if case .error(let message) = event {
-            XCTAssertEqual(message, "Test error")
+        if case .error(let errorInfo) = event {
+            XCTAssertEqual(errorInfo.message, "Test error")
         } else {
             XCTFail("Event should be error")
         }

@@ -42,7 +42,7 @@ final class TalariaIntegrationTests: XCTestCase {
 
         // Act: Measure upload latency
         let startTime = CFAbsoluteTimeGetCurrent()
-        let (jobId, streamUrl) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
+        let (jobId, streamUrl, _) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
         let uploadLatency = CFAbsoluteTimeGetCurrent() - startTime
 
         // Assert: Valid response structure
@@ -70,7 +70,7 @@ final class TalariaIntegrationTests: XCTestCase {
     func testSSEStreamReceivesAllEventTypes() async throws {
         // Arrange: Upload to get stream URL
         let testImage = createTestBookSpineImage()
-        let (jobId, streamUrl) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
+        let (jobId, streamUrl, _) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
 
         // Act: Stream events and measure timing
         let expectation = XCTestExpectation(description: "SSE stream completes")
@@ -85,7 +85,7 @@ final class TalariaIntegrationTests: XCTestCase {
 
         Task {
             do {
-                for try await event in talariaService.streamEvents(streamUrl: streamUrl) {
+                for try await event in talariaService.streamEvents(streamUrl: streamUrl, deviceId: testDeviceId) {
                     // Record first event timing
                     if firstEventTime == nil {
                         firstEventTime = CFAbsoluteTimeGetCurrent()
@@ -101,19 +101,23 @@ final class TalariaIntegrationTests: XCTestCase {
                         bookMetadata = metadata
                         print("📚 Result: \(metadata.title) by \(metadata.author)")
 
-                    case .complete:
+                    case .complete(let resultsUrl, let books):
                         receivedCompleteEvent = true
-                        print("✅ Complete")
+                        print("✅ Complete - resultsUrl: \(resultsUrl ?? "none"), books: \(books?.count ?? 0)")
                         expectation.fulfill()
 
-                    case .error(let message):
+                    case .error(let errorInfo):
                         receivedErrorEvent = true
-                        print("❌ Error: \(message)")
+                        print("❌ Error: \(errorInfo.message)")
                         expectation.fulfill()
 
                     case .canceled:
                         print("🚫 Canceled")
                         expectation.fulfill()
+
+                    case .segmented, .bookProgress, .enrichmentDegraded, .ping:
+                        // Ignore additional event types in this test
+                        break
                     }
                 }
             } catch {
@@ -159,12 +163,12 @@ final class TalariaIntegrationTests: XCTestCase {
     func testCleanupSucceedsAndIsIdempotent() async throws {
         // Arrange: Create completed scan
         let testImage = createTestBookSpineImage()
-        let (jobId, streamUrl) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
+        let (jobId, streamUrl, _) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
 
         // Wait for stream to complete
         let expectation = XCTestExpectation(description: "Stream completes")
         Task {
-            for try await event in talariaService.streamEvents(streamUrl: streamUrl) {
+            for try await event in talariaService.streamEvents(streamUrl: streamUrl, deviceId: testDeviceId) {
                 if case .complete = event {
                     expectation.fulfill()
                     break
@@ -221,7 +225,7 @@ final class TalariaIntegrationTests: XCTestCase {
         let startTime = CFAbsoluteTimeGetCurrent()
 
         // Act: Launch 5 concurrent uploads
-        try await withThrowingTaskGroup(of: (String, URL).self) { group in
+        try await withThrowingTaskGroup(of: (String, URL, String?).self) { group in
             for i in 1...concurrentCount {
                 group.addTask {
                     let deviceId = "concurrent-test-\(i)-\(UUID().uuidString)"
@@ -232,7 +236,7 @@ final class TalariaIntegrationTests: XCTestCase {
 
             // Collect all results
             var jobIds: [String] = []
-            for try await (jobId, _) in group {
+            for try await (jobId, _, _) in group {
                 jobIds.append(jobId)
                 print("✅ Concurrent upload \(jobIds.count)/\(concurrentCount) completed: \(jobId)")
             }
@@ -271,10 +275,10 @@ final class TalariaIntegrationTests: XCTestCase {
             iterationCount += 1
 
             let testImage = createTestBookSpineImage()
-            let (jobId, streamUrl) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
+            let (jobId, streamUrl, _) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
 
             // Stream until complete
-            for try await _ in talariaService.streamEvents(streamUrl: streamUrl) {
+            for try await _ in talariaService.streamEvents(streamUrl: streamUrl, deviceId: testDeviceId) {
                 // Consume events
             }
 
@@ -296,13 +300,13 @@ final class TalariaIntegrationTests: XCTestCase {
     func testTypesDeserializeCorrectly() async throws {
         // Arrange: Upload and stream to get real API response
         let testImage = createTestBookSpineImage()
-        let (jobId, streamUrl) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
+        let (jobId, streamUrl, _) = try await talariaService.uploadScan(image: testImage, deviceId: testDeviceId)
 
         let expectation = XCTestExpectation(description: "Receive result event")
         var metadata: BookMetadata?
 
         Task {
-            for try await event in talariaService.streamEvents(streamUrl: streamUrl) {
+            for try await event in talariaService.streamEvents(streamUrl: streamUrl, deviceId: testDeviceId) {
                 if case .result(let result) = event {
                     metadata = result
                     expectation.fulfill()

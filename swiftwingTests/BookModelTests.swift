@@ -63,7 +63,7 @@ final class BookModelTests: XCTestCase {
         let book = Book(
             title: "Book",
             author: "Author",
-            isbn: "03064061522"  // Valid ISBN-10
+            isbn: "03064061522",  // Valid ISBN-10
             spineConfidence: 0.9
         )
 
@@ -76,7 +76,7 @@ final class BookModelTests: XCTestCase {
         let book = Book(
             title: "Book",
             author: "Author",
-            isbn: "9780306406157"  // Valid ISBN-13
+            isbn: "9780306406157",  // Valid ISBN-13
             spineConfidence: 0.85
         )
 

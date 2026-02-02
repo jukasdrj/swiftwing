@@ -47,11 +47,12 @@ final class TalariaServiceTests: XCTestCase {
         mockSession.mockUploadResponse(data: uploadResponse, for: "https://api.oooefam.net/v3/jobs/scans")
 
         // Act
-        let (jobId, streamUrl) = try await service.uploadScan(image: testImage, deviceId: "test-device")
+        let (jobId, streamUrl, authToken) = try await service.uploadScan(image: testImage, deviceId: "test-device")
 
         // Assert
         XCTAssertEqual(jobId, "test-job-123")
         XCTAssertEqual(streamUrl.absoluteString, "https://api.oooefam.net/v3/jobs/scans/test-job-123/stream")
+        XCTAssertEqual(authToken, "test-token-123")
     }
 
     // MARK: - Test 2: Upload Error Handling
@@ -105,17 +106,18 @@ final class TalariaServiceTests: XCTestCase {
                 publishedDate: "2024-01-01",
                 pageCount: 250,
                 format: "Hardcover",
-                confidence: 0.95
+                confidence: 0.95,
+                enrichmentStatus: nil
             )),
-            .complete
+            .complete(resultsUrl: nil, books: nil)
         ]
         mockSession.mockStreamEvents(mockEvents, for: streamUrl)
 
         // Act
-        let (jobId, _) = try await service.uploadScan(image: testImage, deviceId: "test-device")
+        let (jobId, _, _) = try await service.uploadScan(image: testImage, deviceId: "test-device")
 
         var receivedEvents: [NetworkTypes.SSEEvent] = []
-        for try await event in service.streamEvents(from: URL(string: streamUrl)!) {
+        for try await event in service.streamEvents(from: URL(string: streamUrl)!, deviceId: "test-device") {
             receivedEvents.append(event)
         }
 
@@ -148,15 +150,20 @@ final class TalariaServiceTests: XCTestCase {
         let streamUrl = "https://api.oooefam.net/v3/jobs/scans/test-job-error/stream"
         let mockEvents: [NetworkTypes.SSEEvent] = [
             .progress("Starting..."),
-            .error("Recognition failed: could not detect spine")
+            .error(SSEErrorInfo(
+                message: "Recognition failed: could not detect spine",
+                code: "RECOGNITION_FAILED",
+                retryable: false,
+                jobId: "test-job-error"
+            ))
         ]
         mockSession.mockStreamEvents(mockEvents, for: streamUrl)
 
         // Act
-        let (jobId, _) = try await service.uploadScan(image: testImage, deviceId: "test-device")
+        let (jobId, _, _) = try await service.uploadScan(image: testImage, deviceId: "test-device")
 
         var receivedError = false
-        for try await event in service.streamEvents(from: URL(string: streamUrl)!) {
+        for try await event in service.streamEvents(from: URL(string: streamUrl)!, deviceId: "test-device") {
             if case .error = event {
                 receivedError = true
                 break
@@ -187,13 +194,13 @@ final class TalariaServiceTests: XCTestCase {
         mockSession.mockUploadResponse(data: uploadResponse, for: "https://api.oooefam.net/v3/jobs/scans")
 
         let streamUrl = "https://api.oooefam.net/v3/jobs/scans/test-job-cleanup/stream"
-        mockSession.mockStreamEvents([.complete], for: streamUrl)
+        mockSession.mockStreamEvents([.complete(resultsUrl: nil, books: nil)], for: streamUrl)
 
         // Act
-        let (jobId, _) = try await service.uploadScan(image: testImage, deviceId: "test-device")
+        let (jobId, _, _) = try await service.uploadScan(image: testImage, deviceId: "test-device")
 
         var events: [NetworkTypes.SSEEvent] = []
-        for try await event in service.streamEvents(from: URL(string: streamUrl)!) {
+        for try await event in service.streamEvents(from: URL(string: streamUrl)!, deviceId: "test-device") {
             events.append(event)
         }
 
@@ -306,16 +313,17 @@ final class TalariaServiceTests: XCTestCase {
                 publishedDate: "2008-08-01",
                 pageCount: 464,
                 format: "Hardcover",
-                confidence: 0.92
+                confidence: 0.92,
+                enrichmentStatus: nil
             ))
         ]
         mockSession.mockStreamEvents(mockEvents, for: streamUrl)
 
         // Act
-        let (jobId, _) = try await service.uploadScan(image: testImage, deviceId: "test-device")
+        let (jobId, _, _) = try await service.uploadScan(image: testImage, deviceId: "test-device")
 
         var metadata: NetworkTypes.BookMetadata?
-        for try await event in service.streamEvents(from: URL(string: streamUrl)!) {
+        for try await event in service.streamEvents(from: URL(string: streamUrl)!, deviceId: "test-device") {
             if case .result(let result) = event {
                 metadata = result
                 break
