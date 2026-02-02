@@ -1,0 +1,464 @@
+{
+  "name": "Epic 6: iOS 26 Visual Intelligence - Sprint 1 Foundation",
+  "description": "Enable multi-book shelf scanning with on-device instance segmentation and Review tab workflow. Sprint 1 delivers the foundation: segment bookshelves into individual books, provide processing feedback, and create Review tab infrastructure for multi-book management. Target: 95% cost reduction ($0.021 → $0.001/scan) with faster user feedback (<1s/book vs 4.5s current).",
+  "branchName": "epic/6-visual-intelligence-sprint-1",
+  "userStories": [
+    {
+      "id": "US-A1",
+      "title": "Create InstanceSegmentationService Actor",
+      "description": "As a developer, I want an actor-isolated service that segments bookshelf photos into individual books so that we can process each book spine independently using iOS 26 GenerateForegroundInstanceMaskRequest.",
+      "acceptanceCriteria": [
+        "Create Services/InstanceSegmentationService.swift with actor isolation",
+        "Implement segmentBooks(from: CIImage) async throws -> [SegmentedBook]",
+        "Use GenerateForegroundInstanceMaskRequest from Vision framework",
+        "Return array of SegmentedBook with cropped images and bounding boxes",
+        "Handle 1-20 books per photo (typical shelf range)",
+        "Performance: <2 seconds for 10-book shelf",
+        "Skip background instance (index 0)",
+        "Generate tight crops around each book spine"
+      ],
+      "priority": 1,
+      "estimate": "8 story points",
+      "passes": false,
+      "notes": "CRITICAL PATH - Foundation for entire epic. Uses iOS 26 exclusive API.",
+      "dependsOn": [],
+      "technicalNotes": [
+        "Vision framework pattern:",
+        "  let request = GenerateForegroundInstanceMaskRequest()",
+        "  let observations = try await request.perform(on: image)",
+        "Iterate observation.allInstances (skip index 0 = background)",
+        "Use generateMaskedImage(ofInstances:from:croppedToInstancesExtent:) for tight crops",
+        "Return normalized CGRect bounding boxes (0-1 range)",
+        "Actor isolation prevents data races on Vision processing",
+        "Profile with Instruments Time Profiler to ensure <2s target"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test single book detection",
+          "Test 5 book shelf detection",
+          "Test 10 book shelf detection",
+          "Test 20 book maximum detection",
+          "Test empty shelf error handling",
+          "Test overlapping books",
+          "Performance test: <2s for 10 books"
+        ],
+        "required": true,
+        "estimatedTests": 7
+      }
+    },
+    {
+      "id": "US-A2",
+      "title": "Create SegmentedBook Model",
+      "description": "As a developer, I want a model representing a segmented book instance so that I can track each book through the processing pipeline with Swift 6.2 concurrency safety.",
+      "acceptanceCriteria": [
+        "Create Models/SegmentedBook.swift",
+        "Properties: instanceID, croppedImage, boundingBox, timestamp",
+        "Conform to Identifiable (use instanceID as id)",
+        "Conform to Sendable for Swift 6.2 concurrency",
+        "Add computed property for image size",
+        "Include creation timestamp for debugging"
+      ],
+      "priority": 2,
+      "estimate": "3 story points",
+      "passes": false,
+      "notes": "Simple model, blocks US-A1 completion",
+      "dependsOn": [],
+      "technicalNotes": [
+        "struct SegmentedBook: Identifiable, Sendable {",
+        "  let id: Int  // Instance ID",
+        "  let croppedImage: CIImage",
+        "  let boundingBox: CGRect  // Normalized",
+        "  let timestamp: Date",
+        "  var imageSize: CGSize { croppedImage.extent.size }",
+        "}",
+        "CIImage is Sendable in iOS 26",
+        "No SwiftData needed (ephemeral processing model)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test property access",
+          "Test Sendable conformance compiles"
+        ],
+        "required": true,
+        "estimatedTests": 2
+      }
+    },
+    {
+      "id": "US-A3",
+      "title": "Integrate Segmentation into CameraViewModel",
+      "description": "As a user, I want the camera to automatically detect multiple books when I take a photo so that I don't have to scan each book individually.",
+      "acceptanceCriteria": [
+        "Add segmentationService: InstanceSegmentationService property",
+        "Modify capturePhoto() to call segmentation after capture",
+        "Create separate ProcessingItem for each segmented book",
+        "Update @Published var processingItems: [ProcessingItem] array",
+        "Add count to processing feedback (Processing 5 books...)",
+        "Handle segmentation errors gracefully (fallback to single-book mode)",
+        "Feature flag: enableMultiBookScanning (default: false)"
+      ],
+      "priority": 3,
+      "estimate": "5 story points",
+      "passes": false,
+      "notes": "Connects segmentation to existing camera workflow. Feature flag for safe rollout.",
+      "dependsOn": [
+        "US-A1",
+        "US-A2"
+      ],
+      "technicalNotes": [
+        "In CameraViewModel.capturePhoto():",
+        "  if UserDefaults.standard.enableMultiBookScanning {",
+        "    await processMultiBook(image)",
+        "  } else {",
+        "    await processSingleBook(image)  // Existing flow",
+        "  }",
+        "processMultiBook logic:",
+        "  1. Convert UIImage → CIImage",
+        "  2. Call segmentationService.segmentBooks()",
+        "  3. Create ProcessingItem per segmented book",
+        "  4. Append to processingItems array",
+        "Fallback on error: call processSingleBook()",
+        "Update processingBookCount for UI"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test multi-book workflow (1, 5, 10 books)",
+          "Test single-book fallback on error",
+          "Test feature flag toggle"
+        ],
+        "required": true,
+        "estimatedTests": 3
+      }
+    },
+    {
+      "id": "US-B1",
+      "title": "Create ProcessingFeedbackView Component",
+      "description": "As a user, I want visual feedback when I take a photo so that I know the app is processing my books with clear progress indication.",
+      "acceptanceCriteria": [
+        "Create Features/Camera/ProcessingFeedbackView.swift",
+        "Show checkmark animation on photo capture (✓ Photo captured)",
+        "Display count-based progress (Processing 5 books...)",
+        "Show spinner/progress indicator",
+        "Auto-dismiss after 2 seconds (or when processing completes)",
+        "Swiss Glass design system styling",
+        "Accessible with VoiceOver support"
+      ],
+      "priority": 4,
+      "estimate": "5 story points",
+      "passes": false,
+      "notes": "Track B (UI) - can start in parallel with Track A",
+      "dependsOn": [],
+      "technicalNotes": [
+        "Swiss Glass styling:",
+        "  .ultraThinMaterial background",
+        "  .internationalOrange tint for progress",
+        "  RoundedRectangle(cornerRadius: 16) with white border",
+        "Animations:",
+        "  .symbolEffect(.bounce) for checkmark",
+        "  .spring(duration: 0.3) transitions",
+        "  .scale.combined(with: .opacity) for appear/disappear",
+        "VoiceOver:",
+        "  .accessibilityLabel(Processing 5 books)",
+        "  .accessibilityValue(current status)",
+        "Auto-dismiss: Task.sleep(nanoseconds: 2_000_000_000)"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test component renders",
+          "Test animations smooth at 60 FPS",
+          "Test auto-dismiss timing",
+          "Test VoiceOver announcements"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-B2",
+      "title": "Add Processing Feedback to CameraView",
+      "description": "As a user, I want to see capture confirmation immediately after taking a photo so that I know the app received my input.",
+      "acceptanceCriteria": [
+        "Add ProcessingFeedbackView overlay to CameraView",
+        "Show feedback when capturePhoto() is called",
+        "Pass book count from processingItems.count",
+        "Auto-hide after 2 seconds",
+        "Position above shutter button (not blocking camera preview)",
+        "Z-index above camera controls"
+      ],
+      "priority": 5,
+      "estimate": "3 story points",
+      "passes": false,
+      "notes": "Simple integration of US-B1 component",
+      "dependsOn": [
+        "US-B1"
+      ],
+      "technicalNotes": [
+        "Add to CameraView ZStack:",
+        "  if showProcessingFeedback {",
+        "    ProcessingFeedbackView(...)",
+        "      .position(x: geometry.size.width / 2, y: 200)",
+        "  }",
+        "Update on capture:",
+        "  processingBookCount = viewModel.processingItems.count",
+        "  showProcessingFeedback = true",
+        "  Task.sleep → showProcessingFeedback = false",
+        "Non-blocking: Task.detached for UI updates"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test feedback appears on capture",
+          "Test count updates correctly",
+          "Test auto-hide works",
+          "Test no UI blocking"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-B3",
+      "title": "Enhance ReviewQueueView with Processing States",
+      "description": "As a user, I want to see all my processing books in the Review tab so that I can track progress and edit results later.",
+      "acceptanceCriteria": [
+        "Modify Features/Review/ReviewQueueView.swift",
+        "Show ProcessingItem.status enum visually",
+        "Display processing spinner for .processing state",
+        "Show checkmark for .ready state",
+        "Show error icon for .failed state",
+        "List items chronologically (newest first)",
+        "Tap item to view details (placeholder for Sprint 2)",
+        "Pull-to-refresh to update states"
+      ],
+      "priority": 6,
+      "estimate": "5 story points",
+      "passes": false,
+      "notes": "Enhances existing Review tab for multi-book support",
+      "dependsOn": [
+        "US-C1"
+      ],
+      "technicalNotes": [
+        "ProcessingItemRow design:",
+        "  HStack: [Thumbnail (60x80), VStack(Title, Status), Spacer, StatusIcon]",
+        "Status icons:",
+        "  .processing → ProgressView().tint(.internationalOrange)",
+        "  .ready → checkmark.circle.fill (green)",
+        "  .failed → exclamationmark.triangle.fill (red)",
+        "List sorting: .sorted(by: { $0.createdAt > $1.createdAt })",
+        "Pull-to-refresh: .refreshable { await refreshProcessingItems() }",
+        "Navigation: placeholder sheet for Sprint 2"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test list displays items",
+          "Test status icons render",
+          "Test tap navigation",
+          "Test pull-to-refresh"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-C1",
+      "title": "Extend ProcessingItem Model",
+      "description": "As a developer, I want ProcessingItem to track multi-book metadata so that we can manage individual book processing states through the pipeline.",
+      "acceptanceCriteria": [
+        "Add segmentID: Int? property (instance ID from segmentation)",
+        "Add extractedTitle: String? property (placeholder for Sprint 2)",
+        "Add extractedAuthor: String? property (placeholder for Sprint 2)",
+        "Add confidence: Float? property (extraction confidence)",
+        "Update status enum: .processing, .ready, .failed, .enriching",
+        "Add lastUpdated: Date property",
+        "Ensure SwiftData compatibility"
+      ],
+      "priority": 7,
+      "estimate": "3 story points",
+      "passes": false,
+      "notes": "Track C (Infrastructure) - extends existing model",
+      "dependsOn": [],
+      "technicalNotes": [
+        "SwiftData migration required (add new properties)",
+        "Status enum update:",
+        "  enum ProcessingStatus: String, Codable {",
+        "    case processing, ready, failed, enriching",
+        "  }",
+        "segmentID links to SegmentedBook.instanceID",
+        "extractedTitle/extractedAuthor populated in Sprint 2",
+        "confidence range: 0.0-1.0 (Foundation Models accuracy)",
+        "lastUpdated tracks state transitions"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test model compiles with SwiftData",
+          "Test migration from old schema",
+          "Test properties accessible"
+        ],
+        "required": true,
+        "estimatedTests": 3
+      }
+    },
+    {
+      "id": "US-C2",
+      "title": "Add Feature Flags Configuration",
+      "description": "As a developer, I want feature flags to control new functionality so that we can enable features incrementally and rollback if needed.",
+      "acceptanceCriteria": [
+        "Add UserDefaults extension for feature flags",
+        "Flag: enableMultiBookScanning (default: false)",
+        "Flag: useOnDeviceExtraction (default: false, Sprint 2)",
+        "Flag: useTalariaTextEnrichment (default: false, Sprint 3)",
+        "Flag: trackExtractionAccuracy (default: true, Sprint 4)",
+        "Add debug menu to toggle flags (Settings tab or shake gesture)"
+      ],
+      "priority": 8,
+      "estimate": "2 story points",
+      "passes": false,
+      "notes": "Essential for safe rollout and A/B testing",
+      "dependsOn": [],
+      "technicalNotes": [
+        "Create Extensions/UserDefaults+FeatureFlags.swift",
+        "Pattern:",
+        "  @objc dynamic var enableMultiBookScanning: Bool {",
+        "    get { bool(forKey: \"EnableMultiBookScanning\") }",
+        "    set { set(newValue, forKey: \"EnableMultiBookScanning\") }",
+        "  }",
+        "Debug menu: FeatureFlagsDebugView with List of Toggles",
+        "Add to Settings tab or shake gesture trigger",
+        "All flags persist across app launches"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "Test flags accessible via UserDefaults",
+          "Test debug menu works",
+          "Test flags persist"
+        ],
+        "required": false,
+        "estimatedTests": 0
+      }
+    },
+    {
+      "id": "US-C3",
+      "title": "Create Unit Test Suite for Segmentation",
+      "description": "As a developer, I want comprehensive tests for instance segmentation so that we catch regressions early and validate accuracy.",
+      "acceptanceCriteria": [
+        "Create Tests/InstanceSegmentationTests.swift",
+        "Test: Single book detection",
+        "Test: 5 book shelf detection",
+        "Test: 10 book shelf detection",
+        "Test: 20 book maximum detection",
+        "Test: No books detected (empty shelf) → error thrown",
+        "Test: Overlapping books → correct count",
+        "Test: Performance <2s for 10 books",
+        "Mock images for consistent testing"
+      ],
+      "priority": 9,
+      "estimate": "5 story points",
+      "passes": false,
+      "notes": "Critical for regression prevention and accuracy validation",
+      "dependsOn": [
+        "US-A1"
+      ],
+      "technicalNotes": [
+        "Test images location: Tests/TestAssets/",
+        "Images needed:",
+        "  - single-book-shelf.jpg",
+        "  - five-book-shelf.jpg",
+        "  - ten-book-shelf.jpg",
+        "  - twenty-book-shelf.jpg",
+        "  - empty-shelf.jpg",
+        "  - overlapping-books.jpg",
+        "Performance test: measure { ... } with 2s threshold",
+        "XCTestExpectation for async service calls",
+        "Coverage target: >80% for InstanceSegmentationService"
+      ],
+      "testCoverage": {
+        "unitTests": [
+          "testSingleBookDetection",
+          "testFiveBookShelfDetection",
+          "testTenBookShelfDetection",
+          "testTwentyBookMaxDetection",
+          "testEmptyShelfError",
+          "testOverlappingBooksCount",
+          "testPerformanceWithTenBooks"
+        ],
+        "required": true,
+        "estimatedTests": 7
+      }
+    }
+  ],
+  "metadata": {
+    "created": "2026-02-02",
+    "epic_number": 6,
+    "sprint_number": 1,
+    "sprint_duration": "2 weeks",
+    "total_story_points": 42,
+    "total_epics": 7,
+    "estimated_duration": "2 weeks (3 parallel tracks)",
+    "dependencies": "Epic 4 (TalariaService), Epic 5 (OpenAPI), Camera/Review infrastructure",
+    "ralph_tui_notes": "Sprint 1 has 9 user stories across 3 parallel tracks (A: Segmentation, B: UI Feedback, C: Infrastructure). Track A is critical path. Tracks B and C can proceed in parallel. Feature flags enable safe incremental rollout. Total: 42 story points.",
+    "architecture_notes": {
+      "approach": "On-device instance segmentation → multi-book processing → Review tab workflow",
+      "benefits": "95% cost reduction, <1s feedback, shelf scanning capability",
+      "pattern": "Actor-isolated segmentation service + feature flags for rollout control",
+      "concurrency": "Swift 6.2 strict concurrency with actor isolation",
+      "ios_26_apis": "GenerateForegroundInstanceMaskRequest (iOS 26 exclusive)"
+    },
+    "sprint_1_goals": {
+      "track_a": "Instance segmentation foundation (8+3+5=16 pts)",
+      "track_b": "Processing feedback UI (5+3+5=13 pts)",
+      "track_c": "Infrastructure and testing (3+2+5=10 pts)",
+      "demo_scenario": "User takes shelf photo → sees 'Processing 5 books...' → Review tab shows 5 items with processing states"
+    },
+    "feature_flags": {
+      "enableMultiBookScanning": "Default: false, controls segmentation workflow",
+      "useOnDeviceExtraction": "Sprint 2 - Foundation Models extraction",
+      "useTalariaTextEnrichment": "Sprint 3 - Background enrichment",
+      "trackExtractionAccuracy": "Sprint 4 - Accuracy analytics"
+    },
+    "test_coverage_strategy": {
+      "unit_tests_required": 19,
+      "integration_tests": 0,
+      "coverage_target": ">80% for InstanceSegmentationService",
+      "performance_benchmarks": {
+        "segmentation_10_books": "<2s",
+        "review_tab_load": "<0.5s",
+        "ui_responsiveness": ">55 FPS"
+      }
+    },
+    "critical_paths": [
+      "US-A1 → US-A2 → US-A3 (Segmentation foundation)",
+      "US-C1 (Model extension) → US-B3 (Review tab updates)",
+      "US-C2 (Feature flags) required for all runtime toggling"
+    ],
+    "parallel_work": [
+      "Track A (Segmentation): US-A1, US-A2, US-A3",
+      "Track B (UI Feedback): US-B1, US-B2, US-B3",
+      "Track C (Infrastructure): US-C1, US-C2, US-C3"
+    ],
+    "demo_script": {
+      "setup": "iPhone 17 Pro Max simulator, iOS 26, multi-book flag enabled",
+      "flow": [
+        "1. Launch app → Camera tab",
+        "2. Tap shutter → See '✓ Photo captured' animation",
+        "3. See 'Processing 5 books...' spinner",
+        "4. Tap Review tab → See 5 items with processing status",
+        "5. Items update to 'Ready' after 2s",
+        "6. Tap item → Navigate to detail (placeholder)"
+      ],
+      "success_criteria": [
+        "Zero crashes",
+        "All 5 books detected",
+        "Review tab updates in real-time",
+        "UI stays responsive"
+      ]
+    },
+    "risks": {
+      "segmentation_accuracy": "Mitigation: Use test images first, validate with real books in Sprint 2",
+      "performance_target": "Mitigation: Profile with Instruments, optimize in Sprint 4 if needed",
+      "swift_concurrency": "Mitigation: Leverage existing actor patterns from Epic 4-5"
+    },
+    "next_sprint": {
+      "sprint_2": "Vision & Extraction Pipeline",
+      "focus": "RecognizeDocumentsRequest + Foundation Models extraction",
+      "estimated_duration": "2 weeks"
+    }
+  }
+}
