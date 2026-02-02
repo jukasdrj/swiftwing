@@ -207,13 +207,15 @@ class CameraManager: ObservableObject {
         rotationObservers.removeAll()
 
         // Observe preview rotation angle changes
+        // Note: previewLayer is @MainActor isolated, so this is safe despite being non-Sendable
+        nonisolated(unsafe) let unsafePreviewLayer = previewLayer
         let previewObserver = coordinator.observe(
             \.videoRotationAngleForHorizonLevelPreview,
             options: .new
-        ) { [weak self] _, change in
-            guard let self, let newAngle = change.newValue else { return }
+        ) { _, change in
+            guard let newAngle = change.newValue else { return }
             Task { @MainActor in
-                previewLayer.connection?.videoRotationAngle = newAngle
+                unsafePreviewLayer.connection?.videoRotationAngle = newAngle
             }
         }
         rotationObservers.append(previewObserver)

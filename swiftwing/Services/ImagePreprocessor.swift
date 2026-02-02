@@ -124,8 +124,7 @@ actor ImagePreprocessor {
         // Calculate average luminance by downscaling to 64x64
         let avgLuminance = calculateAverageLuminance(image)
 
-        // Determine brightness adjustment
-        let targetLuminance: Float = 128.0 // Mid-gray
+        // Determine brightness adjustment (target: mid-gray ~128)
         var brightnessAdjustment: Float = 0.0
 
         if avgLuminance < 100 {
