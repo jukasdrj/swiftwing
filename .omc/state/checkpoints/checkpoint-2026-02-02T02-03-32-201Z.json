@@ -1,0 +1,15 @@
+{
+  "created_at": "2026-02-02T02:03:32.200Z",
+  "trigger": "auto",
+  "active_modes": {
+    "ultrawork": {
+      "original_prompt": "ralplan this /Users/juju/dev_repos/BOOKSHELF_SCANNER_LESSONS.md against the swiftwing repo only, don't touch wingtip. then ulw"
+    }
+  },
+  "todo_summary": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0
+  },
+  "wisdom_exported": true
+}

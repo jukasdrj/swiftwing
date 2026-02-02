@@ -62,6 +62,8 @@ final class VisionService {
     ) -> VisionResult {
         // Check if enough time has elapsed since last processing
         guard shouldProcessFrame() else {
+            // Log throttled frames (comment out for production)
+            // print("⏭️ Vision: Frame throttled (interval: \(processingInterval)s)")
             return VisionResult.noContent
         }
 

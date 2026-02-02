@@ -129,9 +129,9 @@ final class CameraViewModel {
                         self.captureGuidance = self.generateObjectGuidance(from: objects)
 
                     case .noContent:
-                        self.detectedText = []
-                        self.detectedObjects = []
-                        self.captureGuidance = .noBookDetected
+                        // Throttled frames return .noContent - don't clear objects, keep last detection
+                        // Objects will persist until next Vision result arrives
+                        break
                     }
 
                     // TODO 6.1: Adaptive throttling based on activity

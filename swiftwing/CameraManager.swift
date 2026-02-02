@@ -413,9 +413,7 @@ final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     let visionService = VisionService() // Exposed for adaptive throttling control
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        // Throttle processing
-        guard visionService.shouldProcessFrame() else { return }
-
+        // Log every frame arrival (throttling happens inside processFrame)
         print("📹 FrameProcessor: Frame received, processing...")
 
         // Extract CVPixelBuffer
@@ -427,10 +425,10 @@ final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         // Determine orientation from connection
         let orientation = CGImagePropertyOrientation(from: connection.videoRotationAngle)
 
-        // Process frame
+        // Process frame (throttling happens inside VisionService)
         let result = visionService.processFrame(pixelBuffer, orientation: orientation)
 
-        // Invoke callback
+        // Invoke callback even if result is .noContent (from throttling)
         if let callback = onFrameProcessed {
             callback(result)
         } else {
