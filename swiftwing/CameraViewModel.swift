@@ -58,7 +58,9 @@ final class CameraViewModel {
     let streamManager: StreamManager = StreamManager()
 
     // MARK: - Vision Framework State
-    var isVisionEnabled: Bool = true
+    var isVisionEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "isVisionEnabled") != false  // Default true if not set
+    }
     var detectedText: [TextRegion] = []
     var detectedISBN: String? = nil
     var captureGuidance: CaptureGuidance = .noBookDetected
@@ -178,8 +180,9 @@ final class CameraViewModel {
     }
 
     func toggleVision() {
-        isVisionEnabled.toggle()
-        cameraManager.setVisionEnabled(isVisionEnabled)
+        let newValue = !isVisionEnabled
+        UserDefaults.standard.set(newValue, forKey: "isVisionEnabled")
+        cameraManager.setVisionEnabled(newValue)
     }
 
     /// Configure rotation coordinator after preview layer is available
@@ -230,7 +233,7 @@ final class CameraViewModel {
             }
 
             // Check feature flag for multi-book scanning
-            if UserDefaults.standard.bool(forKey: "enableMultiBookScanning") {
+            if UserDefaults.standard.bool(forKey: "EnableMultiBookScanning") {
                 await processMultiBook(imageData: imageData, itemId: itemId, modelContext: modelContext)
             } else {
                 await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
