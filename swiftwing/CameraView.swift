@@ -35,6 +35,13 @@ struct CameraView: View {
                 VisionOverlayView(textRegions: viewModel.detectedText)
                     .allowsHitTesting(false)
 
+                // Object detection overlay (rectangle bounding boxes)
+                ObjectBoundingBoxView(
+                    detectedObjects: viewModel.detectedObjects,
+                    imageSize: CGSize(width: 1920, height: 1080) // TODO: Get actual camera resolution
+                )
+                .allowsHitTesting(false)
+
                 CaptureGuidanceView(guidance: viewModel.captureGuidance)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }

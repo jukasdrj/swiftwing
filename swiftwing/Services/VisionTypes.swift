@@ -20,6 +20,9 @@ public enum VisionResult: Sendable {
     /// A barcode (ISBN) was detected in the image
     case barcode(BarcodeResult)
 
+    /// Rectangular objects detected (potential book spines)
+    case objects([DetectedObject])
+
     /// No meaningful content was detected in the image
     case noContent
 }
@@ -68,6 +71,28 @@ public struct BarcodeResult: Sendable {
         self.isbn = isbn
         self.boundingBox = boundingBox
         self.isValidISBN = isValidISBN
+    }
+}
+
+// MARK: - Detected Object
+
+/// Represents a detected rectangular object (potential book spine) from Vision framework.
+/// Used for VNDetectRectanglesRequest results.
+public struct DetectedObject: Sendable {
+    /// The bounding box of the detected object in normalized coordinates [0,1]
+    /// Origin: bottom-left (Vision framework convention)
+    public let boundingBox: CGRect
+
+    /// Confidence score from the Vision request (0.0 to 1.0)
+    public let confidence: Float
+
+    /// The observation UUID for tracking across frames
+    public let observationUUID: UUID
+
+    public init(boundingBox: CGRect, confidence: Float, observationUUID: UUID) {
+        self.boundingBox = boundingBox
+        self.confidence = confidence
+        self.observationUUID = observationUUID
     }
 }
 

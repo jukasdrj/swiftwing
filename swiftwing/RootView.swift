@@ -58,10 +58,11 @@ struct RootView: View {
 }
 
 // MARK: - Main Tab View
-/// TabView with Library and Camera tabs
-/// Library tab shows book count badge when count > 0
+/// TabView with Library, Review, and Camera tabs
+/// Review tab shows pending book count badge
 struct MainTabView: View {
     let bookCount: Int
+    @State private var viewModel = CameraViewModel()
 
     var body: some View {
         TabView {
@@ -78,8 +79,15 @@ struct MainTabView: View {
                 Label("Library", systemImage: "books.vertical")
             }
 
+            // Review Tab
+            ReviewQueueView(viewModel: viewModel)
+                .tabItem {
+                    Label("Review", systemImage: "checklist")
+                }
+                .badge(viewModel.pendingReviewBooks.count > 0 ? viewModel.pendingReviewBooks.count : 0)
+
             // Camera Tab
-            CameraView()
+            CameraView(viewModel: viewModel)
                 .tabItem {
                     Label("Camera", systemImage: "camera")
                 }

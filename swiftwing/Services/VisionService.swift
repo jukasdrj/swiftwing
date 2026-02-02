@@ -23,6 +23,7 @@ final class VisionService {
 
     private let textRequest = VNRecognizeTextRequest()
     private let barcodeRequest = VNDetectBarcodesRequest()
+    private let rectangleRequest = VNDetectRectanglesRequest()
     private var lastProcessedTime: CFAbsoluteTime = 0
     private var processingInterval: CFAbsoluteTime = 0.15 // Default: 150ms (~6.7 fps)
 
@@ -37,6 +38,13 @@ final class VisionService {
         // Configure barcode request
         // Note: ISBN-13 barcodes use EAN-13 symbology
         barcodeRequest.symbologies = [.ean13]
+
+        // Configure rectangle detection request
+        rectangleRequest.minimumAspectRatio = 0.1   // Book spines are tall and narrow
+        rectangleRequest.maximumAspectRatio = 0.9   // Exclude near-square shapes
+        rectangleRequest.minimumSize = 0.05         // At least 5% of frame
+        rectangleRequest.maximumObservations = 3    // Limit UI clutter
+        rectangleRequest.minimumConfidence = 0.75   // Reduce false positives
     }
 
     // MARK: - Frame Processing
@@ -65,8 +73,8 @@ final class VisionService {
                 options: [:]
             )
 
-            // Perform both requests on the same frame
-            try handler.perform([textRequest, barcodeRequest])
+            // Perform all requests on the same frame
+            try handler.perform([textRequest, barcodeRequest, rectangleRequest])
 
             // Extract text observations
             var textRegions: [TextRegion] = []
@@ -100,8 +108,25 @@ final class VisionService {
                 }
             }
 
-            // Return appropriate result
-            if !textRegions.isEmpty {
+            // Extract rectangle observations (potential book spines)
+            var detectedObjects: [DetectedObject] = []
+            if let rectangleObservations = rectangleRequest.results {
+                for observation in rectangleObservations {
+                    guard observation.confidence > 0.75 else { continue }
+                    let object = DetectedObject(
+                        boundingBox: observation.boundingBox,
+                        confidence: observation.confidence,
+                        observationUUID: observation.uuid
+                    )
+                    detectedObjects.append(object)
+                }
+            }
+
+            // Return appropriate result with priority: barcode > objects > text > noContent
+            // Note: Barcode is already returned above
+            if !detectedObjects.isEmpty {
+                return VisionResult.objects(detectedObjects)
+            } else if !textRegions.isEmpty {
                 return VisionResult.textRegions(textRegions)
             } else {
                 return VisionResult.noContent
@@ -160,6 +185,11 @@ final class VisionService {
         case .barcode:
             // ISBN detected - ready to capture (definitive signal)
             return CaptureGuidance.spineDetected
+
+        case .objects(_):
+            // Dead code: generateGuidance is not called by CameraViewModel
+            // This case exists only to satisfy exhaustive switch compilation
+            return CaptureGuidance.holdSteady
 
         case .textRegions(let regions):
             guard !regions.isEmpty else {

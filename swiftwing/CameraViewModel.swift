@@ -60,6 +60,7 @@ final class CameraViewModel {
     var detectedText: [TextRegion] = []
     var detectedISBN: String? = nil
     var captureGuidance: CaptureGuidance = .noBookDetected
+    var detectedObjects: [DetectedObject] = []
 
     // MARK: - Camera Interruption State
     var isInterrupted: Bool {
@@ -105,10 +106,12 @@ final class CameraViewModel {
                     switch result {
                     case .textRegions(let regions):
                         self.detectedText = regions
+                        self.detectedObjects = []
                         // Generate guidance based on detected text regions
                         self.captureGuidance = self.generateGuidance(from: regions)
 
                     case .barcode(let barcodeResult):
+                        self.detectedObjects = []
                         if barcodeResult.isValidISBN {
                             self.detectedISBN = barcodeResult.isbn
                             self.captureGuidance = .spineDetected
@@ -116,8 +119,14 @@ final class CameraViewModel {
                             self.hapticGenerator.impactOccurred()
                         }
 
+                    case .objects(let objects):
+                        self.detectedObjects = objects
+                        // Generate guidance based on detected objects
+                        self.captureGuidance = self.generateObjectGuidance(from: objects)
+
                     case .noContent:
                         self.detectedText = []
+                        self.detectedObjects = []
                         self.captureGuidance = .noBookDetected
                     }
 
@@ -865,6 +874,18 @@ final class CameraViewModel {
 
         } catch {
             print("❌ Failed to save book: \(error)")
+        }
+    }
+
+    /// Generate guidance based on detected rectangle objects
+    private func generateObjectGuidance(from objects: [DetectedObject]) -> CaptureGuidance {
+        let highConfidenceObjects = objects.filter { $0.confidence > 0.85 }
+        if !highConfidenceObjects.isEmpty {
+            return .spineDetected
+        } else if !objects.isEmpty {
+            return .moveCloser
+        } else {
+            return .noBookDetected
         }
     }
 
