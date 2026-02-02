@@ -25,7 +25,7 @@ actor InstanceSegmentationService {
             throw SegmentationError.noInstancesFound
         }
 
-        guard let observation = results.first as? VNInstanceMaskObservation else {
+        guard let observation = results.first else {
             throw SegmentationError.noInstancesFound
         }
 
