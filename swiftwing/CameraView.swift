@@ -6,7 +6,7 @@ import SwiftData
 /// Performance target: < 0.5s cold start to live feed
 struct CameraView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var viewModel = CameraViewModel()
+    var viewModel: CameraViewModel
 
     var body: some View {
         ZStack {
@@ -102,6 +102,20 @@ struct CameraView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
 
+            // Segmented preview overlay (shows when processing item has preview data)
+            if let activeItem = viewModel.processingQueue.first(where: { $0.segmentedPreview != nil && $0.state == .analyzing }),
+               let previewData = activeItem.segmentedPreview {
+                SegmentedPreviewOverlay(
+                    imageData: previewData,
+                    totalBooks: activeItem.detectedBookCount ?? 0,
+                    currentBook: activeItem.currentBookIndex ?? 0,
+                    totalProcessed: activeItem.currentBookIndex ?? 0
+                )
+                .padding(.horizontal, 32)
+                .padding(.bottom, 160) // Above shutter button
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+
             // Zoom level display and offline indicator (top-right corner)
             VStack {
                 HStack {
@@ -185,22 +199,6 @@ struct CameraView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
 
-            // US-405: Duplicate book detection alert with full metadata
-            if viewModel.showDuplicateAlert, let duplicate = viewModel.duplicateBook {
-                DuplicateBookAlert(
-                    duplicateBook: duplicate,
-                    onCancel: {
-                        viewModel.dismissDuplicateAlert()
-                    },
-                    onAddAnyway: {
-                        viewModel.addDuplicateAnyway(modelContext: modelContext)
-                    },
-                    onViewExisting: {
-                        viewModel.dismissDuplicateAlert()
-                        // TODO: Navigate to book detail sheet when library navigation is implemented
-                    }
-                )
-            }
         }
         .statusBar(hidden: true) // Full immersion
         .task {
@@ -209,6 +207,7 @@ struct CameraView: View {
             await viewModel.setupCamera()
         }
         .onDisappear {
+            viewModel.cancelAllStreamingTasks()  // NEW: Cancel SSE streams + backend cleanup
             viewModel.stopCamera()
         }
         // US-406: Cancel active SSE streams when app goes to background
@@ -288,6 +287,7 @@ struct FocusIndicatorView: View {
 }
 
 #Preview {
-    CameraView()
+    CameraView(viewModel: CameraViewModel())
+        .modelContainer(for: Book.self, inMemory: true)
         .preferredColorScheme(.dark)
 }
