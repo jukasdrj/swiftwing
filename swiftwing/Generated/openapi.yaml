@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Talaria Book Scanning API
-  version: 3.0.0
+  version: 3.1.0
   description: |
     Talaria backend API for book spine scanning, AI enrichment, and metadata extraction.
     This API provides multipart image upload, Server-Sent Events streaming for real-time progress,
@@ -59,25 +59,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
         '413':
           description: Image too large (exceeds 10MB limit)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
         '429':
           description: Rate limit exceeded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RateLimitErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
 
   /v3/jobs/scans/{jobId}/stream:
     get:
@@ -85,7 +85,8 @@ paths:
       summary: Stream real-time scan progress via Server-Sent Events
       description: |
         Returns an SSE stream with real-time updates on scan processing.
-        Event types: progress, result, complete, error.
+        Supports event resumption via Last-Event-ID header for interrupted connections.
+        Event types: ping, progress, result, complete, enrichment_degraded, error.
       parameters:
         - name: jobId
           in: path
@@ -94,6 +95,12 @@ paths:
             type: string
             format: uuid
           description: Job ID from createScanJob response
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Resume SSE stream from specific event ID (for connection recovery)
       responses:
         '200':
           description: SSE stream established
@@ -107,22 +114,85 @@ paths:
                   data: <json>
 
                   Event types:
-                  - progress: { message: string }
-                  - result: { title: string, author: string, isbn: string, coverUrl?: string }
-                  - complete: {}
-                  - error: { message: string, code?: string }
+                  - ping: Keepalive signal (empty data), sent every 30s to prevent timeout
+                  - progress: { message: string } - Processing stage update
+                  - result: BookMetadata object with enrichment details
+                  - enrichment_degraded: { message: string, severity: 'warning'|'error' } - Partial enrichment success
+                  - complete: { books?: BookMetadata[], resultsUrl?: string } - Job finished
+                  - error: { message: string, code: string } - Processing failed
         '404':
           description: Job not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
         '410':
           description: Job expired or already cleaned up
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /v3/jobs/scans/{jobId}/results:
+    get:
+      operationId: getScanResults
+      summary: Retrieve structured scan results with optional formatting
+      description: |
+        Returns scan results in structured JSON format.
+        Supports lightweight format for bandwidth-constrained clients.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Job ID from createScanJob response
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [full, lite]
+            default: full
+          description: |
+            'full': Complete BookMetadata with coverUrl and confidence
+            'lite': Minimal fields (title, author, isbn only)
+      responses:
+        '200':
+          description: Scan results retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      books:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/BookMetadata'
+                      processingTimeMs:
+                        type: integer
+                        description: Total processing duration in milliseconds
+        '404':
+          description: Job not found or results expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '410':
+          description: Job expired or already cleaned up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
   /v3/jobs/scans/{jobId}/cleanup:
     delete:
@@ -147,13 +217,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
         '500':
           description: Internal server error during cleanup
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
 
 components:
   schemas:
@@ -230,6 +300,17 @@ components:
           nullable: true
           description: AI confidence score for identification (0.0-1.0)
           example: 0.95
+        enrichmentStatus:
+          type: string
+          enum: [complete, partial, degraded, failed]
+          nullable: true
+          description: |
+            Status of AI enrichment process.
+            - complete: All fields populated successfully
+            - partial: Some fields enriched, others empty
+            - degraded: Enrichment succeeded with reduced confidence
+            - failed: Enrichment process failed entirely
+          example: "complete"
 
     SSEProgressEvent:
       type: object
@@ -276,12 +357,67 @@ components:
 
     SSECompleteEvent:
       type: object
-      description: Empty object signaling job completion
+      description: Job completion signal with optional inline results
+      properties:
+        books:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookMetadata'
+          nullable: true
+          description: |
+            Optional inline results for single-image jobs.
+            For multi-image jobs, use resultsUrl to fetch results.
+        resultsUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            URL to retrieve full results via GET /v3/jobs/scans/{jobId}/results
+            Provided when results are too large for SSE inline transmission.
+        processingTimeMs:
+          type: integer
+          nullable: true
+          description: Total processing duration in milliseconds
+
+    SSEPingEvent:
+      type: object
+      description: Keepalive signal sent every 30 seconds to prevent timeout
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: Server time when ping was sent
+
+    SSEEnrichmentDegradedEvent:
+      type: object
+      required:
+        - message
+        - severity
+      properties:
+        message:
+          type: string
+          description: Human-readable description of degradation
+          example: "Cover image not available; proceeding with partial metadata"
+        severity:
+          type: string
+          enum: [warning, error]
+          description: |
+            warning: Enrichment partially successful, app should continue
+            error: Enrichment failed, metadata may be incomplete
+        failedFields:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: List of fields that failed to enrich (coverUrl, format, etc.)
+          example: ["coverUrl", "format"]
 
     SSEErrorEvent:
       type: object
       required:
         - message
+        - code
       properties:
         message:
           type: string
@@ -289,35 +425,67 @@ components:
           example: "Failed to extract text from image"
         code:
           type: string
-          nullable: true
           enum:
             - "NO_TEXT_DETECTED"
             - "MULTIPLE_BOOKS_DETECTED"
             - "IMAGE_TOO_BLURRY"
             - "UNSUPPORTED_FORMAT"
             - "PROCESSING_TIMEOUT"
+            - "NETWORK_ERROR"
+            - "ENRICHMENT_FAILED"
           description: Machine-readable error code
           example: "NO_TEXT_DETECTED"
+        retryable:
+          type: boolean
+          nullable: true
+          description: Whether the error is retryable
+          example: false
 
-    ErrorResponse:
+    ProblemDetails:
       type: object
       required:
-        - error
-        - message
+        - type
+        - title
+        - status
       properties:
-        error:
+        type:
           type: string
-          description: Error type identifier
-          example: "BAD_REQUEST"
-        message:
+          format: uri
+          description: |
+            URI identifying the problem type (RFC 9457).
+            Examples: https://api.oooefam.net/errors/invalid-image
+          example: "https://api.oooefam.net/errors/invalid-image"
+        title:
           type: string
-          description: Human-readable error message
-          example: "Missing required field: image"
-        details:
-          type: object
+          description: Short human-readable title
+          example: "Invalid Image Format"
+        status:
+          type: integer
+          description: HTTP status code
+          example: 400
+        detail:
+          type: string
           nullable: true
-          additionalProperties: true
-          description: Additional context about the error
+          description: Human-readable explanation
+          example: "Uploaded file must be JPEG or PNG format"
+        instance:
+          type: string
+          format: uri
+          nullable: true
+          description: URI identifying the specific problem occurrence
+        code:
+          type: string
+          nullable: true
+          description: Machine-readable error code
+          example: "INVALID_IMAGE_FORMAT"
+        retryAfter:
+          type: integer
+          nullable: true
+          description: Seconds to wait before retrying (for 429/503 errors)
+          example: 60
+
+    ErrorResponse:
+      $ref: '#/components/schemas/ProblemDetails'
 
     RateLimitErrorResponse:
       type: object
