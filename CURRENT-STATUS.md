@@ -1,8 +1,39 @@
 # SwiftWing Current Status
 
-**Last Updated:** January 25, 2026, 7:15 PM
+**Last Updated:** February 2, 2026, 8:30 PM CST
 **Branch:** `main`
-**Build Status:** ✅ SUCCESS (0 errors, 1 warning)
+**Build Status:** ✅ SUCCESS (0 errors, 0 warnings)
+
+---
+
+## 🚨 Latest Updates (Feb 1-2, 2026)
+
+### Critical Bug Fixes (Production-Ready)
+
+**1. Rectangle Detection Now Working** ✅
+- **Issue:** Green bounding boxes not appearing despite Vision framework implementation
+- **Root Causes:**
+  - Double throttling bug: FrameProcessor checked `shouldProcessFrame()` twice
+  - Object persistence bug: `.noContent` case cleared boxes on every throttled frame
+- **Fixes Applied:**
+  - Removed duplicate throttle check from CameraManager.swift:415-430
+  - Changed `.noContent` case to preserve last detected objects
+- **Result:** 3 rectangles detected per frame with 100% confidence, boxes persist smoothly
+- **Reference:** `DEBUGGING-VISION.md` for complete diagnostic process
+
+**2. Books Now Saving to Library** ✅
+- **Issue:** Talaria processed 6 books successfully but nothing appeared in Review queue
+- **Root Cause:** App ignored `resultsUrl` in SSE "completed" event (only the URL has book data)
+- **Fix Applied:** Added `TalariaService.fetchResults()` method, updated SSEEvent enum
+- **Result:** Complete flow working: Capture → Talaria → Results URL → Review Queue → Library
+- **Code Review:** Applied Gemini Pro 3 recommendations (safe URL construction, error states)
+- **Reference:** `RECENT-CHANGES.md` for implementation details
+
+### Build Quality
+- **0 errors, 0 warnings** (strict Swift 6.2 compliance maintained)
+- All Vision pipeline stages verified with console logs
+- Rectangle detection processing at ~6.7 FPS (150ms throttle)
+- SSE streaming and results fetch fully tested
 
 ---
 
