@@ -65,8 +65,8 @@ struct BookMetadata: Codable, Sendable {
 /// Server-Sent Event types from Talaria streaming API
 enum SSEEvent: Sendable {
     case progress(String)           // Real-time status: "Looking...", "Reading...", "Enriching..."
-    case result(BookMetadata)       // Book metadata from AI
-    case complete                   // Job finished successfully
+    case result(BookMetadata)       // Book metadata from AI (legacy - some API versions send in stream)
+    case complete(resultsUrl: String?)  // Job finished successfully, fetch results from URL
     case error(String)              // Job failed with error message
     case canceled                   // Job was canceled by user or system
     case segmented(SegmentedPreview)    // NEW: segmented image with detected regions

@@ -354,9 +354,45 @@ final class CameraViewModel {
 
                     handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, modelContext: modelContext)
 
-                case .complete:
+                case .complete(let resultsUrl):
                     let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
                     print("✅ SSE stream lasted \(String(format: "%.1f", streamDuration))s")
+
+                    // Fetch actual book results from URL
+                    if let url = resultsUrl,
+                       let jid = jobId,
+                       let authToken = jobAuthTokens[jid] {
+                        print("📥 Fetching book results from: \(url)")
+
+                        do {
+                            let books = try await talariaService.fetchResults(
+                                resultsUrl: url,
+                                authToken: authToken
+                            )
+
+                            print("📚 Received \(books.count) books from results API")
+
+                            // Process each book
+                            for book in books {
+                                // Encode to raw JSON for debugging
+                                let rawJSON: String?
+                                if let jsonData = try? JSONEncoder().encode(book),
+                                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                                    rawJSON = jsonString
+                                } else {
+                                    rawJSON = nil
+                                }
+
+                                handleBookResult(metadata: book, rawJSON: rawJSON, modelContext: modelContext)
+                            }
+
+                        } catch {
+                            print("❌ Failed to fetch results: \(error)")
+                            // Don't block cleanup on results fetch failure
+                        }
+                    } else {
+                        print("⚠️ No resultsUrl in completion event")
+                    }
 
                     updateQueueItem(id: item.id, state: .done, message: nil)
 

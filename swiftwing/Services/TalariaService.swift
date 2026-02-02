@@ -379,7 +379,75 @@ actor TalariaService {
             throw NetworkError.invalidResponse
         }
     }
-    
+
+    /// Fetch scan results from the resultsUrl provided in SSE completion event
+    /// - Parameter resultsUrl: Relative URL path (e.g. "/v3/jobs/ai_scan/scan_...")
+    /// - Parameter authToken: Auth token for the job
+    /// - Returns: Array of BookMetadata objects
+    /// - Throws: NetworkError on failure
+    ///
+    /// Called after SSE stream completes to retrieve the array of identified books.
+    /// The resultsUrl is provided in the "completed" event data.
+    func fetchResults(resultsUrl: String, authToken: String) async throws -> [BookMetadata] {
+        // Construct full URL
+        guard let url = URL(string: baseURL + resultsUrl) else {
+            print("❌ Results fetch: Invalid URL: \(resultsUrl)")
+            throw NetworkError.invalidResponse
+        }
+
+        print("🔍 Fetching results from: \(url.absoluteString)")
+
+        // Create request with auth
+        var request = URLRequest(url: url)
+        request.addValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        request.httpMethod = "GET"
+
+        // Execute request
+        let (data, response) = try await urlSession.data(for: request)
+
+        // Check HTTP status
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ Results fetch: Invalid response type")
+            throw NetworkError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            print("❌ Results fetch failed: HTTP \(httpResponse.statusCode)")
+            throw NetworkError.serverError(httpResponse.statusCode)
+        }
+
+        // Parse JSON response
+        // Expected format: {"results": [BookMetadata, ...], "status": "completed", ...}
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("❌ Results fetch: Failed to parse JSON")
+            throw NetworkError.invalidResponse
+        }
+
+        guard let resultsArray = json["results"] as? [[String: Any]] else {
+            print("❌ Results fetch: No results array in response")
+            throw NetworkError.invalidResponse
+        }
+
+        // Decode each book
+        var books: [BookMetadata] = []
+        let decoder = JSONDecoder()
+
+        for (index, bookJSON) in resultsArray.enumerated() {
+            do {
+                let bookData = try JSONSerialization.data(withJSONObject: bookJSON)
+                let book = try decoder.decode(BookMetadata.self, from: bookData)
+                books.append(book)
+                print("  ✅ Book \(index + 1): \(book.title) by \(book.author)")
+            } catch {
+                print("  ⚠️ Failed to decode book \(index + 1): \(error)")
+                // Continue with other books even if one fails
+            }
+        }
+
+        print("✅ Fetched \(books.count) books from results URL")
+        return books
+    }
+
     // MARK: - Private Helpers
     
     /// Parse SSE event into domain SSEEvent enum
@@ -446,7 +514,19 @@ actor TalariaService {
             return .result(metadata)
 
         case "complete", "completed":
-            return .complete
+            // Extract resultsUrl from completion event
+            guard let jsonData = data.data(using: .utf8) else {
+                return .complete(resultsUrl: nil)
+            }
+
+            if let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+               let resultsUrl = json["resultsUrl"] as? String {
+                print("✅ SSE: Completed with results at: \(resultsUrl)")
+                return .complete(resultsUrl: resultsUrl)
+            } else {
+                print("⚠️ SSE: Completed without resultsUrl")
+                return .complete(resultsUrl: nil)
+            }
 
         case "error":
             // Error event with message
