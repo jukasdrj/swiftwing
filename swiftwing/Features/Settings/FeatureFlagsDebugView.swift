@@ -14,6 +14,9 @@ struct FeatureFlagsDebugView: View {
     @AppStorage("enableBackgroundEnrichment") private var enableBackgroundEnrichment = false
     @AppStorage("enableProgressiveResults") private var enableProgressiveResults = false
 
+    // Camera Overlays (Epic 4 legacy)
+    @AppStorage("isVisionEnabled") private var showVisionOverlays = true
+
     // Sprint 2: On-Device Extraction
     @AppStorage("UseOnDeviceExtraction") private var onDeviceExtraction = false
 
@@ -25,6 +28,13 @@ struct FeatureFlagsDebugView: View {
 
     var body: some View {
         List {
+            Section("Camera Overlays") {
+                Toggle("Vision Overlay (Rectangle Detection)", isOn: $showVisionOverlays)
+                Text("Show green bounding boxes for detected rectangles (Epic 4 legacy - may detect false positives)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section("Sprint 1: Multi-Book Scanning") {
                 Toggle("Multi-Book Scanning", isOn: $multiBook)
                 Text("Enable instance segmentation for shelf photos (1-20 books per image)")
@@ -65,6 +75,7 @@ struct FeatureFlagsDebugView: View {
 
             Section {
                 Button("Reset All Flags") {
+                    showVisionOverlays = true  // Default ON for Epic 4 compatibility
                     multiBook = false
                     enableBackgroundEnrichment = false
                     enableProgressiveResults = false
