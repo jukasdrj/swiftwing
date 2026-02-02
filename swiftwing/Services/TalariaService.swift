@@ -1,5 +1,8 @@
 import Foundation
 
+// Import NetworkTypes for domain models
+// Provides: NetworkError, BookMetadata, SSEEvent, UploadResponse, etc.
+
 // MARK: - Talaria Service Actor
 
 /// Actor-isolated service for Talaria API integration with type-safe domain model translation
@@ -137,14 +140,24 @@ actor TalariaService {
 
                 return (jobId: uploadResponse.data.jobId, streamUrl: uploadResponse.data.sseUrl, authToken: uploadResponse.data.authToken)
 
-            case 429:
-                // Rate limited
-                let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
-                    .flatMap { TimeInterval($0) }
-                throw NetworkError.rateLimited(retryAfter: retryAfter)
-
-            case 500...599:
-                throw NetworkError.serverError(httpResponse.statusCode)
+            case 400, 413, 429, 500...599:
+                // Attempt RFC 9457 ProblemDetails parsing
+                if let problemDetails = try? JSONDecoder().decode(ProblemDetails.self, from: data) {
+                    // For 429, extract retryAfterMs from ProblemDetails
+                    if httpResponse.statusCode == 429 {
+                        let retryAfter = problemDetails.retryAfterMs.map { TimeInterval($0) / 1000.0 }
+                        throw NetworkError.rateLimited(retryAfter: retryAfter)
+                    }
+                    throw NetworkError.apiError(problemDetails)
+                } else {
+                    // Fallback to generic server error
+                    if httpResponse.statusCode == 429 {
+                        let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
+                            .flatMap { TimeInterval($0) }
+                        throw NetworkError.rateLimited(retryAfter: retryAfter)
+                    }
+                    throw NetworkError.serverError(httpResponse.statusCode)
+                }
 
             default:
                 throw NetworkError.serverError(httpResponse.statusCode)
@@ -186,6 +199,7 @@ actor TalariaService {
                 }
 
                 var attempt = 0
+                var lastEventId: String?
 
                 while attempt < maxAttempts {
                     do {
@@ -195,6 +209,10 @@ actor TalariaService {
                         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                         if let authToken = authToken {
                             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+                        }
+                        // On reconnection, send Last-Event-ID for resume capability
+                        if let lastEventId = lastEventId {
+                            request.setValue(lastEventId, forHTTPHeaderField: "Last-Event-ID")
                         }
 
                         let (bytes, response) = try await session.bytes(for: request)
@@ -224,6 +242,7 @@ actor TalariaService {
                         // Parse SSE events
                         var currentEvent: String?
                         var currentData: String?
+                        var currentId: String?
 
                         for try await line in bytes.lines {
                             print("🔍 SSE Line received: '\(line.isEmpty ? "<BLANK>" : line.prefix(80))'")
@@ -233,17 +252,26 @@ actor TalariaService {
                             } else if line.hasPrefix("data:") {
                                 currentData = String(line.dropFirst(5).trimmingCharacters(in: .whitespaces))
                                 print("📦 SSE: Received data: \(currentData?.prefix(100) ?? "nil")...")
+                            } else if line.hasPrefix("id:") {
+                                currentId = String(line.dropFirst(3).trimmingCharacters(in: .whitespaces))
+                                print("🆔 SSE: Received event ID: \(currentId ?? "nil")")
                             } else if line.isEmpty {
                                 print("⚪ SSE: Blank line detected. Event: \(currentEvent ?? "nil"), Data: \(currentData?.prefix(50) ?? "nil")")
                                 // Parse event
                                 if let event = currentEvent, let data = currentData {
                                     print("🔄 SSE: Processing event '\(event)' with data")
 
-                                    // Parse all events uniformly through parseSSEEvent
+                                    // Parse all events uniformly through SSEEventParser
                                     do {
-                                        let sseEvent = try self.parseSSEEvent(event: event, data: data)
+                                        let parser = SSEEventParser()
+                                        let sseEvent = try parser.parse(event: event, data: data)
                                         print("✅ SSE: Parsed event successfully: \(sseEvent)")
                                         continuation.yield(sseEvent)
+
+                                        // Store last event ID for reconnection
+                                        if let id = currentId {
+                                            lastEventId = id
+                                        }
 
                                         // Finish stream on terminal events
                                         switch sseEvent {
@@ -251,27 +279,33 @@ actor TalariaService {
                                             print("✅ SSE: Complete event received - finishing stream")
                                             continuation.finish()
                                             return
-                                        case .error(let message):
-                                            print("❌ SSE: Error event received: \(message)")
+                                        case .error(let errorInfo):
+                                            print("❌ SSE: Error event received: \(errorInfo.message)")
                                             continuation.finish()
                                             return
                                         case .canceled:
                                             print("🛑 SSE: Canceled event received")
                                             continuation.finish()
                                             return
-                                        case .progress, .result, .segmented, .bookProgress:
+                                        case .progress, .result, .segmented, .bookProgress, .ping, .enrichmentDegraded:
                                             // Continue processing stream
                                             break
                                         }
                                     } catch {
                                         print("❌ SSE: Failed to parse event '\(event)': \(error)")
-                                        continuation.yield(.error("Failed to parse event: \(error.localizedDescription)"))
+                                        continuation.yield(.error(SSEErrorInfo(
+                                            message: "Failed to parse event: \(error.localizedDescription)",
+                                            code: nil,
+                                            retryable: false,
+                                            jobId: nil
+                                        )))
                                     }
                                 }
 
                                 // Reset for next event
                                 currentEvent = nil
                                 currentData = nil
+                                currentId = nil
                             }
                         }
 
@@ -330,7 +364,7 @@ actor TalariaService {
         request.httpMethod = "DELETE"
 
         do {
-            let (_, response) = try await urlSession.data(for: request)
+            let (data, response) = try await urlSession.data(for: request)
 
             // Validate HTTP response
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -352,9 +386,14 @@ actor TalariaService {
                 print("ℹ️ Job not found (already cleaned): \(jobId)")
                 return
 
-            case 500...599:
-                print("❌ Cleanup failed: HTTP \(httpResponse.statusCode)")
-                throw NetworkError.serverError(httpResponse.statusCode)
+            case 400, 413, 429, 500...599:
+                // Attempt RFC 9457 ProblemDetails parsing
+                if let problemDetails = try? JSONDecoder().decode(ProblemDetails.self, from: data) {
+                    throw NetworkError.apiError(problemDetails)
+                } else {
+                    print("❌ Cleanup failed: HTTP \(httpResponse.statusCode)")
+                    throw NetworkError.serverError(httpResponse.statusCode)
+                }
 
             default:
                 print("❌ Cleanup failed: HTTP \(httpResponse.statusCode)")
@@ -389,18 +428,26 @@ actor TalariaService {
     /// Called after SSE stream completes to retrieve the array of identified books.
     /// The resultsUrl is provided in the "completed" event data.
     func fetchResults(resultsUrl: String, authToken: String) async throws -> [BookMetadata] {
-        // Construct full URL (safe composition)
+        // Construct full URL with ?format=lite query parameter
+        var resultsUrlWithFormat = resultsUrl
+        if !resultsUrl.contains("?format=lite") {
+            resultsUrlWithFormat = resultsUrl.contains("?")
+                ? "\(resultsUrl)&format=lite"
+                : "\(resultsUrl)?format=lite"
+        }
+
         guard let baseUrl = URL(string: baseURL),
-              let url = URL(string: resultsUrl, relativeTo: baseUrl)?.absoluteURL else {
-            print("❌ Results fetch: Invalid URL - base: \(baseURL), path: \(resultsUrl)")
+              let url = URL(string: resultsUrlWithFormat, relativeTo: baseUrl)?.absoluteURL else {
+            print("❌ Results fetch: Invalid URL - base: \(baseURL), path: \(resultsUrlWithFormat)")
             throw NetworkError.invalidResponse
         }
 
         print("🔍 Fetching results from: \(url.absoluteString)")
 
-        // Create request with auth
+        // Create request with auth and device ID
         var request = URLRequest(url: url)
         request.addValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        request.addValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
         request.httpMethod = "GET"
 
         // Execute request
@@ -412,29 +459,48 @@ actor TalariaService {
             throw NetworkError.invalidResponse
         }
 
-        guard httpResponse.statusCode == 200 else {
+        // Check HTTP status
+        switch httpResponse.statusCode {
+        case 200:
+            // Success - continue to parse
+            break
+
+        case 400, 413, 429, 500...599:
+            // Attempt RFC 9457 ProblemDetails parsing
+            if let problemDetails = try? JSONDecoder().decode(ProblemDetails.self, from: data) {
+                throw NetworkError.apiError(problemDetails)
+            } else {
+                print("❌ Results fetch failed: HTTP \(httpResponse.statusCode)")
+                throw NetworkError.serverError(httpResponse.statusCode)
+            }
+
+        default:
             print("❌ Results fetch failed: HTTP \(httpResponse.statusCode)")
             throw NetworkError.serverError(httpResponse.statusCode)
         }
 
         // Parse JSON response (optimized direct decode)
-        // Expected format: {"results": [BookMetadata, ...], "status": "completed", ...}
-        struct ResultsResponse: Codable {
+        // Expected format: {"success": Bool, "data": {"results": [BookMetadata, ...]}}
+        struct ResultsData: Codable {
             let results: [BookMetadata]
+        }
+        struct ResultsResponse: Codable {
+            let success: Bool
+            let data: ResultsData
         }
 
         let decoder = JSONDecoder()
 
         do {
             let response = try decoder.decode(ResultsResponse.self, from: data)
-            print("✅ Fetched \(response.results.count) books from results URL")
+            print("✅ Fetched \(response.data.results.count) books from results URL")
 
             // Log each book
-            for (index, book) in response.results.enumerated() {
+            for (index, book) in response.data.results.enumerated() {
                 print("  ✅ Book \(index + 1): \(book.title) by \(book.author)")
             }
 
-            return response.results
+            return response.data.results
 
         } catch {
             print("❌ Results fetch: Failed to decode response - \(error)")
@@ -508,28 +574,54 @@ actor TalariaService {
             return .result(metadata)
 
         case "complete", "completed":
-            // Extract resultsUrl from completion event
+            // Extract resultsUrl and optional books from completion event
             guard let jsonData = data.data(using: .utf8) else {
-                return .complete(resultsUrl: nil)
+                return .complete(resultsUrl: nil, books: nil)
             }
 
-            if let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-               let resultsUrl = json["resultsUrl"] as? String {
-                print("✅ SSE: Completed with results at: \(resultsUrl)")
-                return .complete(resultsUrl: resultsUrl)
+            if let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                let resultsUrl = json["resultsUrl"] as? String
+
+                // Try to decode inline books array if present
+                var books: [BookMetadata]?
+                if let booksArray = json["books"] as? [[String: Any]] {
+                    let decoder = JSONDecoder()
+                    if let booksData = try? JSONSerialization.data(withJSONObject: booksArray),
+                       let decodedBooks = try? decoder.decode([BookMetadata].self, from: booksData) {
+                        books = decodedBooks
+                    }
+                }
+
+                if let resultsUrl = resultsUrl {
+                    print("✅ SSE: Completed with results at: \(resultsUrl)")
+                }
+                return .complete(resultsUrl: resultsUrl, books: books)
             } else {
-                print("⚠️ SSE: Completed without resultsUrl")
-                return .complete(resultsUrl: nil)
+                print("⚠️ SSE: Completed without resultsUrl or books")
+                return .complete(resultsUrl: nil, books: nil)
             }
 
         case "error":
-            // Error event with message
+            // Error event with rich context
             if let jsonData = data.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-               let message = json["message"] as? String {
-                return .error(message)
+               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                let message = json["message"] as? String ?? "Unknown error"
+                let code = json["code"] as? String
+                let retryable = json["retryable"] as? Bool
+                let jobId = json["jobId"] as? String
+                return .error(SSEErrorInfo(
+                    message: message,
+                    code: code,
+                    retryable: retryable,
+                    jobId: jobId
+                ))
             } else {
-                return .error("Unknown error")
+                return .error(SSEErrorInfo(
+                    message: "Unknown error",
+                    code: nil,
+                    retryable: false,
+                    jobId: nil
+                ))
             }
 
         case "canceled":
@@ -558,6 +650,31 @@ actor TalariaService {
             }
             let stage = json["stage"] as? String
             return .bookProgress(BookProgressInfo(current: current, total: total, stage: stage))
+
+        case "ping":
+            // SSE keepalive ping
+            return .ping
+
+        case "enrichment_degraded":
+            // Enrichment degradation event
+            guard let jsonData = data.data(using: .utf8),
+                  let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                throw SSEError.invalidEventFormat
+            }
+            let jobId = json["jobId"] as? String
+            let isbn = json["isbn"] as? String
+            let title = json["title"] as? String
+            let reason = json["reason"] as? String
+            let fallbackSource = json["fallbackSource"] as? String
+            let timestamp = json["timestamp"] as? String
+            return .enrichmentDegraded(EnrichmentDegradedInfo(
+                jobId: jobId,
+                isbn: isbn,
+                title: title,
+                reason: reason,
+                fallbackSource: fallbackSource,
+                timestamp: timestamp
+            ))
 
         default:
             // BACKWARD COMPATIBILITY: Ignore unknown event types instead of throwing

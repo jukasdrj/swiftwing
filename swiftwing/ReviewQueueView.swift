@@ -329,7 +329,8 @@ struct ReviewCardView: View {
                     publishedDate: nil,
                     pageCount: 500,
                     format: nil,
-                    confidence: 0.95
+                    confidence: 0.95,
+                    enrichmentStatus: nil
                 ),
                 rawJSON: nil
             ),
@@ -343,7 +344,8 @@ struct ReviewCardView: View {
                     publishedDate: nil,
                     pageCount: nil,
                     format: nil,
-                    confidence: 0.35
+                    confidence: 0.35,
+                    enrichmentStatus: nil
                 ),
                 rawJSON: nil
             ),
@@ -357,7 +359,8 @@ struct ReviewCardView: View {
                     publishedDate: nil,
                     pageCount: nil,
                     format: nil,
-                    confidence: 0.65
+                    confidence: 0.65,
+                    enrichmentStatus: nil
                 ),
                 rawJSON: nil
             )
