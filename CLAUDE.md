@@ -240,35 +240,86 @@ Font.system()          // San Francisco Pro for UI (native)
 
 ### Talaria Backend Integration
 
-**Endpoints:**
-- `POST /v3/jobs/scans` - Upload image, returns `{ jobId, streamUrl }`
-- `GET {streamUrl}` - SSE stream for real-time progress
+**API Endpoints:**
+- `POST /v3/jobs/scans` - Upload image, returns `{ jobId, sseUrl, authToken }`
+- `GET {sseUrl}` - SSE stream for real-time progress (auth required if token provided)
 - `DELETE /v3/jobs/scans/{jobId}/cleanup` - Cleanup after completion
 
-**SSE Events:**
+**SSE Event Types:**
 ```swift
-// Server-Sent Events
-event: progress  // "Looking...", "Reading...", "Enriching..."
-event: result    // Book metadata (title, author, ISBN, coverUrl)
-event: complete  // Job finished
-event: error     // Failed
+// Server-Sent Events (RFC 9457 compliant error handling)
+event: progress       // {"stage": "analyzing_image", "progress": 25}
+event: result         // {"book": {...}, "enrichmentStatus": "success"}
+event: ping           // Keep-alive heartbeat (no data)
+event: enrichment_degraded  // Graceful degradation (circuit breaker open)
+event: complete       // Job finished successfully
+event: error          // {"code": "...", "detail": "...", "retryable": true}
 ```
 
-**Implementation Pattern (Epic 4):**
+**Known API Inconsistencies (Documented):**
+
+SwiftWing handles 5 known inconsistencies in Talaria API:
+
+1. **Status Format Mismatch**: SSE events use `ScanStage` enum but status endpoint returns `JobStatus`. Always check both.
+2. **Retry Field Names**: `Retry-After` header uses seconds but response body has `retryAfterMs` (milliseconds). Handler converts automatically.
+3. **Field Naming**: Problem details use camelCase (non-standard) instead of snake_case.
+4. **Enrichment Errors**: When enrichment endpoints fail, API returns `circuitOpen` status rather than error (graceful degradation).
+5. **Error Metadata**: Not all error codes documented in OpenAPI spec. Check Talaria docs for authoritative list.
+
+**Implementation Pattern (TalariaService):**
 ```swift
-func streamEvents(from url: URL) -> AsyncThrowingStream<SSEEvent, Error> {
-    AsyncThrowingStream { continuation in
-        Task {
-            let (bytes, _) = try await URLSession.shared.bytes(from: url)
-            for try await line in bytes.lines {
-                if line.hasPrefix("data:") {
-                    // Parse and yield event
-                }
-            }
-        }
+actor TalariaService {
+    /// Upload a book spine image to Talaria for AI processing
+    /// - Parameter image: JPEG image data
+    /// - Returns: Tuple of (jobId, sseUrl) for monitoring progress
+    /// - Throws: NetworkError.apiError with RFC 9457 problem details
+    func uploadScan(_ image: Data) async throws -> (jobId: String, sseUrl: URL)
+
+    /// Stream real-time progress and results via Server-Sent Events
+    /// - Parameter sseUrl: URL from uploadScan response
+    /// - Returns: AsyncThrowingStream<SSEEvent, Error> for progress monitoring
+    /// - Yields: .progress(stage), .result(metadata), .ping, .complete, .error(details)
+    func streamEvents(from sseUrl: URL) -> AsyncThrowingStream<SSEEvent, Error>
+
+    /// Cleanup job and release server resources
+    /// - Parameter jobId: ID from uploadScan response
+    /// - Note: Called automatically on completion or error
+    func cleanup(jobId: String) async throws
+}
+```
+
+**Error Handling (RFC 9457):**
+```swift
+do {
+    let (jobId, sseUrl) = try await talariaService.uploadScan(imageData)
+} catch NetworkError.rateLimited(let retryAfter) {
+    // API returned 429 - respect Retry-After header or body
+    let delay = retryAfter ?? 60.0
+    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+} catch NetworkError.apiError(let problem) {
+    // RFC 9457 structured error
+    if problem.retryable {
+        // Automatic retry with exponential backoff
+        let delayMs = problem.retryAfterMs ?? 60_000
+        try await Task.sleep(nanoseconds: UInt64(delayMs * 1_000_000))
+    } else {
+        // Non-retryable error - show to user
+        print("API Error: \(problem.code) - \(problem.detail)")
     }
 }
 ```
+
+**External Documentation Reference:**
+
+For comprehensive Talaria API documentation beyond this file:
+- **Talaria OpenAPI Spec:** `swiftwing/OpenAPI/talaria-openapi.yaml` (committed to repo)
+- **Talaria API Documentation:** Available at https://api.oooefam.net/docs (external, requires access)
+- **RFC 9457 Problem Details:** https://tools.ietf.org/html/rfc9457 (error format standard)
+- **SwiftWing Integration Tests:** `swiftwingTests/TalariaIntegrationTests.swift` (real API examples)
+
+For details on the 5 known API inconsistencies and workarounds:
+- See `Services/NetworkTypes.swift` doc comments on `ProblemDetails` and error enums
+- See `Services/TalariaService.swift` implementation comments on status mapping
 
 **OpenAPI Specification Management:**
 
