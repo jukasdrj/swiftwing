@@ -14,6 +14,7 @@
 		2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B42B677D75020B244722F76 /* CameraPreviewView.swift */; };
 		2F881DDD1F304669B5B0F6A8 /* PendingBookResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592CF225879D432E9A26F387 /* PendingBookResult.swift */; };
 		32F4A5B6C7D8E9F0A1B2C3D4 /* CaptureGuidanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */; };
+		34846D91B93457BE0416BE8F /* SSEEventParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED950344DCECA589A004461 /* SSEEventParser.swift */; };
 		369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5FA190CF9E5B8B778E942 /* CameraView.swift */; };
 		420A170E7A7CA72194C885D9 /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */; };
 		47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4213E4CF87C7BB46283EB591 /* ReviewQueueView.swift */; };
@@ -23,6 +24,7 @@
 		5BBE000C15164F08B85C9DC8 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */; };
 		671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90075E8758F64E3095FAE717 /* PerformanceTestData.swift */; };
 		6F97989D8D79A34FDE104ECA /* ProcessingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */; };
+		701775C4C08E1E2D4E1ADD3C /* DeviceIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BA20FB7ADAAF0E0DECA8307 /* DeviceIdentifier.swift */; };
 		7B2A93E4D8FF47B0A02715CD /* DuplicateDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */; };
 		7F0000010000000000000001 /* SwiftwingApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000020000000000000001 /* SwiftwingApp.swift */; };
 		7F0000030000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000040000000000000001 /* ContentView.swift */; };
@@ -70,6 +72,7 @@
 		05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
 		20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
 		2B42B677D75020B244722F76 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
+		2BA20FB7ADAAF0E0DECA8307 /* DeviceIdentifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceIdentifier.swift; sourceTree = "<group>"; };
 		2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		329BC1FAC62E46C122D2E635 /* ObjectBoundingBoxView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ObjectBoundingBoxView.swift; sourceTree = "<group>"; };
 		3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureGuidanceView.swift; sourceTree = "<group>"; };
@@ -115,6 +118,7 @@
 		EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
 		F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineIndicatorView.swift; sourceTree = "<group>"; };
 		FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitOverlay.swift; sourceTree = "<group>"; };
+		FED950344DCECA589A004461 /* SSEEventParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SSEEventParser.swift; path = Services/SSEEventParser.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -202,6 +206,7 @@
 				F5F8FC1FF0A6DBF1A1FBDB2C /* Services */,
 				4213E4CF87C7BB46283EB591 /* ReviewQueueView.swift */,
 				329BC1FAC62E46C122D2E635 /* ObjectBoundingBoxView.swift */,
+				2BA20FB7ADAAF0E0DECA8307 /* DeviceIdentifier.swift */,
 			);
 			path = swiftwing;
 			sourceTree = "<group>";
@@ -246,6 +251,7 @@
 			children = (
 				51482BF923E8B4E6C0098A07 /* VisionTypes.swift */,
 				4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */,
+				FED950344DCECA589A004461 /* SSEEventParser.swift */,
 			);
 			name = Services;
 			sourceTree = "<group>";
@@ -432,6 +438,8 @@
 				4ED9283B69C74BA2B6452ADF /* VisionService.swift in Sources */,
 				47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */,
 				95FB8FCAEBE2CD1FC9961AE8 /* ObjectBoundingBoxView.swift in Sources */,
+				34846D91B93457BE0416BE8F /* SSEEventParser.swift in Sources */,
+				701775C4C08E1E2D4E1ADD3C /* DeviceIdentifier.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
