@@ -239,8 +239,6 @@ class CameraManager: ObservableObject {
             }
         }
         rotationObservers.append(captureObserver)
-
-        print("📱 Rotation coordinator configured with \(rotationObservers.count) KVO observers")
     }
 
     /// Captures a photo and returns the image data
@@ -413,12 +411,8 @@ final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     let visionService = VisionService() // Exposed for adaptive throttling control
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        // Log every frame arrival (throttling happens inside processFrame)
-        print("📹 FrameProcessor: Frame received, processing...")
-
         // Extract CVPixelBuffer
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            print("❌ FrameProcessor: Failed to extract pixel buffer")
             return
         }
 

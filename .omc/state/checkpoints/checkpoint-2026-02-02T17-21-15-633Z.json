@@ -1,0 +1,15 @@
+{
+  "created_at": "2026-02-02T17:21:15.632Z",
+  "trigger": "auto",
+  "active_modes": {
+    "ultrawork": {
+      "original_prompt": "find the epic 6 sprint 2 user stories and ralplan it. then ultrawork your plans"
+    }
+  },
+  "todo_summary": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0
+  },
+  "wisdom_exported": true
+}

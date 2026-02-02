@@ -9,6 +9,14 @@ import Vision
 import CoreVideo
 import ImageIO
 import Foundation
+import CoreImage
+
+// MARK: - VisionError
+
+enum VisionError: Error {
+    case noTextDetected
+    case processingFailed
+}
 
 // MARK: - VisionService
 
@@ -62,12 +70,8 @@ final class VisionService {
     ) -> VisionResult {
         // Check if enough time has elapsed since last processing
         guard shouldProcessFrame() else {
-            // Log throttled frames (comment out for production)
-            // print("⏭️ Vision: Frame throttled (interval: \(processingInterval)s)")
             return VisionResult.noContent
         }
-
-        print("🔍 Vision: Processing frame with orientation: \(orientation)")
 
         do {
             // Create handler for this frame
@@ -79,16 +83,6 @@ final class VisionService {
 
             // Perform all requests on the same frame
             try handler.perform([textRequest, barcodeRequest, rectangleRequest])
-
-            // Log rectangle detection results
-            if let rectangleObservations = rectangleRequest.results {
-                print("📦 Vision: Rectangle request returned \(rectangleObservations.count) observations")
-                for (index, observation) in rectangleObservations.enumerated() {
-                    print("   Rectangle \(index+1): confidence=\(String(format: "%.2f", observation.confidence)), bbox=\(observation.boundingBox)")
-                }
-            } else {
-                print("📦 Vision: Rectangle request returned nil")
-            }
 
             // Extract text observations
             var textRegions: [TextRegion] = []
@@ -148,6 +142,58 @@ final class VisionService {
         } catch {
             // Vision processing failed, return no content
             return VisionResult.noContent
+        }
+    }
+
+    // MARK: - Document Recognition (Sprint 2: OCR)
+
+    /// Async OCR using iOS 26 RecognizeDocumentsRequest API
+    /// - Parameter image: CIImage to recognize text from
+    /// - Returns: DocumentObservation with structured text, paragraphs, and ISBNs
+    /// - Throws: VisionError if OCR fails or no text found
+    func recognizeText(in image: CIImage) async throws -> DocumentObservation {
+        var request = RecognizeDocumentsRequest()
+        request.textRecognitionOptions.useLanguageCorrection = true
+        request.textRecognitionOptions.recognitionLanguages = [Locale.Language(identifier: "en"), Locale.Language(identifier: "es")]
+
+        let observations = try await request.perform(on: image)
+
+        guard let document = observations.first?.document else {
+            throw VisionError.noTextDetected
+        }
+
+        let paragraphs = document.paragraphs.map { para in
+            Paragraph(
+                text: para.transcript,
+                confidence: 1.0, // iOS 26 DocumentObservation.Paragraph doesn't expose confidence
+                boundingBox: para.boundingRegion.boundingBox.cgRect
+            )
+        }
+
+        // Extract ISBNs from text using simple pattern matching
+        let detectedISBNs = extractISBNsFromText(document.text.transcript)
+
+        return DocumentObservation(
+            fullText: document.text.transcript,
+            paragraphs: paragraphs,
+            detectedISBNs: detectedISBNs
+        )
+    }
+
+    private func extractISBNsFromText(_ text: String) -> [String] {
+        // Simple ISBN-13 pattern: 978 or 979 followed by 10 digits
+        let pattern = #"(978|979)\d{10}"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return []
+        }
+
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, range: range)
+
+        return matches.compactMap { match in
+            guard let range = Range(match.range, in: text) else { return nil }
+            let isbn = String(text[range])
+            return validateISBN13(isbn) ? isbn : nil
         }
     }
 

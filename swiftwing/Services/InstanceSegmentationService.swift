@@ -4,12 +4,33 @@ import SwiftUI
 
 /// Actor-isolated service for segmenting bookshelf photos into individual book spines
 /// Uses iOS 26 GenerateForegroundInstanceMaskRequest for instance segmentation
+/// Falls back to Hough Line Transform (vertical edge detection) if instance segmentation fails
 actor InstanceSegmentationService {
+    private let houghLineService = HoughLineSegmentationService()
+
     /// Segments a bookshelf image into individual book spines
     /// - Parameter image: Full bookshelf image as CIImage
     /// - Returns: Array of SegmentedBook with cropped images and bounding boxes
     /// - Throws: SegmentationError if no books detected or processing fails
     func segmentBooks(from image: CIImage) async throws -> [SegmentedBook] {
+        // Try instance segmentation first (iOS 26 native)
+        do {
+            let books = try await segmentByInstanceMask(from: image)
+            if books.count >= 2 {
+                print("✅ Instance: \(books.count) books")
+                return books
+            }
+            // Only 1 book detected - try Hough fallback
+        } catch {
+            // Instance segmentation failed - try Hough fallback
+        }
+
+        // Fallback to Hough Line Transform (vertical spine edge detection)
+        return try await houghLineService.segmentBooksByVerticalLines(from: image)
+    }
+
+    /// Primary segmentation using iOS 26 VNGenerateForegroundInstanceMaskRequest
+    private func segmentByInstanceMask(from image: CIImage) async throws -> [SegmentedBook] {
         let request = VNGenerateForegroundInstanceMaskRequest()
 
         // Perform segmentation
@@ -41,7 +62,7 @@ actor InstanceSegmentationService {
                 from: handler,
                 croppedToInstancesExtent: true
             ) else {
-                print("⚠️ Failed to generate masked image for instance \(instanceID)")
+                // Silently skip failed instances
                 continue
             }
 

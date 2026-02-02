@@ -136,8 +136,20 @@ struct ReviewQueueView: View {
             }
             .navigationTitle("Review Queue")
             .sheet(item: $selectedProcessingItem) { item in
-                // US-B3: Processing item detail view (placeholder for Sprint 2)
-                ProcessingItemDetailPlaceholder(item: item)
+                BookDetailSheetView(item: item) { title, author, isbn in
+                    saveToLibrary(
+                        title: title,
+                        author: author,
+                        isbn: isbn ?? "",
+                        imageData: item.originalImageData ?? Data()
+                    )
+                    // Remove from processing queue
+                    if let index = viewModel.processingQueue.firstIndex(where: { $0.id == item.id }) {
+                        withAnimation(.swissSpring) {
+                            viewModel.processingQueue.remove(at: index)
+                        }
+                    }
+                }
             }
             .toolbar {
                 if !viewModel.pendingReviewBooks.isEmpty {
@@ -183,6 +195,23 @@ struct ReviewQueueView: View {
                 .foregroundColor(.secondary)
         }
         .padding()
+    }
+
+    private func saveToLibrary(title: String, author: String, isbn: String, imageData: Data) {
+        let book = Book(
+            title: title,
+            author: author,
+            isbn: isbn,
+            addedDate: Date()
+        )
+
+        modelContext.insert(book)
+
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save book: \(error)")
+        }
     }
 }
 
@@ -243,6 +272,10 @@ struct ProcessingItemRow: View {
         case .uploading:
             ProgressView()
                 .tint(.yellow)
+        case .extracting:
+            Image(systemName: "text.viewfinder")
+                .foregroundColor(.cyan)
+                .font(.title2)
         case .analyzing:
             ProgressView()
                 .tint(.internationalOrange)
@@ -270,6 +303,8 @@ struct ProcessingItemRow: View {
             return "Preparing image..."
         case .uploading:
             return "Uploading to AI..."
+        case .extracting:
+            return "Extracting text..."
         case .analyzing:
             return "Analyzing book spine..."
         case .enriching:

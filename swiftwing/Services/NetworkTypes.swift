@@ -237,6 +237,30 @@ public struct BookMetadata: Codable, Sendable {
     let format: String?
     let confidence: Double?
     let enrichmentStatus: EnrichmentStatus?
+
+    public init(
+        title: String,
+        author: String,
+        isbn: String? = nil,
+        coverUrl: URL? = nil,
+        publisher: String? = nil,
+        publishedDate: String? = nil,
+        pageCount: Int? = nil,
+        format: String? = nil,
+        confidence: Double? = nil,
+        enrichmentStatus: EnrichmentStatus? = nil
+    ) {
+        self.title = title
+        self.author = author
+        self.isbn = isbn
+        self.coverUrl = coverUrl
+        self.publisher = publisher
+        self.publishedDate = publishedDate
+        self.pageCount = pageCount
+        self.format = format
+        self.confidence = confidence
+        self.enrichmentStatus = enrichmentStatus
+    }
 }
 
 // MARK: - SSE Events

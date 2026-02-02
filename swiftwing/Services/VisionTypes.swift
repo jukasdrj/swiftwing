@@ -113,3 +113,31 @@ public enum CaptureGuidance: Sendable {
     /// No book or spine detected in the frame
     case noBookDetected
 }
+
+// MARK: - Document Observation (Sprint 2: OCR)
+
+struct DocumentObservation: Sendable {
+    let fullText: String
+    let paragraphs: [Paragraph]
+    let detectedISBNs: [String]
+
+    var wordCount: Int { fullText.split(separator: " ").count }
+    var characterCount: Int { fullText.count }
+    var isEmpty: Bool { fullText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+}
+
+struct Paragraph: Sendable, Identifiable {
+    let id: UUID
+    let text: String
+    let confidence: Float
+    let boundingBox: CGRect
+
+    var isHighConfidence: Bool { confidence >= 0.9 }
+
+    init(text: String, confidence: Float, boundingBox: CGRect) {
+        self.id = UUID()
+        self.text = text
+        self.confidence = confidence
+        self.boundingBox = boundingBox
+    }
+}

@@ -80,6 +80,7 @@ struct ProcessingItem: Identifiable, Equatable {
     enum ProcessingState: Equatable {
         case preprocessing  // Purple border - preprocessing (CIFilter pipeline)
         case uploading      // Yellow border - uploading image to Talaria
+        case extracting     // Cyan border - extracting metadata from segmented books
         case analyzing      // Blue border - AI is analyzing the book spine
         case done           // Green border - successfully identified
         case error          // Red border - processing failed
@@ -92,6 +93,8 @@ struct ProcessingItem: Identifiable, Equatable {
                 return .purple
             case .uploading:
                 return .yellow
+            case .extracting:
+                return .cyan
             case .analyzing:
                 return .blue
             case .done:

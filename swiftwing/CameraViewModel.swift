@@ -81,6 +81,9 @@ final class CameraViewModel {
     private let segmentationService = InstanceSegmentationService()
     var isSegmenting = false
 
+    // MARK: - On-Device Extraction (Epic 6 Sprint 2)
+    private let extractionService = BookExtractionService()
+
     // MARK: - ModelContext (injected by view)
     var modelContext: ModelContext?
 
@@ -133,10 +136,6 @@ final class CameraViewModel {
                         }
 
                     case .objects(let objects):
-                        print("🎯 CameraViewModel: Received \(objects.count) objects from Vision")
-                        for (index, object) in objects.enumerated() {
-                            print("   Object \(index+1): confidence=\(String(format: "%.2f", object.confidence)), uuid=\(object.observationUUID)")
-                        }
                         self.detectedObjects = objects
                         // Generate guidance based on detected objects
                         self.captureGuidance = self.generateObjectGuidance(from: objects)
@@ -233,7 +232,10 @@ final class CameraViewModel {
             }
 
             // Check feature flag for multi-book scanning
-            if UserDefaults.standard.bool(forKey: "EnableMultiBookScanning") {
+            let multiBookEnabled = UserDefaults.standard.bool(forKey: "EnableMultiBookScanning")
+            print("📋 MultiBook: \(multiBookEnabled ? "ON" : "OFF"), routing to \(multiBookEnabled ? "processMultiBook" : "processCaptureWithImageData")")
+
+            if multiBookEnabled {
                 await processMultiBook(imageData: imageData, itemId: itemId, modelContext: modelContext)
             } else {
                 await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
@@ -248,6 +250,8 @@ final class CameraViewModel {
     private func processMultiBook(imageData: Data, itemId: UUID, modelContext: ModelContext) async {
         isSegmenting = true
         defer { isSegmenting = false }
+
+        let useOnDevice = UserDefaults.standard.bool(forKey: "UseOnDeviceExtraction")
 
         do {
             // Convert Data to CIImage
@@ -291,17 +295,89 @@ final class CameraViewModel {
                 }
 
                 // Process each book independently
-                let bookItemId = UUID()
+                let bookItemId = item.id
                 let task = Task {
-                    await processCaptureWithImageData(itemId: bookItemId, imageData: croppedImageData, modelContext: modelContext)
+                    if useOnDevice {
+                        await processBookOnDevice(
+                            itemId: bookItemId,
+                            imageData: croppedImageData,
+                            ciImage: CIImage(cgImage: croppedCGImage),
+                            modelContext: modelContext
+                        )
+                    } else {
+                        await processCaptureWithImageData(
+                            itemId: bookItemId,
+                            imageData: croppedImageData,
+                            modelContext: modelContext
+                        )
+                    }
                 }
                 activeStreamingTasks[bookItemId] = task
             }
 
         } catch {
             print("❌ Segmentation failed: \(error.localizedDescription)")
-            // Fallback to single-book mode
-            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
+            if useOnDevice {
+                // Try on-device extraction with full image
+                guard let uiImage = UIImage(data: imageData),
+                      let cgImage = uiImage.cgImage else {
+                    // Last resort: Talaria
+                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
+                    return
+                }
+                await processBookOnDevice(
+                    itemId: itemId,
+                    imageData: imageData,
+                    ciImage: CIImage(cgImage: cgImage),
+                    modelContext: modelContext
+                )
+            } else {
+                await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
+            }
+        }
+    }
+
+    // MARK: - On-Device Extraction Pipeline (Epic 6 Sprint 2)
+    private func processBookOnDevice(
+        itemId: UUID,
+        imageData: Data,
+        ciImage: CIImage,
+        modelContext: ModelContext
+    ) async {
+        // Update state to extracting
+        updateQueueItem(id: itemId, state: .extracting, message: "Extracting text...")
+
+        do {
+            // Step 1: OCR (create local VisionService to avoid @MainActor isolation issues)
+            let ocrService = VisionService()
+            let observation = try await ocrService.recognizeText(in: ciImage)
+
+            updateQueueItemProgress(id: itemId, message: "Analyzing metadata...")
+
+            // Step 2: Extract metadata via Foundation Models
+            let spineInfo = try await extractionService.extract(from: observation.fullText)
+
+            // Step 3: Convert to BookMetadata
+            let metadata = spineInfo.toBookMetadata()
+
+            // Step 4: Save via existing handler
+            handleBookResult(metadata: metadata, rawJSON: nil, modelContext: modelContext)
+
+            updateQueueItem(id: itemId, state: .done, message: "Extraction complete")
+
+            // Auto-remove from queue after delay
+            await removeQueueItemAfterDelay(id: itemId, delay: 5.0)
+
+        } catch let extractionError as ExtractionError {
+            if case .modelUnavailable = extractionError {
+                // Fallback to Talaria
+                print("[On-Device] Foundation Models unavailable, falling back to Talaria")
+                await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
+            } else {
+                updateQueueItemError(id: itemId, errorMessage: "Extraction failed: \(extractionError.localizedDescription)")
+            }
+        } catch {
+            updateQueueItemError(id: itemId, errorMessage: "OCR failed: \(error.localizedDescription)")
         }
     }
 
