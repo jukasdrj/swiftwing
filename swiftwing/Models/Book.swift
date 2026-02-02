@@ -40,9 +40,17 @@ public final class Book {
     // Debug/raw data
     var rawJSON: String?
 
+    // Talaria enrichment status tracking (Epic 4)
+    var enrichmentStatus: String?
+
     // Computed property for review threshold
     var needsReview: Bool {
         spineConfidence ?? 1.0 < 0.8
+    }
+
+    // Computed property for enrichment review needs
+    var needsEnrichmentReview: Bool {
+        enrichmentStatus == "review_needed" || enrichmentStatus == "not_found"
     }
 
     init(
@@ -61,7 +69,8 @@ public final class Book {
         dateRead: Date? = nil,
         userRating: Int? = nil,
         notes: String? = nil,
-        rawJSON: String? = nil
+        rawJSON: String? = nil,
+        enrichmentStatus: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -79,5 +88,6 @@ public final class Book {
         self.userRating = userRating
         self.notes = notes
         self.rawJSON = rawJSON
+        self.enrichmentStatus = enrichmentStatus
     }
 }
