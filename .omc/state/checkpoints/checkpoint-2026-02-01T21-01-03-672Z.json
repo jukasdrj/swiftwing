@@ -1,0 +1,15 @@
+{
+  "created_at": "2026-02-01T21:01:03.671Z",
+  "trigger": "auto",
+  "active_modes": {
+    "ultrawork": {
+      "original_prompt": "fix both in parallel, ultrawork"
+    }
+  },
+  "todo_summary": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0
+  },
+  "wisdom_exported": true
+}
