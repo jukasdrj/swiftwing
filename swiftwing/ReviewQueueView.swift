@@ -5,6 +5,9 @@ struct ReviewQueueView: View {
     @Environment(\.modelContext) private var modelContext
     var viewModel: CameraViewModel
 
+    // US-B3: Selected processing item for detail view
+    @State private var selectedProcessingItem: ProcessingItem?
+
     private var sortedPendingBooks: [PendingBookResult] {
         viewModel.pendingReviewBooks.sorted { a, b in
             // Low confidence first (needs most attention)
@@ -36,11 +39,22 @@ struct ReviewQueueView: View {
                 Color.swissBackground.ignoresSafeArea()
 
                 // Content
-                if viewModel.pendingReviewBooks.isEmpty {
+                if viewModel.pendingReviewBooks.isEmpty && viewModel.processingQueue.isEmpty {
                     emptyStateView
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
+                            // US-B3: Processing items section (at top for immediate visibility)
+                            if !viewModel.processingQueue.isEmpty {
+                                SectionHeader(title: "Processing", count: viewModel.processingQueue.count, color: .internationalOrange)
+                                ForEach(viewModel.processingQueue) { item in
+                                    ProcessingItemRow(item: item)
+                                        .onTapGesture {
+                                            selectedProcessingItem = item
+                                        }
+                                }
+                            }
+
                             // Low confidence section (red - needs review)
                             if !lowConfidenceBooks.isEmpty {
                                 SectionHeader(title: "Needs Review", count: lowConfidenceBooks.count, color: .red)
@@ -113,9 +127,18 @@ struct ReviewQueueView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 24)
                     }
+                    .refreshable {
+                        // US-B3: Pull-to-refresh updates processing states
+                        // Note: processingQueue is reactive via @Observable
+                        try? await Task.sleep(nanoseconds: 100_000_000) // Minimal delay for animation
+                    }
                 }
             }
             .navigationTitle("Review Queue")
+            .sheet(item: $selectedProcessingItem) { item in
+                // US-B3: Processing item detail view (placeholder for Sprint 2)
+                ProcessingItemDetailPlaceholder(item: item)
+            }
             .toolbar {
                 if !viewModel.pendingReviewBooks.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -147,19 +170,150 @@ struct ReviewQueueView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle")
+            Image(systemName: "tray")
                 .font(.system(size: 60))
-                .foregroundColor(.internationalOrange.opacity(0.5))
+                .foregroundColor(.secondary)
 
-            Text("No Books to Review")
-                .font(.title2.bold())
+            Text("No items to review")
+                .font(.headline)
                 .foregroundColor(.swissText)
 
-            Text("Scan books with the camera to add them here for review")
-                .font(.body)
-                .foregroundColor(.swissText.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+            Text("Take a photo to get started")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+    }
+}
+
+// MARK: - US-B3: Processing Item Row
+
+/// Row view for processing items in the review queue
+/// Shows thumbnail with status-colored border, progress message, and status icon
+struct ProcessingItemRow: View {
+    let item: ProcessingItem
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Thumbnail with border color indicating status
+            if let thumbnail = UIImage(data: item.thumbnailData) {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 60, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(item.state.borderColor, lineWidth: 2)
+                    )
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.progressMessage ?? "Processing...")
+                    .font(.headline)
+                    .foregroundColor(.swissText)
+
+                Text(statusDescription(for: item.state))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                if let error = item.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer()
+
+            statusIcon(for: item.state)
+        }
+        .padding(.vertical, 4)
+        .padding(16)
+        .swissGlassCard()
+    }
+
+    @ViewBuilder
+    private func statusIcon(for state: ProcessingItem.ProcessingState) -> some View {
+        switch state {
+        case .preprocessing:
+            ProgressView()
+                .tint(.purple)
+        case .uploading:
+            ProgressView()
+                .tint(.yellow)
+        case .analyzing:
+            ProgressView()
+                .tint(.internationalOrange)
+        case .enriching:
+            ProgressView()
+                .tint(.orange)
+        case .done:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(.green)
+                .font(.title2)
+        case .error:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.red)
+                .font(.title2)
+        case .offline:
+            Image(systemName: "icloud.slash")
+                .foregroundColor(.gray)
+                .font(.title2)
+        }
+    }
+
+    private func statusDescription(for state: ProcessingItem.ProcessingState) -> String {
+        switch state {
+        case .preprocessing:
+            return "Preparing image..."
+        case .uploading:
+            return "Uploading to AI..."
+        case .analyzing:
+            return "Analyzing book spine..."
+        case .enriching:
+            return "Enriching metadata..."
+        case .done:
+            return "Ready for review"
+        case .error:
+            return "Processing failed"
+        case .offline:
+            return "Queued (offline)"
+        }
+    }
+}
+
+// MARK: - US-B3: Processing Item Detail Placeholder
+
+/// Placeholder detail view for processing items
+/// Sprint 2 will implement full book detail editing here
+struct ProcessingItemDetailPlaceholder: View {
+    let item: ProcessingItem
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.swissBackground.ignoresSafeArea()
+
+                VStack(spacing: 20) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+
+                    Text("Detail View")
+                        .font(.title2.weight(.semibold))
+                        .foregroundColor(.swissText)
+
+                    Text("Sprint 2 will implement book detail editing here")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+            }
+            .navigationTitle("Book Details")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

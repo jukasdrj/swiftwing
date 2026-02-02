@@ -75,6 +75,10 @@ final class CameraViewModel {
     // MARK: - Image Preprocessing
     private let imagePreprocessor = ImagePreprocessor()
 
+    // MARK: - Instance Segmentation (Epic 6 Sprint 1)
+    private let segmentationService = InstanceSegmentationService()
+    var isSegmenting = false
+
     // MARK: - ModelContext (injected by view)
     var modelContext: ModelContext?
 
@@ -224,10 +228,77 @@ final class CameraViewModel {
             guard let modelContext = modelContext else {
                 fatalError("ModelContext not injected into ViewModel")
             }
-            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
+
+            // Check feature flag for multi-book scanning
+            if UserDefaults.standard.bool(forKey: "enableMultiBookScanning") {
+                await processMultiBook(imageData: imageData, itemId: itemId, modelContext: modelContext)
+            } else {
+                await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
+            }
         } catch {
             print("❌ Camera capture failed: \(error)")
             await showProcessingErrorOverlay(error.localizedDescription)
+        }
+    }
+
+    /// Process bookshelf image with multi-book segmentation
+    private func processMultiBook(imageData: Data, itemId: UUID, modelContext: ModelContext) async {
+        isSegmenting = true
+        defer { isSegmenting = false }
+
+        do {
+            // Convert Data to CIImage
+            guard let uiImage = UIImage(data: imageData) else {
+                throw SegmentationError.visionFrameworkError(NSError(domain: "ImageConversion", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create UIImage from data"]))
+            }
+
+            guard let cgImage = uiImage.cgImage else {
+                throw SegmentationError.visionFrameworkError(NSError(domain: "ImageConversion", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to get CGImage from UIImage"]))
+            }
+
+            let ciImage = CIImage(cgImage: cgImage)
+
+            // Segment books
+            let books = try await segmentationService.segmentBooks(from: ciImage)
+
+            print("📚 Detected \(books.count) books in shelf photo")
+
+            // Create ProcessingItem for each segmented book
+            for book in books {
+                // Convert CIImage to UIImage for ProcessingItem
+                let context = CIContext()
+                guard let croppedCGImage = context.createCGImage(book.croppedImage, from: book.croppedImage.extent) else {
+                    print("⚠️ Failed to create CGImage for book instance \(book.instanceID)")
+                    continue
+                }
+                let croppedUIImage = UIImage(cgImage: croppedCGImage)
+                guard let croppedImageData = croppedUIImage.jpegData(compressionQuality: 0.8) else {
+                    print("⚠️ Failed to create JPEG data for book instance \(book.instanceID)")
+                    continue
+                }
+
+                let item = ProcessingItem(
+                    imageData: croppedImageData,
+                    state: .preprocessing,
+                    progressMessage: "Segmented book \(book.instanceID)"
+                )
+
+                withAnimation(.swissSpring) {
+                    processingQueue.append(item)
+                }
+
+                // Process each book independently
+                let bookItemId = UUID()
+                let task = Task {
+                    await processCaptureWithImageData(itemId: bookItemId, imageData: croppedImageData, modelContext: modelContext)
+                }
+                activeStreamingTasks[bookItemId] = task
+            }
+
+        } catch {
+            print("❌ Segmentation failed: \(error.localizedDescription)")
+            // Fallback to single-book mode
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
         }
     }
 

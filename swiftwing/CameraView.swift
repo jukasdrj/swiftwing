@@ -8,6 +8,10 @@ struct CameraView: View {
     @Environment(\.modelContext) private var modelContext
     var viewModel: CameraViewModel
 
+    // US-B2: Processing feedback overlay state
+    @State private var showProcessingFeedback = false
+    @State private var processingBookCount = 0
+
     var body: some View {
         ZStack {
             // Camera preview (edge-to-edge)
@@ -86,6 +90,19 @@ struct CameraView: View {
                     .transition(.opacity)
             }
 
+            // US-B2: Processing feedback overlay (positioned above shutter button)
+            if showProcessingFeedback {
+                GeometryReader { geometry in
+                    ProcessingFeedbackView(
+                        bookCount: processingBookCount,
+                        isProcessing: viewModel.isSegmenting,
+                        isVisible: $showProcessingFeedback
+                    )
+                    .position(x: geometry.size.width / 2, y: 200)
+                }
+                .zIndex(100)  // Above all other overlays
+            }
+
             // Processing error overlay (auto-dismiss after 5s)
             if viewModel.showProcessingError, let error = viewModel.processingErrorMessage {
                 VStack(spacing: 12) {
@@ -158,7 +175,21 @@ struct CameraView: View {
                 // Shutter button (80x80px white ring at bottom center)
                 // US-408: Disabled during rate limit cooldown
                 // Task 2.2: Disable when camera is interrupted
-                Button(action: viewModel.captureImage) {
+                // US-B2: Enhanced with processing feedback overlay
+                Button {
+                    // Trigger capture
+                    viewModel.captureImage()
+
+                    // US-B2: Show processing feedback with book count
+                    Task {
+                        processingBookCount = viewModel.processingQueue.count
+                        showProcessingFeedback = true
+
+                        // Auto-dismiss after 2 seconds
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        showProcessingFeedback = false
+                    }
+                } label: {
                     Circle()
                         .strokeBorder(
                             viewModel.isRateLimited || viewModel.isInterrupted ? .gray : .white,

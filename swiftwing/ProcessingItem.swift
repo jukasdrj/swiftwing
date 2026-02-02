@@ -19,7 +19,14 @@ struct ProcessingItem: Identifiable, Equatable {
     var detectedBookCount: Int?  // Number of books detected in segmented preview (Task 5)
     var currentBookIndex: Int?   // Current book being processed in multi-book scan (Task 5)
 
-    init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil) {
+    // MARK: - Epic 6 Sprint 1: Multi-Book Segmentation Fields
+    var segmentID: Int?  // Instance ID from InstanceSegmentationService
+    var extractedTitle: String?  // Placeholder for Sprint 2 (Foundation Models extraction)
+    var extractedAuthor: String?  // Placeholder for Sprint 2
+    var confidence: Float?  // Extraction confidence (0.0-1.0, Sprint 2)
+    var lastUpdated: Date  // Track state transitions
+
+    init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil, segmentID: Int? = nil) {
         self.id = UUID()
         self.thumbnailData = Self.generateThumbnail(from: imageData)
         self.captureDate = Date()
@@ -29,6 +36,13 @@ struct ProcessingItem: Identifiable, Equatable {
         self.originalImageData = imageData  // Store for retry (US-407)
         self.tempFileURL = nil
         self.jobId = nil
+
+        // Epic 6 Sprint 1: Multi-book fields
+        self.segmentID = segmentID
+        self.extractedTitle = nil
+        self.extractedAuthor = nil
+        self.confidence = nil
+        self.lastUpdated = Date()
     }
 
     /// Generates optimized 60x90px thumbnail from full image data
@@ -70,6 +84,7 @@ struct ProcessingItem: Identifiable, Equatable {
         case done           // Green border - successfully identified
         case error          // Red border - processing failed
         case offline        // Gray border - queued for upload when network returns (US-409)
+        case enriching      // Orange border - Background Talaria enrichment (Epic 6 Sprint 3)
 
         var borderColor: Color {
             switch self {
@@ -85,6 +100,8 @@ struct ProcessingItem: Identifiable, Equatable {
                 return .red
             case .offline:
                 return .gray
+            case .enriching:
+                return .orange
             }
         }
     }

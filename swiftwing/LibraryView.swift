@@ -376,6 +376,12 @@ struct LibraryView: View {
             #if DEBUG
             // Optional: Add Sample Book button for testing
             VStack(spacing: 12) {
+                // Epic 6 Sprint 1: Feature Flags Debug Menu
+                NavigationLink(destination: FeatureFlagsDebugView()) {
+                    Label("Feature Flags", systemImage: "flag.fill")
+                }
+                .swissGlassButton()
+
                 Button("Add Sample Book") {
                     addSampleBook()
                 }
