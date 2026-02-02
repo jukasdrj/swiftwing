@@ -386,15 +386,19 @@ final class CameraViewModel {
                                 handleBookResult(metadata: book, rawJSON: rawJSON, modelContext: modelContext)
                             }
 
+                            // Success - mark as done
+                            updateQueueItem(id: item.id, state: .done, message: nil)
+
                         } catch {
                             print("❌ Failed to fetch results: \(error)")
-                            // Don't block cleanup on results fetch failure
+                            // Set error state so user knows something went wrong
+                            updateQueueItemError(id: item.id, errorMessage: "Failed to retrieve results")
                         }
                     } else {
-                        print("⚠️ No resultsUrl in completion event")
+                        // Missing resultsUrl - treat as error (shouldn't happen in normal flow)
+                        print("⚠️ No resultsUrl in completion event - marking as error")
+                        updateQueueItemError(id: item.id, errorMessage: "No results available")
                     }
-
-                    updateQueueItem(id: item.id, state: .done, message: nil)
 
                     // Cleanup resources (non-blocking)
                     await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)

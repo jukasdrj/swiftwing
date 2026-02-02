@@ -389,9 +389,10 @@ actor TalariaService {
     /// Called after SSE stream completes to retrieve the array of identified books.
     /// The resultsUrl is provided in the "completed" event data.
     func fetchResults(resultsUrl: String, authToken: String) async throws -> [BookMetadata] {
-        // Construct full URL
-        guard let url = URL(string: baseURL + resultsUrl) else {
-            print("❌ Results fetch: Invalid URL: \(resultsUrl)")
+        // Construct full URL (safe composition)
+        guard let baseUrl = URL(string: baseURL),
+              let url = URL(string: resultsUrl, relativeTo: baseUrl)?.absoluteURL else {
+            print("❌ Results fetch: Invalid URL - base: \(baseURL), path: \(resultsUrl)")
             throw NetworkError.invalidResponse
         }
 
@@ -416,36 +417,29 @@ actor TalariaService {
             throw NetworkError.serverError(httpResponse.statusCode)
         }
 
-        // Parse JSON response
+        // Parse JSON response (optimized direct decode)
         // Expected format: {"results": [BookMetadata, ...], "status": "completed", ...}
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            print("❌ Results fetch: Failed to parse JSON")
-            throw NetworkError.invalidResponse
+        struct ResultsResponse: Codable {
+            let results: [BookMetadata]
         }
 
-        guard let resultsArray = json["results"] as? [[String: Any]] else {
-            print("❌ Results fetch: No results array in response")
-            throw NetworkError.invalidResponse
-        }
-
-        // Decode each book
-        var books: [BookMetadata] = []
         let decoder = JSONDecoder()
 
-        for (index, bookJSON) in resultsArray.enumerated() {
-            do {
-                let bookData = try JSONSerialization.data(withJSONObject: bookJSON)
-                let book = try decoder.decode(BookMetadata.self, from: bookData)
-                books.append(book)
-                print("  ✅ Book \(index + 1): \(book.title) by \(book.author)")
-            } catch {
-                print("  ⚠️ Failed to decode book \(index + 1): \(error)")
-                // Continue with other books even if one fails
-            }
-        }
+        do {
+            let response = try decoder.decode(ResultsResponse.self, from: data)
+            print("✅ Fetched \(response.results.count) books from results URL")
 
-        print("✅ Fetched \(books.count) books from results URL")
-        return books
+            // Log each book
+            for (index, book) in response.results.enumerated() {
+                print("  ✅ Book \(index + 1): \(book.title) by \(book.author)")
+            }
+
+            return response.results
+
+        } catch {
+            print("❌ Results fetch: Failed to decode response - \(error)")
+            throw NetworkError.invalidResponse
+        }
     }
 
     // MARK: - Private Helpers
