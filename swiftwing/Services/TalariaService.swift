@@ -226,6 +226,7 @@ actor TalariaService {
                         var currentData: String?
 
                         for try await line in bytes.lines {
+                            print("🔍 SSE Line received: '\(line.isEmpty ? "<BLANK>" : line.prefix(80))'")
                             if line.hasPrefix("event:") {
                                 currentEvent = String(line.dropFirst(6).trimmingCharacters(in: .whitespaces))
                                 print("📨 SSE: Received event type: \(currentEvent ?? "nil")")
@@ -233,61 +234,38 @@ actor TalariaService {
                                 currentData = String(line.dropFirst(5).trimmingCharacters(in: .whitespaces))
                                 print("📦 SSE: Received data: \(currentData?.prefix(100) ?? "nil")...")
                             } else if line.isEmpty {
+                                print("⚪ SSE: Blank line detected. Event: \(currentEvent ?? "nil"), Data: \(currentData?.prefix(50) ?? "nil")")
                                 // Parse event
                                 if let event = currentEvent, let data = currentData {
                                     print("🔄 SSE: Processing event '\(event)' with data")
 
-                                    if event == "complete" || event == "completed" {
-                                        // V3 Architecture: Fetch results from URL provided in complete event
-                                        // 1. Decode complete event to get resultsUrl
-                                        // 2. Fetch results
-                                        // 3. Emit .result for each book
-                                        // 4. Emit .complete
+                                    // Parse all events uniformly through parseSSEEvent
+                                    do {
+                                        let sseEvent = try self.parseSSEEvent(event: event, data: data)
+                                        print("✅ SSE: Parsed event successfully: \(sseEvent)")
+                                        continuation.yield(sseEvent)
 
-                                        do {
-                                            guard let resultsUrl = try self.extractResultsUrl(from: data) else {
-                                                print("❌ SSE: No results URL in complete event")
-                                                throw SSEError.invalidEventFormat
-                                            }
-                                            print("✅ SSE: Extracted results URL: \(resultsUrl)")
-
-                                            // Fetch and emit results
-                                            let books = try await self.fetchResults(from: resultsUrl, authToken: authToken)
-                                            print("📚 SSE: Fetched \(books.count) books from results endpoint")
-
-                                            for book in books {
-                                                print("📚 Yielding .result event for: \(book.title)")
-                                                continuation.yield(.result(book))
-                                            }
-                                        } catch {
-                                            print("❌ SSE: Failed to process complete event: \(error)")
-                                            continuation.yield(.error("Failed to fetch results: \(error.localizedDescription)"))
+                                        // Finish stream on terminal events
+                                        switch sseEvent {
+                                        case .complete:
+                                            print("✅ SSE: Complete event received - finishing stream")
                                             continuation.finish()
-                                            return  // Don't yield .complete on error
+                                            return
+                                        case .error(let message):
+                                            print("❌ SSE: Error event received: \(message)")
+                                            continuation.finish()
+                                            return
+                                        case .canceled:
+                                            print("🛑 SSE: Canceled event received")
+                                            continuation.finish()
+                                            return
+                                        case .progress, .result, .segmented, .bookProgress:
+                                            // Continue processing stream
+                                            break
                                         }
-
-                                        continuation.yield(.complete)
-                                        continuation.finish()
-                                        return
-                                    } else {
-                                        // Handle other events (progress, error)
-                                        do {
-                                            let sseEvent = try self.parseSSEEvent(event: event, data: data)
-                                            print("✅ SSE: Parsed event successfully: \(sseEvent)")
-                                            continuation.yield(sseEvent)
-
-                                            if case .error(let message) = sseEvent {
-                                                print("❌ SSE: Error event received: \(message)")
-                                                continuation.finish()
-                                                return
-                                            } else if case .canceled = sseEvent {
-                                                print("🛑 SSE: Canceled event received")
-                                                continuation.finish()
-                                                return
-                                            }
-                                        } catch {
-                                            print("❌ SSE: Failed to parse event '\(event)': \(error)")
-                                        }
+                                    } catch {
+                                        print("❌ SSE: Failed to parse event '\(event)': \(error)")
+                                        continuation.yield(.error("Failed to parse event: \(error.localizedDescription)"))
                                     }
                                 }
 
@@ -404,70 +382,6 @@ actor TalariaService {
     
     // MARK: - Private Helpers
     
-    /// Extract resultsUrl from complete event JSON
-    nonisolated private func extractResultsUrl(from jsonString: String) throws -> URL? {
-        print("🔍 Extracting resultsUrl from complete event data")
-        guard let data = jsonString.data(using: .utf8) else {
-            print("❌ Failed to convert JSON string to Data")
-            return nil
-        }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            print("❌ Failed to parse JSON: \(jsonString.prefix(200))...")
-            return nil
-        }
-        guard let path = json["resultsUrl"] as? String else {
-            print("❌ No resultsUrl field in JSON. Available keys: \(json.keys)")
-            return nil
-        }
-        let fullUrl = URL(string: "\(baseURL)\(path)")
-        print("✅ Extracted resultsUrl: \(fullUrl?.absoluteString ?? "nil")")
-        return fullUrl
-    }
-    
-    /// Fetch full job results from the API
-    private func fetchResults(from url: URL, authToken: String? = nil) async throws -> [BookMetadata] {
-        print("🌐 Fetching results from: \(url)")
-        var request = URLRequest(url: url)
-        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
-        if let authToken = authToken {
-            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
-        }
-
-        let (data, response) = try await urlSession.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            print("❌ Response is not HTTPURLResponse")
-            throw NetworkError.invalidResponse
-        }
-
-        print("📡 Results fetch HTTP \(httpResponse.statusCode)")
-
-        guard httpResponse.statusCode == 200 else {
-            print("❌ Expected 200, got \(httpResponse.statusCode)")
-            #if DEBUG
-            if let responseBody = String(data: data, encoding: .utf8) {
-                print("   Response body: \(responseBody.prefix(500))")
-            }
-            #endif
-            throw NetworkError.invalidResponse
-        }
-
-        // Decode JobResultsResponse (V3 API)
-        // Structure: { success: true, data: { results: [BookMetadata], ... } }
-        struct JobResultsResponse: Codable {
-            let success: Bool
-            let data: JobResultsData
-        }
-
-        struct JobResultsData: Codable {
-            let results: [BookMetadata]
-        }
-
-        let resultsResponse = try JSONDecoder().decode(JobResultsResponse.self, from: data)
-        print("✅ Decoded \(resultsResponse.data.results.count) books from results endpoint")
-        return resultsResponse.data.results
-    }
-
     /// Parse SSE event into domain SSEEvent enum
     ///
     /// **Domain Model Translation Logic:**
@@ -544,8 +458,38 @@ actor TalariaService {
                 return .error("Unknown error")
             }
 
+        case "canceled":
+            return .canceled
+
+        case "segmented":
+            // NEW: Segmented image preview
+            guard let jsonData = data.data(using: .utf8) else {
+                throw SSEError.invalidEventFormat
+            }
+            let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+            guard let imageBase64 = json?["image"] as? String,
+                  let imageData = Data(base64Encoded: imageBase64),
+                  let totalBooks = json?["totalBooks"] as? Int else {
+                throw SSEError.invalidEventFormat
+            }
+            return .segmented(SegmentedPreview(imageData: imageData, totalBooks: totalBooks))
+
+        case "book_progress":
+            // NEW: Per-book processing progress
+            guard let jsonData = data.data(using: .utf8),
+                  let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                  let current = json["current"] as? Int,
+                  let total = json["total"] as? Int else {
+                throw SSEError.invalidEventFormat
+            }
+            let stage = json["stage"] as? String
+            return .bookProgress(BookProgressInfo(current: current, total: total, stage: stage))
+
         default:
-            throw SSEError.invalidEventFormat
+            // BACKWARD COMPATIBILITY: Ignore unknown event types instead of throwing
+            // This ensures older app versions don't crash when backend adds new events
+            print("SSE: Unknown event type '\(event)' - ignoring for forward compatibility")
+            throw SSEError.invalidEventFormat  // Will be caught and logged by caller
         }
     }
 }

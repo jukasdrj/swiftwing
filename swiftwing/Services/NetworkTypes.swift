@@ -69,6 +69,23 @@ enum SSEEvent: Sendable {
     case complete                   // Job finished successfully
     case error(String)              // Job failed with error message
     case canceled                   // Job was canceled by user or system
+    case segmented(SegmentedPreview)    // NEW: segmented image with detected regions
+    case bookProgress(BookProgressInfo) // NEW: per-book processing progress
+}
+
+// MARK: - Progressive Results Types
+
+/// Segmented image preview from backend after initial detection
+struct SegmentedPreview: Sendable, Codable {
+    let imageData: Data       // JPEG data of annotated image with bounding boxes
+    let totalBooks: Int        // Number of book spines detected
+}
+
+/// Per-book processing progress update
+struct BookProgressInfo: Sendable, Codable {
+    let current: Int           // Which book is being processed (1-based)
+    let total: Int             // Total books detected
+    let stage: String?         // Optional stage description
 }
 
 // MARK: - SSE Error
