@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ReviewQueueView: View {
     @Environment(\.modelContext) private var modelContext
@@ -46,7 +46,9 @@ struct ReviewQueueView: View {
                         LazyVStack(spacing: 16) {
                             // US-B3: Processing items section (at top for immediate visibility)
                             if !viewModel.processingQueue.isEmpty {
-                                SectionHeader(title: "Processing", count: viewModel.processingQueue.count, color: .internationalOrange)
+                                SectionHeader(
+                                    title: "Processing", count: viewModel.processingQueue.count,
+                                    color: .internationalOrange)
                                 ForEach(viewModel.processingQueue) { item in
                                     ProcessingItemRow(item: item)
                                         .onTapGesture {
@@ -57,7 +59,9 @@ struct ReviewQueueView: View {
 
                             // Low confidence section (red - needs review)
                             if !lowConfidenceBooks.isEmpty {
-                                SectionHeader(title: "Needs Review", count: lowConfidenceBooks.count, color: .red)
+                                SectionHeader(
+                                    title: "Needs Review", count: lowConfidenceBooks.count,
+                                    color: .red)
                                 ForEach(lowConfidenceBooks) { book in
                                     ReviewCardView(
                                         book: book,
@@ -80,7 +84,9 @@ struct ReviewQueueView: View {
 
                             // Medium confidence section (orange - verify)
                             if !mediumConfidenceBooks.isEmpty {
-                                SectionHeader(title: "Verify", count: mediumConfidenceBooks.count, color: .orange)
+                                SectionHeader(
+                                    title: "Verify", count: mediumConfidenceBooks.count,
+                                    color: .orange)
                                 ForEach(mediumConfidenceBooks) { book in
                                     ReviewCardView(
                                         book: book,
@@ -103,7 +109,9 @@ struct ReviewQueueView: View {
 
                             // High confidence section (green - ready to add)
                             if !highConfidenceBooks.isEmpty {
-                                SectionHeader(title: "Ready to Add", count: highConfidenceBooks.count, color: .green)
+                                SectionHeader(
+                                    title: "Ready to Add", count: highConfidenceBooks.count,
+                                    color: .green)
                                 ForEach(highConfidenceBooks) { book in
                                     ReviewCardView(
                                         book: book,
@@ -130,7 +138,7 @@ struct ReviewQueueView: View {
                     .refreshable {
                         // US-B3: Pull-to-refresh updates processing states
                         // Note: processingQueue is reactive via @Observable
-                        try? await Task.sleep(nanoseconds: 100_000_000) // Minimal delay for animation
+                        try? await Task.sleep(nanoseconds: 100_000_000)  // Minimal delay for animation
                     }
                 }
             }
@@ -144,7 +152,8 @@ struct ReviewQueueView: View {
                         imageData: item.originalImageData ?? Data()
                     )
                     // Remove from processing queue
-                    if let index = viewModel.processingQueue.firstIndex(where: { $0.id == item.id }) {
+                    if let index = viewModel.processingQueue.firstIndex(where: { $0.id == item.id })
+                    {
                         withAnimation(.swissSpring) {
                             viewModel.processingQueue.remove(at: index)
                         }
@@ -386,7 +395,10 @@ struct ReviewCardView: View {
     @State private var editedTitle: String
     @State private var editedAuthor: String
 
-    init(book: PendingBookResult, onApprove: @escaping () -> Void, onReject: @escaping () -> Void, onEdit: @escaping (String?, String?) -> Void) {
+    init(
+        book: PendingBookResult, onApprove: @escaping () -> Void, onReject: @escaping () -> Void,
+        onEdit: @escaping (String?, String?) -> Void
+    ) {
         self.book = book
         self.onApprove = onApprove
         self.onReject = onReject
@@ -552,7 +564,7 @@ struct ReviewCardView: View {
                     enrichmentStatus: nil
                 ),
                 rawJSON: nil
-            )
+            ),
         ]
         return vm
     }()

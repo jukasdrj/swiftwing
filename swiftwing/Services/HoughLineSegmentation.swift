@@ -3,6 +3,15 @@ import Vision
 import Accelerate
 import Foundation
 
+/// Segmentation errors
+enum SegmentationError: Error {
+    case noInstancesFound
+    case edgeDetectionFailed
+    case lineDetectionFailed
+    case invalidImageData
+    case visionFrameworkError(Error)
+}
+
 /// Hough Line Transform-based book spine segmentation
 /// Inspired by: https://github.com/LakshyaKhatri/Bookshelf-Reader-API
 /// Uses edge detection + vertical line detection to find spine boundaries

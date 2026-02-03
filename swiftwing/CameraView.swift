@@ -1,6 +1,6 @@
-import SwiftUI
 import AVFoundation
 import SwiftData
+import SwiftUI
 
 /// Main camera view with zero-lag preview
 /// Performance target: < 0.5s cold start to live feed
@@ -42,7 +42,7 @@ struct CameraView: View {
                 // Object detection overlay (rectangle bounding boxes)
                 ObjectBoundingBoxView(
                     detectedObjects: viewModel.detectedObjects,
-                    imageSize: CGSize(width: 1920, height: 1080) // TODO: Get actual camera resolution
+                    imageSize: CGSize(width: 1920, height: 1080)  // TODO: Get actual camera resolution
                 )
                 .allowsHitTesting(false)
 
@@ -95,7 +95,7 @@ struct CameraView: View {
                 GeometryReader { geometry in
                     ProcessingFeedbackView(
                         bookCount: processingBookCount,
-                        isProcessing: viewModel.isSegmenting,
+                        isProcessing: !viewModel.processingQueue.isEmpty,
                         isVisible: $showProcessingFeedback
                     )
                     .position(x: geometry.size.width / 2, y: 200)
@@ -127,8 +127,11 @@ struct CameraView: View {
             }
 
             // Segmented preview overlay (shows when processing item has preview data)
-            if let activeItem = viewModel.processingQueue.first(where: { $0.segmentedPreview != nil && $0.state == .analyzing }),
-               let previewData = activeItem.segmentedPreview {
+            if let activeItem = viewModel.processingQueue.first(where: {
+                $0.segmentedPreview != nil && $0.state == .analyzing
+            }),
+                let previewData = activeItem.segmentedPreview
+            {
                 SegmentedPreviewOverlay(
                     imageData: previewData,
                     totalBooks: activeItem.detectedBookCount ?? 0,
@@ -136,7 +139,7 @@ struct CameraView: View {
                     totalProcessed: activeItem.currentBookIndex ?? 0
                 )
                 .padding(.horizontal, 32)
-                .padding(.bottom, 160) // Above shutter button
+                .padding(.bottom, 160)  // Above shutter button
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
 
@@ -169,8 +172,10 @@ struct CameraView: View {
                 Spacer()
 
                 // Processing queue (40px height above shutter)
-                ProcessingQueueView(items: viewModel.processingQueue, onRetry: viewModel.retryFailedItem)
-                    .padding(.bottom, 8)
+                ProcessingQueueView(
+                    items: viewModel.processingQueue, onRetry: viewModel.retryFailedItem
+                )
+                .padding(.bottom, 8)
 
                 // Shutter button (80x80px white ring at bottom center)
                 // US-408: Disabled during rate limit cooldown
@@ -238,7 +243,7 @@ struct CameraView: View {
             }
 
         }
-        .statusBar(hidden: true) // Full immersion
+        .statusBar(hidden: true)  // Full immersion
         .task {
             // Inject modelContext into viewModel
             viewModel.modelContext = modelContext
@@ -249,7 +254,9 @@ struct CameraView: View {
             viewModel.stopCamera()
         }
         // US-406: Cancel active SSE streams when app goes to background
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+        .onReceive(
+            NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
+        ) { _ in
             viewModel.cancelAllStreamingTasks()
         }
         // US-409: Auto-upload queued scans when network returns
@@ -327,5 +334,5 @@ struct FocusIndicatorView: View {
 #Preview {
     CameraView(viewModel: CameraViewModel())
         .modelContainer(for: Book.self, inMemory: true)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(ColorScheme.dark)
 }

@@ -1,154 +1,113 @@
-import Vision
 import CoreImage
 import SwiftUI
+import Vision
 
 /// Actor-isolated service for segmenting bookshelf photos into individual book spines
 /// Uses iOS 26 GenerateForegroundInstanceMaskRequest for instance segmentation
-/// Falls back to Hough Line Transform (vertical edge detection) if instance segmentation fails
 actor InstanceSegmentationService {
-    private let houghLineService = HoughLineSegmentationService()
 
     /// Segments a bookshelf image into individual book spines
     /// - Parameter image: Full bookshelf image as CIImage
     /// - Returns: Array of SegmentedBook with cropped images and bounding boxes
-    /// - Throws: SegmentationError if no books detected or processing fails
     func segmentBooks(from image: CIImage) async throws -> [SegmentedBook] {
-        // Try instance segmentation first (iOS 26 native)
-        do {
-            let books = try await segmentByInstanceMask(from: image)
-            if books.count >= 2 {
-                print("✅ Instance: \(books.count) books")
-                return books
-            }
-            // Only 1 book detected - try Hough fallback
-        } catch {
-            // Instance segmentation failed - try Hough fallback
-        }
+        let request = GenerateForegroundInstanceMaskRequest()
 
-        // Fallback to Hough Line Transform (vertical spine edge detection)
-        return try await houghLineService.segmentBooksByVerticalLines(from: image)
-    }
+        // Swift 6.2 / iOS 26 async API
+        // Returns Optional<InstanceMaskObservation> directly, not an array
+        let observationOrNil = try await request.perform(on: image)
 
-    /// Primary segmentation using iOS 26 VNGenerateForegroundInstanceMaskRequest
-    private func segmentByInstanceMask(from image: CIImage) async throws -> [SegmentedBook] {
-        let request = VNGenerateForegroundInstanceMaskRequest()
-
-        // Perform segmentation
-        let handler = VNImageRequestHandler(ciImage: image, options: [:])
-
-        do {
-            try handler.perform([request])
-        } catch {
-            throw SegmentationError.visionFrameworkError(error)
-        }
-
-        guard let results = request.results, !results.isEmpty else {
-            throw SegmentationError.noInstancesFound
-        }
-
-        guard let observation = results.first else {
-            throw SegmentationError.noInstancesFound
-        }
+        guard let observation = observationOrNil else { return [] }
 
         var books: [SegmentedBook] = []
 
-        // Skip instance 0 (background), iterate 1-N (foreground objects)
-        for instanceID in observation.allInstances where instanceID > 0 {
+        // Iterate over each detected instance (excluding background at index 0)
+        let allInstances = observation.allInstances
+
+        for instanceID in allInstances {
+            // Skip background (0)
+            if instanceID == 0 { continue }
+
             let singleInstance = IndexSet(integer: instanceID)
 
-            // Generate masked, cropped image for this book
-            guard let croppedBuffer = try? observation.generateMaskedImage(
-                ofInstances: singleInstance,
-                from: handler,
+            // iOS 26 API uses ImageRequestHandler (not VNImageRequestHandler) and different parameter names
+            let handler = ImageRequestHandler(image)
+
+            // Generate masked, cropped image for this book (iOS 26 API)
+            let croppedBuffer = try observation.generateMaskedImage(
+                for: singleInstance,
+                imageFrom: handler,
                 croppedToInstancesExtent: true
-            ) else {
-                // Silently skip failed instances
-                continue
-            }
+            )
 
-            // Calculate tight bounding box
-            let boundingBox = calculateBounds(from: croppedBuffer, fullImageSize: image.extent.size)
+            // Generate full-size mask for bounding box calculation (iOS 26 API)
+            let maskBuffer = try observation.generateMaskedImage(
+                for: singleInstance,
+                imageFrom: handler,
+                croppedToInstancesExtent: false
+            )
+            let boundingBox = calculateBoundingBox(from: maskBuffer, imageSize: image.extent.size)
 
-            books.append(SegmentedBook(
-                instanceID: instanceID,
-                croppedImage: CIImage(cvPixelBuffer: croppedBuffer),
-                boundingBox: boundingBox
-            ))
-        }
-
-        // Performance validation: <2s for 10 books
-        if books.count > 20 {
-            throw SegmentationError.tooManyBooks(count: books.count)
+            books.append(
+                SegmentedBook(
+                    instanceID: instanceID,
+                    croppedImage: CIImage(cvPixelBuffer: croppedBuffer),
+                    boundingBox: boundingBox
+                ))
         }
 
         print("📚 Successfully segmented \(books.count) books from shelf photo")
-
         return books
     }
 
-    /// Calculates normalized bounding box (0-1 range) from pixel buffer
-    private func calculateBounds(from buffer: CVPixelBuffer, fullImageSize: CGSize) -> CGRect {
-        // Scan pixel buffer for non-zero alpha values
-        // Return CGRect in normalized coordinates (0-1 range)
-        let width = CVPixelBufferGetWidth(buffer)
-        let height = CVPixelBufferGetHeight(buffer)
+    // User provided helper
+    private func calculateBoundingBox(from maskBuffer: CVPixelBuffer, imageSize: CGSize) -> CGRect {
+        CVPixelBufferLockBaseAddress(maskBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(maskBuffer, .readOnly) }
 
-        CVPixelBufferLockBaseAddress(buffer, .readOnly)
-        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        let width = CVPixelBufferGetWidth(maskBuffer)
+        let height = CVPixelBufferGetHeight(maskBuffer)
 
-        guard let baseAddress = CVPixelBufferGetBaseAddress(buffer) else {
-            return CGRect(x: 0, y: 0, width: 1, height: 1)
-        }
+        guard let baseAddress = CVPixelBufferGetBaseAddress(maskBuffer) else { return .zero }
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(maskBuffer)
+        let bufferObj = baseAddress.assumingMemoryBound(to: UInt8.self)
 
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
-        let pixelBuffer = baseAddress.assumingMemoryBound(to: UInt8.self)
+        var minX = width
+        var maxX = 0
+        var minY = height
+        var maxY = 0
+        var found = false
 
-        var minX = width, maxX = 0
-        var minY = height, maxY = 0
-
-        // Scan pixel buffer to find bounds of non-transparent pixels
         for y in 0..<height {
             for x in 0..<width {
-                let pixelIndex = y * bytesPerRow + x * 4  // RGBA format
-                let alpha = pixelBuffer[pixelIndex + 3]
-
-                if alpha > 0 {
-                    minX = min(minX, x)
-                    maxX = max(maxX, x)
-                    minY = min(minY, y)
-                    maxY = max(maxY, y)
+                let offset = y * bytesPerRow + x
+                let value = bufferObj[offset]
+                if value > 0 {
+                    found = true
+                    if x < minX { minX = x }
+                    if x > maxX { maxX = x }
+                    if y < minY { minY = y }
+                    if y > maxY { maxY = y }
                 }
             }
         }
 
-        // Avoid division by zero if no pixels found
-        guard minX <= maxX && minY <= maxY else {
-            return CGRect(x: 0, y: 0, width: 1, height: 1)
-        }
+        if !found { return .zero }
 
-        // Normalize to 0-1 range
+        let normalizedHeight = CGFloat(maxY - minY + 1) / CGFloat(height)
+        let normalizedY = 1.0 - (CGFloat(maxY) / CGFloat(height)) - (1.0 / CGFloat(height))  // rough approx
+
+        // Let's stick to standard rect and let UI flip if needed, OR flip here.
+        // Given user snippet "convertVisionToSwiftUI" does `(1 - visionRect.origin.y - visionRect.height)`,
+        // it expects Vision coordinates (Bottom-Left).
+
         return CGRect(
-            x: CGFloat(minX) / fullImageSize.width,
-            y: CGFloat(minY) / fullImageSize.height,
-            width: CGFloat(maxX - minX + 1) / fullImageSize.width,
-            height: CGFloat(maxY - minY + 1) / fullImageSize.height
+            x: CGFloat(minX) / CGFloat(width),
+            y: 1.0 - (CGFloat(maxY) / CGFloat(height)),
+            width: CGFloat(maxX - minX + 1) / CGFloat(width),
+            height: normalizedHeight
         )
     }
 }
 
-enum SegmentationError: Error, LocalizedError {
-    case noInstancesFound
-    case tooManyBooks(count: Int)
-    case visionFrameworkError(Error)
-
-    var errorDescription: String? {
-        switch self {
-        case .noInstancesFound:
-            return "No books detected in image"
-        case .tooManyBooks(let count):
-            return "Too many objects detected (\(count)). Maximum is 20 books per photo."
-        case .visionFrameworkError(let error):
-            return "Vision processing failed: \(error.localizedDescription)"
-        }
-    }
-}
+// Ensure SegmentedBook struct exists or is compatible
+// (It was in Models/SegmentedBook.swift)

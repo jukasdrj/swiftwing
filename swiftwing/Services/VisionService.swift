@@ -5,11 +5,11 @@
 //  Created by Claude Code on 2026-01-30.
 //
 
-import Vision
-import CoreVideo
-import ImageIO
-import Foundation
 import CoreImage
+import CoreVideo
+import Foundation
+import ImageIO
+import Vision
 
 // MARK: - VisionError
 
@@ -26,33 +26,33 @@ enum VisionError: Error {
 /// **Design Note:** VisionService is a plain class (not an actor, not @MainActor).
 /// It is queue-agnostic and designed to be called synchronously from the AVFoundation
 /// delegate queue. Results are published via an AsyncStream that the ViewModel consumes on @MainActor.
-final class VisionService {
+final class VisionService: @unchecked Sendable {
     // MARK: - Private Properties
 
     private let textRequest = VNRecognizeTextRequest()
     private let barcodeRequest = VNDetectBarcodesRequest()
     private let rectangleRequest = VNDetectRectanglesRequest()
     private var lastProcessedTime: CFAbsoluteTime = 0
-    private var processingInterval: CFAbsoluteTime = 0.15 // Default: 150ms (~6.7 fps)
+    private var processingInterval: CFAbsoluteTime = 0.15  // Default: 150ms (~6.7 fps)
 
     // MARK: - Initialization
 
     init() {
         // Configure text recognition request
-        textRequest.recognitionLevel = .fast // Real-time performance
-        textRequest.recognitionLanguages = ["en-US"] // English for book spines
-        textRequest.usesLanguageCorrection = false // Avoid delays
+        textRequest.recognitionLevel = .fast  // Real-time performance
+        textRequest.recognitionLanguages = ["en-US"]  // English for book spines
+        textRequest.usesLanguageCorrection = false  // Avoid delays
 
         // Configure barcode request
         // Note: ISBN-13 barcodes use EAN-13 symbology
         barcodeRequest.symbologies = [.ean13]
 
         // Configure rectangle detection request
-        rectangleRequest.minimumAspectRatio = 0.1   // Book spines are tall and narrow
-        rectangleRequest.maximumAspectRatio = 0.9   // Exclude near-square shapes
-        rectangleRequest.minimumSize = 0.05         // At least 5% of frame
-        rectangleRequest.maximumObservations = 3    // Limit UI clutter
-        rectangleRequest.minimumConfidence = 0.75   // Reduce false positives
+        rectangleRequest.minimumAspectRatio = 0.1  // Book spines are tall and narrow
+        rectangleRequest.maximumAspectRatio = 0.9  // Exclude near-square shapes
+        rectangleRequest.minimumSize = 0.05  // At least 5% of frame
+        rectangleRequest.maximumObservations = 3  // Limit UI clutter
+        rectangleRequest.minimumConfidence = 0.75  // Reduce false positives
     }
 
     // MARK: - Frame Processing
@@ -152,32 +152,41 @@ final class VisionService {
     /// - Returns: DocumentObservation with structured text, paragraphs, and ISBNs
     /// - Throws: VisionError if OCR fails or no text found
     func recognizeText(in image: CIImage) async throws -> DocumentObservation {
-        var request = RecognizeDocumentsRequest()
-        request.textRecognitionOptions.useLanguageCorrection = true
-        request.textRecognitionOptions.recognitionLanguages = [Locale.Language(identifier: "en"), Locale.Language(identifier: "es")]
+        #if os(iOS)
+            if #available(iOS 26, *) {
+                var request = RecognizeDocumentsRequest()
+                request.textRecognitionOptions.useLanguageCorrection = true
+                request.textRecognitionOptions.recognitionLanguages = [
+                    Locale.Language(identifier: "en"), Locale.Language(identifier: "es"),
+                ]
 
-        let observations = try await request.perform(on: image)
+                let observations = try await request.perform(on: image)
 
-        guard let document = observations.first?.document else {
-            throw VisionError.noTextDetected
-        }
+                guard let document = observations.first?.document else {
+                    throw VisionError.noTextDetected
+                }
 
-        let paragraphs = document.paragraphs.map { para in
-            Paragraph(
-                text: para.transcript,
-                confidence: 1.0, // iOS 26 DocumentObservation.Paragraph doesn't expose confidence
-                boundingBox: para.boundingRegion.boundingBox.cgRect
-            )
-        }
+                let paragraphs = document.paragraphs.map { para in
+                    Paragraph(
+                        text: para.transcript,
+                        confidence: 1.0,  // iOS 26 DocumentObservation.Paragraph doesn't expose confidence
+                        boundingBox: para.boundingRegion.boundingBox.cgRect
+                    )
+                }
 
-        // Extract ISBNs from text using simple pattern matching
-        let detectedISBNs = extractISBNsFromText(document.text.transcript)
+                // Extract ISBNs from text using simple pattern matching
+                let detectedISBNs = extractISBNsFromText(document.text.transcript)
 
-        return DocumentObservation(
-            fullText: document.text.transcript,
-            paragraphs: paragraphs,
-            detectedISBNs: detectedISBNs
-        )
+                return DocumentObservation(
+                    fullText: document.text.transcript,
+                    paragraphs: paragraphs,
+                    detectedISBNs: detectedISBNs
+                )
+            }
+        #endif
+
+        // Fallback or error for older OS / macOS
+        throw VisionError.processingFailed
     }
 
     private func extractISBNsFromText(_ text: String) -> [String] {
@@ -205,9 +214,9 @@ final class VisionService {
     /// - Parameter active: True if actively scanning (10 fps), false if idle (1 fps)
     func setProcessingRate(active: Bool) {
         if active {
-            processingInterval = 0.1 // 10 fps during active scanning
+            processingInterval = 0.1  // 10 fps during active scanning
         } else {
-            processingInterval = 1.0 // 1 fps when idle
+            processingInterval = 1.0  // 1 fps when idle
         }
     }
 
@@ -280,13 +289,13 @@ final class VisionService {
 
 // MARK: - Private Extension: ISBN Validation
 
-private extension VisionService {
+extension VisionService {
     /// Validate an ISBN-13 barcode using checksum verification.
     /// Performs format validation and modulo-10 checksum calculation.
     ///
     /// - Parameter code: The ISBN string to validate (may contain hyphens or spaces)
     /// - Returns: True if the code is a valid ISBN-13, false otherwise
-    func validateISBN13(_ code: String) -> Bool {
+    fileprivate func validateISBN13(_ code: String) -> Bool {
         // Strip non-numeric characters
         let digits = code.filter { $0.isNumber }
 

@@ -63,8 +63,6 @@
 		F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAB4A6B0846BA3231888A50 /* TalariaService.swift */; };
 		FIM8DTAYXXPNFDIXP0S4ZBK6 /* InstanceSegmentationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = OTL4DKWL8K67WF4AVLBOPWX9 /* InstanceSegmentationService.swift */; };
 		NGSJ4CCSZTID46QJZTIZ1FGL /* ProcessingFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8WLTL0KJ4WWES3DZQVWGV20V /* ProcessingFeedbackView.swift */; };
-		SP2BKEXTRACT1ONSERV1CE01 /* BookExtractionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SP2BKEXTRACT1ONSERV1CE02 /* BookExtractionService.swift */; };
-		SP2BKSP1NE1NF0M0DEL00001 /* BookSpineInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = SP2BKSP1NE1NF0M0DEL00002 /* BookSpineInfo.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -135,8 +133,6 @@
 		FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitOverlay.swift; sourceTree = "<group>"; };
 		FED950344DCECA589A004461 /* SSEEventParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SSEEventParser.swift; path = Services/SSEEventParser.swift; sourceTree = "<group>"; };
 		OTL4DKWL8K67WF4AVLBOPWX9 /* InstanceSegmentationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = swiftwing/Services/InstanceSegmentationService.swift; sourceTree = "<group>"; };
-		SP2BKEXTRACT1ONSERV1CE02 /* BookExtractionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BookExtractionService.swift; path = Services/BookExtractionService.swift; sourceTree = "<group>"; };
-		SP2BKSP1NE1NF0M0DEL00002 /* BookSpineInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookSpineInfo.swift; sourceTree = "<group>"; };
 		YUJ3QP10K9BZB6ONRHQFTP3K /* FeatureFlagsDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = swiftwing/Features/Settings/FeatureFlagsDebugView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -245,7 +241,6 @@
 				592CF225879D432E9A26F387 /* PendingBookResult.swift */,
 				7F0000060000000000000001 /* Book.swift */,
 				EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */,
-				SP2BKSP1NE1NF0M0DEL00002 /* BookSpineInfo.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -272,7 +267,6 @@
 				51482BF923E8B4E6C0098A07 /* VisionTypes.swift */,
 				4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */,
 				FED950344DCECA589A004461 /* SSEEventParser.swift */,
-				SP2BKEXTRACT1ONSERV1CE02 /* BookExtractionService.swift */,
 				9597281CE87F923807A8BB49 /* HoughLineSegmentation.swift */,
 				04F4551753DF042EC836A7C4 /* HoughLineSegmentation.swift */,
 			);
@@ -467,8 +461,6 @@
 				C42MX1WKEFP6VIJ4YI75R75V /* SegmentedBook.swift in Sources */,
 				NGSJ4CCSZTID46QJZTIZ1FGL /* ProcessingFeedbackView.swift in Sources */,
 				73KE6WVAWL51SGLD8AHCZGA1 /* FeatureFlagsDebugView.swift in Sources */,
-				SP2BKEXTRACT1ONSERV1CE01 /* BookExtractionService.swift in Sources */,
-				SP2BKSP1NE1NF0M0DEL00001 /* BookSpineInfo.swift in Sources */,
 				BB2A8613CFAF4F8A818A8E01 /* BookDetailSheetView.swift in Sources */,
 				49035047F4804AC18FE3316B /* ConfidenceBadge.swift in Sources */,
 				30A17F4D15C27E8887E9E3BF /* HoughLineSegmentation.swift in Sources */,

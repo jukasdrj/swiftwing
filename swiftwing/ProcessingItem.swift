@@ -19,6 +19,9 @@ struct ProcessingItem: Identifiable, Equatable {
     var detectedBookCount: Int?  // Number of books detected in segmented preview (Task 5)
     var currentBookIndex: Int?   // Current book being processed in multi-book scan (Task 5)
 
+    // NEW: Retry context for failed result fetches (Fix #2)
+    var retryContext: ResultsFetchRetryContext?
+
     // MARK: - Epic 6 Sprint 1: Multi-Book Segmentation Fields
     var segmentID: Int?  // Instance ID from InstanceSegmentationService
     var extractedTitle: String?  // Placeholder for Sprint 2 (Foundation Models extraction)
@@ -108,4 +111,11 @@ struct ProcessingItem: Identifiable, Equatable {
             }
         }
     }
+}
+
+// Retry context for failed results API fetches
+struct ResultsFetchRetryContext: Equatable, Sendable {
+    let resultsUrl: String
+    let authToken: String
+    let jobId: String
 }

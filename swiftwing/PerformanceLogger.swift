@@ -67,7 +67,9 @@ struct PerformanceLogger {
         let milliseconds = duration * 1000
         let emoji = getEmoji(for: duration, category: category)
 
-        print("\(emoji) [\(category.rawValue)] \(operation): \(String(format: "%.2f", milliseconds))ms")
+        print(
+            "\(emoji) [\(category.rawValue)] \(operation): \(String(format: "%.2f", milliseconds))ms"
+        )
 
         // Warn if operation is slow
         if shouldWarn(duration: duration, category: category) {
@@ -210,8 +212,8 @@ extension PerformanceLogger {
     static func monitorViewRender(viewName: String) {
         let timer = startTimer(category: .libraryRendering, operation: "Render \(viewName)")
 
-        // Auto-stop after next runloop cycle
-        DispatchQueue.main.async {
+        // Auto-stop after next runloop cycle using MainActor
+        Task { @MainActor in
             timer.stop()
         }
     }

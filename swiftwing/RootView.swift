@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import AVFoundation
+import SwiftData
+import SwiftUI
 
 struct RootView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
@@ -25,10 +25,11 @@ struct RootView: View {
                 // Normal app flow
                 switch cameraPermissionStatus {
                 case .notDetermined, .denied:
-                    CameraPermissionPrimerView(isPermissionGranted: Binding(
-                        get: { cameraPermissionStatus == .authorized },
-                        set: { if $0 { cameraPermissionStatus = .authorized } }
-                    ))
+                    CameraPermissionPrimerView(
+                        isPermissionGranted: Binding(
+                            get: { cameraPermissionStatus == .authorized },
+                            set: { if $0 { cameraPermissionStatus = .authorized } }
+                        ))
                 case .authorized:
                     MainTabView(bookCount: books.count)
                 }
@@ -84,7 +85,8 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Review", systemImage: "checklist")
                 }
-                .badge(viewModel.pendingReviewBooks.count > 0 ? viewModel.pendingReviewBooks.count : 0)
+                .badge(
+                    viewModel.pendingReviewBooks.count > 0 ? viewModel.pendingReviewBooks.count : 0)
 
             // Camera Tab
             CameraView(viewModel: viewModel)

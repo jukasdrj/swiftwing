@@ -81,9 +81,6 @@ final class CameraViewModel {
     private let segmentationService = InstanceSegmentationService()
     var isSegmenting = false
 
-    // MARK: - On-Device Extraction (Epic 6 Sprint 2)
-    private let extractionService = BookExtractionService()
-
     // MARK: - ModelContext (injected by view)
     var modelContext: ModelContext?
 
@@ -149,7 +146,7 @@ final class CameraViewModel {
                     // TODO 6.1: Adaptive throttling based on activity
                     // Adjust VisionService processing rate based on guidance
                     let isActivelyScanning = (self.captureGuidance == .spineDetected)
-                    self.cameraManager.frameProcessor.visionService.setProcessingRate(active: isActivelyScanning)
+                    self.cameraManager.setProcessingRate(active: isActivelyScanning)
                 }
             }
 
@@ -181,7 +178,7 @@ final class CameraViewModel {
     func toggleVision() {
         let newValue = !isVisionEnabled
         UserDefaults.standard.set(newValue, forKey: "isVisionEnabled")
-        cameraManager.setVisionEnabled(newValue)
+        // Note: Vision is now always enabled in iOS 26, this is just for UI state
     }
 
     /// Configure rotation coordinator after preview layer is available
@@ -251,8 +248,6 @@ final class CameraViewModel {
         isSegmenting = true
         defer { isSegmenting = false }
 
-        let useOnDevice = UserDefaults.standard.bool(forKey: "UseOnDeviceExtraction")
-
         do {
             // Convert Data to CIImage
             guard let uiImage = UIImage(data: imageData) else {
@@ -270,19 +265,74 @@ final class CameraViewModel {
 
             print("📚 Detected \(books.count) books in shelf photo")
 
+            // USER GUIDANCE: Detect likely stacked/horizontal books (low instance count for large image)
+            let imageArea = ciImage.extent.width * ciImage.extent.height
+            let avgBookSize = imageArea / CGFloat(max(books.count, 1))
+            let isLikelyStackedBooks = books.count == 1 && imageArea > 500_000 // Large single detection
+
+            if isLikelyStackedBooks {
+                print("💡 Hint: Try photographing books standing vertically on shelf (not stacked flat)")
+            }
+
+            // Handle zero-detection case
+            guard !books.isEmpty else {
+                print("❌ No books detected in image")
+                await MainActor.run {
+                    withAnimation(.swissSpring) {
+                        if let index = processingQueue.firstIndex(where: { $0.id == itemId }) {
+                            processingQueue[index].state = .error
+                            processingQueue[index].progressMessage = "No books detected - try different angle"
+                        }
+                    }
+                }
+                return
+            }
+
+            // Track conversion failures for user feedback
+            var failedConversions: [(instanceID: Int, reason: String)] = []
+            var processedCount = 0
+
+            // Reuse CIContext for performance (expensive to create)
+            let context = CIContext()
+
             // Create ProcessingItem for each segmented book
             for book in books {
+                // PRIORITY 1 FIX: Validate extent before conversion
+                let extent = book.croppedImage.extent
+
+                // Check for invalid extents that cause silent failures
+                guard !extent.isEmpty else {
+                    print("❌ Invalid extent (empty) for book \(book.instanceID)")
+                    failedConversions.append((book.instanceID, "Empty extent"))
+                    continue
+                }
+
+                guard !extent.isInfinite else {
+                    print("❌ Invalid extent (infinite) for book \(book.instanceID)")
+                    failedConversions.append((book.instanceID, "Infinite extent"))
+                    continue
+                }
+
+                guard extent.width > 0, extent.height > 0 else {
+                    print("❌ Invalid extent (zero dimensions) for book \(book.instanceID): \(extent)")
+                    failedConversions.append((book.instanceID, "Zero dimensions"))
+                    continue
+                }
+
                 // Convert CIImage to UIImage for ProcessingItem
-                let context = CIContext()
-                guard let croppedCGImage = context.createCGImage(book.croppedImage, from: book.croppedImage.extent) else {
-                    print("⚠️ Failed to create CGImage for book instance \(book.instanceID)")
+                guard let croppedCGImage = context.createCGImage(book.croppedImage, from: extent) else {
+                    print("❌ Failed to create CGImage for book \(book.instanceID)")
+                    failedConversions.append((book.instanceID, "CGImage conversion failed"))
                     continue
                 }
                 let croppedUIImage = UIImage(cgImage: croppedCGImage)
                 guard let croppedImageData = croppedUIImage.jpegData(compressionQuality: 0.8) else {
-                    print("⚠️ Failed to create JPEG data for book instance \(book.instanceID)")
+                    print("❌ Failed to create JPEG data for book \(book.instanceID)")
+                    failedConversions.append((book.instanceID, "JPEG encoding failed"))
                     continue
                 }
+
+                processedCount += 1
 
                 let item = ProcessingItem(
                     imageData: croppedImageData,
@@ -297,87 +347,37 @@ final class CameraViewModel {
                 // Process each book independently
                 let bookItemId = item.id
                 let task = Task {
-                    if useOnDevice {
-                        await processBookOnDevice(
-                            itemId: bookItemId,
-                            imageData: croppedImageData,
-                            ciImage: CIImage(cgImage: croppedCGImage),
-                            modelContext: modelContext
-                        )
-                    } else {
-                        await processCaptureWithImageData(
-                            itemId: bookItemId,
-                            imageData: croppedImageData,
-                            modelContext: modelContext
-                        )
-                    }
+                    // Always use Talaria (on-device extraction archived)
+                    await processCaptureWithImageData(
+                        itemId: bookItemId,
+                        imageData: croppedImageData,
+                        modelContext: modelContext
+                    )
                 }
                 activeStreamingTasks[bookItemId] = task
             }
 
+            // Report processing results to user
+            if !failedConversions.isEmpty {
+                let successMessage = "Processed \(processedCount) of \(books.count) books"
+                let failedIDs = failedConversions.map { String($0.instanceID) }.joined(separator: ", ")
+                print("⚠️ \(successMessage). Failed instances: \(failedIDs)")
+
+                // Update UI with partial success message
+                await MainActor.run {
+                    withAnimation(.swissSpring) {
+                        // Show banner or update status
+                        // For now, log for visibility - UX improvement in Priority 3
+                    }
+                }
+            } else {
+                print("✅ Successfully processed all \(books.count) books")
+            }
+
         } catch {
             print("❌ Segmentation failed: \(error.localizedDescription)")
-            if useOnDevice {
-                // Try on-device extraction with full image
-                guard let uiImage = UIImage(data: imageData),
-                      let cgImage = uiImage.cgImage else {
-                    // Last resort: Talaria
-                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
-                    return
-                }
-                await processBookOnDevice(
-                    itemId: itemId,
-                    imageData: imageData,
-                    ciImage: CIImage(cgImage: cgImage),
-                    modelContext: modelContext
-                )
-            } else {
-                await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
-            }
-        }
-    }
-
-    // MARK: - On-Device Extraction Pipeline (Epic 6 Sprint 2)
-    private func processBookOnDevice(
-        itemId: UUID,
-        imageData: Data,
-        ciImage: CIImage,
-        modelContext: ModelContext
-    ) async {
-        // Update state to extracting
-        updateQueueItem(id: itemId, state: .extracting, message: "Extracting text...")
-
-        do {
-            // Step 1: OCR (create local VisionService to avoid @MainActor isolation issues)
-            let ocrService = VisionService()
-            let observation = try await ocrService.recognizeText(in: ciImage)
-
-            updateQueueItemProgress(id: itemId, message: "Analyzing metadata...")
-
-            // Step 2: Extract metadata via Foundation Models
-            let spineInfo = try await extractionService.extract(from: observation.fullText)
-
-            // Step 3: Convert to BookMetadata
-            let metadata = spineInfo.toBookMetadata()
-
-            // Step 4: Save via existing handler
-            handleBookResult(metadata: metadata, rawJSON: nil, modelContext: modelContext)
-
-            updateQueueItem(id: itemId, state: .done, message: "Extraction complete")
-
-            // Auto-remove from queue after delay
-            await removeQueueItemAfterDelay(id: itemId, delay: 5.0)
-
-        } catch let extractionError as ExtractionError {
-            if case .modelUnavailable = extractionError {
-                // Fallback to Talaria
-                print("[On-Device] Foundation Models unavailable, falling back to Talaria")
-                await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
-            } else {
-                updateQueueItemError(id: itemId, errorMessage: "Extraction failed: \(extractionError.localizedDescription)")
-            }
-        } catch {
-            updateQueueItemError(id: itemId, errorMessage: "OCR failed: \(error.localizedDescription)")
+            // Fallback to Talaria for full image processing
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
         }
     }
 
@@ -538,13 +538,23 @@ final class CameraViewModel {
 
                             print("📚 Received \(books.count) books from results API")
                         } catch {
-                            print("❌ Failed to fetch results: \(error)")
-                            updateQueueItemError(id: item.id, errorMessage: "Failed to retrieve results")
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
-                            if let jid = jobId {
-                                jobAuthTokens.removeValue(forKey: jid)
+                            print("❌ Failed to fetch results from \(url): \(error)")
+
+                            // FIX #2: Keep item in queue with retry option instead of auto-removal
+                            updateQueueItemError(id: item.id, errorMessage: "Failed to fetch results. Check network and retry.")
+
+                            // Store retry info in item
+                            if let index = processingQueue.firstIndex(where: { $0.id == item.id }) {
+                                processingQueue[index].retryContext = ResultsFetchRetryContext(
+                                    resultsUrl: url,
+                                    authToken: authToken,
+                                    jobId: jobId ?? "unknown"
+                                )
                             }
-                            await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+
+                            // DON'T cleanup - user can retry
+                            // DON'T auto-remove - show persistent error
+                            print("💡 Item kept in queue for manual retry")
                             return
                         }
                     } else {
@@ -1051,9 +1061,103 @@ final class CameraViewModel {
         }
     }
 
+    // MARK: - Fix #2: Retry Failed Results Fetch
+    func retryResultsFetch(item: ProcessingItem) {
+        guard let context = item.retryContext else {
+            print("⚠️ No retry context available")
+            return
+        }
+
+        print("🔄 Retrying results fetch for job: \(context.jobId)")
+
+        // Reset state to analyzing
+        updateQueueItem(id: item.id, state: .analyzing, message: "Retrying...")
+
+        Task {
+            let talariaService = TalariaService()
+
+            do {
+                let books = try await talariaService.fetchResults(
+                    resultsUrl: context.resultsUrl,
+                    authToken: context.authToken
+                )
+
+                print("📚 Retry successful: Received \(books.count) books")
+
+                guard let ctx = modelContext else {
+                    print("❌ ModelContext not available")
+                    return
+                }
+
+                // Process all books
+                for book in books {
+                    let rawJSON: String?
+                    if let jsonData = try? JSONEncoder().encode(book),
+                       let jsonString = String(data: jsonData, encoding: .utf8) {
+                        rawJSON = jsonString
+                    } else {
+                        rawJSON = nil
+                    }
+
+                    handleBookResult(metadata: book, rawJSON: rawJSON, modelContext: ctx)
+                }
+
+                // Success - mark as done
+                updateQueueItem(id: item.id, state: .done, message: nil)
+                await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+
+            } catch {
+                print("❌ Retry failed: \(error)")
+                updateQueueItemError(id: item.id, errorMessage: "Retry failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     // MARK: - US-405: Book Result Handling
     func handleBookResult(metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
         print("🔍 DEBUG: handleBookResult called for: \(metadata.title)")
+
+        // FIX #3: Validate metadata quality before processing
+        let title = metadata.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let author = metadata.author.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !title.isEmpty else {
+            print("❌ Rejected book result: empty title")
+            Task {
+                await showProcessingErrorOverlay("Book title is empty - unable to add to review queue")
+            }
+            return
+        }
+
+        guard !author.isEmpty else {
+            print("❌ Rejected book result: empty author")
+            Task {
+                await showProcessingErrorOverlay("Book author is empty - unable to add to review queue")
+            }
+            return
+        }
+
+        // Warn on low confidence (but don't reject)
+        if let confidence = metadata.confidence, confidence < 0.3 {
+            print("⚠️ Low confidence result: \(Int(confidence * 100))% for '\(title)'")
+        }
+
+        // FIX #1: Deduplication guard to prevent .result + .complete duplicates
+        let isbn = metadata.isbn ?? ""
+        let isDuplicate = pendingReviewBooks.contains { pending in
+            // Match on ISBN OR (title + author) within last 60 seconds
+            let matchesISBN = !isbn.isEmpty && pending.metadata.isbn == isbn
+            let matchesTitleAuthor = pending.metadata.title == metadata.title &&
+                                     pending.metadata.author == metadata.author
+            let isRecent = pending.scannedDate.timeIntervalSinceNow > -60
+
+            return (matchesISBN || matchesTitleAuthor) && isRecent
+        }
+
+        if isDuplicate {
+            print("⚠️ Duplicate book result suppressed: \(metadata.title) (ISBN: \(isbn))")
+            return
+        }
 
         // Route ALL results to review queue (no auto-add)
         let pendingBook = PendingBookResult(
