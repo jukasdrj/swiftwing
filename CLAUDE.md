@@ -63,7 +63,7 @@ SwiftUI Views
     ↓
 @Observable ViewModels
     ↓
-Actor Services (CameraActor, NetworkActor, DataSyncActor)
+Actor Services (TalariaService, ImagePreprocessor, CameraManager)
     ↓
 SwiftData Models (Book @Model)
 ```
@@ -89,9 +89,11 @@ swiftwing/
 ### Concurrency Model (Swift 6.2)
 
 **Use Actors for Isolated State:**
-- `CameraActor` - Manages AVCaptureSession (prevents data races)
-- `NetworkActor` - Handles uploads and SSE streams
-- `DataSyncActor` - Coordinates SwiftData writes
+- `TalariaService` - Handles uploads and SSE streams (actor-isolated)
+- `CameraManager` - Manages AVCaptureSession (prevents data races)
+- `ImagePreprocessor` - Isolates image processing operations
+
+**SwiftData writes go through `modelContext.save()` on MainActor** — no dedicated sync actor needed due to SwiftData's thread-safe design.
 
 **Pattern:**
 ```swift

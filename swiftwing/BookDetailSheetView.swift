@@ -17,60 +17,93 @@ struct BookDetailSheetView: View {
     init(item: ProcessingItem, onSave: @escaping (String, String, String?) -> Void) {
         self.item = item
         self.onSave = onSave
-        _editedTitle = State(initialValue: item.extractedTitle ?? "")
-        _editedAuthor = State(initialValue: item.extractedAuthor ?? "")
+        // Use book metadata from Talaria results when available
+        _editedTitle = State(initialValue: item.bookMetadata?.title ?? "")
+        _editedAuthor = State(initialValue: item.bookMetadata?.author ?? "")
+    }
+
+    /// ISBN from metadata or pre-scanned barcode
+    private var resolvedISBN: String? {
+        item.bookMetadata?.isbn ?? item.preScannedISBN
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Book spine thumbnail
-                    if let imageData = item.originalImageData, let image = UIImage(data: imageData) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxHeight: 300)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-                    }
+            ZStack {
+                Color.swissBackground.ignoresSafeArea()
 
-                    // Metadata form
-                    VStack(spacing: 16) {
-                        // Title field
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Title")
-                                .font(.headline)
-                            TextField("Book title", text: $editedTitle)
-                                .textFieldStyle(.roundedBorder)
-                                .focused($focusedField, equals: .title)
+                ScrollView {
+                    VStack(spacing: 24) {
+                        if let imageData = item.originalImageData, let image = UIImage(data: imageData) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxHeight: 300)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 4)
                         }
 
-                        // Author field
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Author")
-                                .font(.headline)
-                            TextField("Author name", text: $editedAuthor)
-                                .textFieldStyle(.roundedBorder)
-                                .focused($focusedField, equals: .author)
-                        }
-
-                        // Confidence badge
-                        if let confidence = item.confidence {
-                            HStack {
-                                Text("Confidence:")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                ConfidenceBadge(confidence: confidence, size: .large)
+                        VStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Title")
+                                    .font(.headline)
+                                    .foregroundColor(.swissText)
+                                TextField("Book title", text: $editedTitle)
+                                    .padding(12)
+                                    .background(.ultraThinMaterial)
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                                    )
+                                    .foregroundColor(.swissText)
+                                    .focused($focusedField, equals: .title)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Author")
+                                    .font(.headline)
+                                    .foregroundColor(.swissText)
+                                TextField("Author name", text: $editedAuthor)
+                                    .padding(12)
+                                    .background(.ultraThinMaterial)
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                                    )
+                                    .foregroundColor(.swissText)
+                                    .focused($focusedField, equals: .author)
+                            }
+
+                            // Show ISBN if available (read-only)
+                            if let isbn = resolvedISBN {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("ISBN")
+                                        .font(.headline)
+                                        .foregroundColor(.swissText)
+                                    Text(isbn)
+                                        .font(.custom("JetBrainsMono-Regular", size: 14))
+                                        .foregroundColor(.swissText.opacity(0.6))
+                                }
+                            }
+
+                            // Show confidence if metadata available
+                            if let confidence = item.bookMetadata?.confidence {
+                                HStack(spacing: 6) {
+                                    Image(systemName: confidenceIcon(confidence))
+                                        .foregroundColor(confidenceColor(confidence))
+                                    Text("\(Int(confidence * 100))% confidence")
+                                        .font(.subheadline)
+                                        .foregroundColor(.swissText.opacity(0.7))
+                                }
+                            }
                         }
+                        .padding(16)
+                        .swissGlassCard()
                     }
                     .padding()
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .padding()
             }
             .navigationTitle("Review Book")
             .navigationBarTitleDisplayMode(.inline)
@@ -79,31 +112,51 @@ struct BookDetailSheetView: View {
                     Button("Discard") {
                         dismiss()
                     }
+                    .foregroundColor(.swissText)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(editedTitle, editedAuthor, item.preScannedISBN)
+                        onSave(editedTitle, editedAuthor, resolvedISBN)
                         dismiss()
                     }
+                    .foregroundColor(.internationalOrange)
                     .disabled(editedTitle.isEmpty || editedAuthor.isEmpty)
                 }
             }
         }
     }
+
+    private func confidenceIcon(_ confidence: Double) -> String {
+        if confidence >= 0.8 { return "checkmark.circle.fill" }
+        if confidence >= 0.5 { return "exclamationmark.triangle.fill" }
+        return "xmark.octagon.fill"
+    }
+
+    private func confidenceColor(_ confidence: Double) -> Color {
+        if confidence >= 0.8 { return .green }
+        if confidence >= 0.5 { return .orange }
+        return .red
+    }
 }
 
 #Preview {
-    let imageData = Data() // Empty data for preview
-    var item = ProcessingItem(imageData: imageData, state: .done, progressMessage: "Ready for review")
-    item.extractedTitle = "Test Book"
-    item.extractedAuthor = "Test Author"
-    item.confidence = 0.95
+    let imageData = Data()
+    let item: ProcessingItem = {
+        var i = ProcessingItem(imageData: imageData, state: .done, progressMessage: "Ready for review")
+        i.bookMetadata = BookMetadata(
+            title: "The Swift Programming Language",
+            author: "Apple Inc.",
+            isbn: "9781234567890",
+            confidence: 0.92
+        )
+        return i
+    }()
 
-    return BookDetailSheetView(
+    BookDetailSheetView(
         item: item,
         onSave: { title, author, isbn in
-            print("Saved: \(title) by \(author)")
+            print("Saved: \(title) by \(author), ISBN: \(isbn ?? "none")")
         }
     )
 }

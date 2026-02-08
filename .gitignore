@@ -50,6 +50,9 @@ build.log
 # Ralph-TUI runtime
 .ralph-tui/
 
+# OMC session files
+.omc/sessions/
+
 # OpenAPI specs are committed to repo (not generated during build)
 # See swiftwing/OpenAPI/talaria-openapi.yaml
 # Update with: scripts/update-api-spec.sh

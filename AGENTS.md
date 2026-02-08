@@ -1,7 +1,7 @@
 # SwiftWing: AI Agent Reference & Architecture
 
 **Last Updated:** January 30, 2026
-**Status:** Epic 5 Phase 2A-2E Complete (Refactoring)
+**Status:** Epic 5 Complete (Refactoring)
 **Branch:** `main` / `refactor/camera-view-decomposition`
 **Build:** ✅ SUCCESS (0 errors, 1 warning) | **iOS 26.0+ | Swift 6.2**
 
@@ -364,7 +364,7 @@ Each epic delivers a **complete feature** across all layers:
 
 ```
 Epic 1 (Foundation) → Epic 2 (Camera) → Epic 3 (Library) →
-Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Launch)
+Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 ```
 
 **Example:** Epic 2 (Camera)
@@ -376,37 +376,36 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Launch)
 
 ---
 
-## Current Status: Epic 5 Refactoring
+## Current Status: Core Workflow Complete
 
-### What's Complete (As of Jan 30, 2026)
+### Epic Completion Status
 
-| Epic | Status | Date | Grade |
+| Epic | Status | Date | Notes |
 |------|--------|------|-------|
 | **Epic 1: Foundation** | ✅ Complete | Jan 22 | A (95/100) |
 | **Epic 2: Camera** | ✅ Complete | Jan 23 | A (98/100) |
 | **Epic 3: Library** | ✅ Complete | Jan 24 | A (97/100) |
 | **Epic 4: AI Integration** | ✅ Complete | Jan 25 | A (99/100) |
-| **Epic 5: Refactoring** | 🔄 Phase 2A-2E | Jan 26-30 | (In Progress) |
-| **Epic 6: App Store** | ⚪ Pending | TBD | - |
+| **Epic 5: Refactoring** | ✅ Complete | Feb 4 | MVVM + Actor architecture |
+| **Epic 6: Visual Intelligence** | ❌ Abandoned | Feb 4 | Did not meet goals |
 
-### Epic 5 Progress: Code Quality
+### Working Workflow
+- **Snap:** Capture book spine photo via CameraView
+- **Talaria:** Upload to AI backend (`POST /v3/jobs/scans`)
+- **Stream:** SSE real-time progress tracking
+- **Review:** Confidence-sorted book results in ReviewQueueView
+- **Save:** Approve → SwiftData Library with ISBN uniqueness
 
-**Goal:** Improve maintainability through MVVM refactoring
+### Code Quality Status
+- CameraView: 250 lines (refactored from 1,098)
+- CameraViewModel: ~550 lines (business logic extracted)
+- All child views extracted (ProcessingQueue, RateLimit, Offline, Duplicate)
+- Swift 6.2 strict concurrency: Compliant
 
-**Completed Phases:**
-- ✅ Phase 2A: Extract CameraViewModel (830 line reduction)
-- ✅ Phase 2B: Extract ProcessingQueueView (159 lines)
-- ✅ Phase 2C: Extract RateLimitOverlay (78 lines)
-- ✅ Phase 2D: Extract OfflineIndicatorView (44 lines)
-- ✅ Phase 2E: Extract DuplicateBookAlert (120 lines)
-
-**Result:** CameraView reduced from 1,098 → 250 lines (**77% reduction**)
-
-**Next Steps:**
-1. Complete simulator testing (verify all features work)
-2. Phase 3A: Add XCTest infrastructure (70%+ coverage)
-3. Phase 3B: Performance optimization (Instruments profiling)
-4. Epic 6: App Store preparation
+### Next Steps
+1. Simulator testing for regression verification
+2. XCTest infrastructure (Phase 3A - optional)
+3. Performance optimization (optional)
 
 ---
 

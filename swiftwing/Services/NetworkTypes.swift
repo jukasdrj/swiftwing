@@ -226,7 +226,7 @@ public struct UploadResponseData: Codable, Sendable {
 // MARK: - Book Metadata
 
 /// Book metadata returned from Talaria AI enrichment
-public struct BookMetadata: Codable, Sendable {
+public struct BookMetadata: Codable, Sendable, Equatable {
     let title: String
     let author: String
     let isbn: String?

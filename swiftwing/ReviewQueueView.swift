@@ -111,7 +111,12 @@ struct ReviewQueueView: View {
                             if !highConfidenceBooks.isEmpty {
                                 SectionHeader(
                                     title: "Ready to Add", count: highConfidenceBooks.count,
-                                    color: .green)
+                                    color: .green,
+                                    actionLabel: "Approve All",
+                                    onAction: {
+                                        viewModel.approveHighConfidenceBooks(modelContext: modelContext)
+                                    }
+                                )
                                 ForEach(highConfidenceBooks) { book in
                                     ReviewCardView(
                                         book: book,
@@ -281,16 +286,9 @@ struct ProcessingItemRow: View {
         case .uploading:
             ProgressView()
                 .tint(.yellow)
-        case .extracting:
-            Image(systemName: "text.viewfinder")
-                .foregroundColor(.cyan)
-                .font(.title2)
         case .analyzing:
             ProgressView()
                 .tint(.internationalOrange)
-        case .enriching:
-            ProgressView()
-                .tint(.orange)
         case .done:
             Image(systemName: "checkmark.circle.fill")
                 .foregroundColor(.green)
@@ -312,12 +310,8 @@ struct ProcessingItemRow: View {
             return "Preparing image..."
         case .uploading:
             return "Uploading to AI..."
-        case .extracting:
-            return "Extracting text..."
         case .analyzing:
             return "Analyzing book spine..."
-        case .enriching:
-            return "Enriching metadata..."
         case .done:
             return "Ready for review"
         case .error:
@@ -362,11 +356,13 @@ struct ProcessingItemDetailPlaceholder: View {
     }
 }
 
-// Section header for confidence grouping
+// Section header for confidence grouping with optional batch action
 struct SectionHeader: View {
     let title: String
     let count: Int
     let color: Color
+    var actionLabel: String? = nil
+    var onAction: (() -> Void)? = nil
 
     var body: some View {
         HStack {
@@ -379,6 +375,14 @@ struct SectionHeader: View {
                 .foregroundColor(color.opacity(0.7))
 
             Spacer()
+
+            if let label = actionLabel, let action = onAction {
+                Button(label) {
+                    action()
+                }
+                .font(.subheadline.bold())
+                .foregroundColor(.internationalOrange)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -408,79 +412,91 @@ struct ReviewCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Confidence badge at top
-            HStack {
-                confidenceBadge
-                Spacer()
-                Button(action: {
-                    isEditing.toggle()
-                }) {
-                    Image(systemName: isEditing ? "checkmark.circle.fill" : "pencil.circle")
-                        .font(.title3)
-                        .foregroundColor(.internationalOrange)
-                }
+        HStack(alignment: .top, spacing: 12) {
+            // Thumbnail (if available from processing item)
+            if let thumbData = book.thumbnailData,
+               let thumbnail = UIImage(data: thumbData) {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 60, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
-            // Title (editable if in edit mode)
-            if isEditing {
-                TextField("Title", text: $editedTitle)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.title3.bold())
-                    .onChange(of: editedTitle) { oldValue, newValue in
-                        onEdit(newValue, editedAuthor)
+            VStack(alignment: .leading, spacing: 12) {
+                // Confidence badge + edit button
+                HStack {
+                    confidenceBadge
+                    Spacer()
+                    Button(action: {
+                        isEditing.toggle()
+                    }) {
+                        Image(systemName: isEditing ? "checkmark.circle.fill" : "pencil.circle")
+                            .font(.title3)
+                            .foregroundColor(.internationalOrange)
                     }
-            } else {
-                Text(book.resolvedTitle)
-                    .font(.title3.bold())
-                    .foregroundColor(.swissText)
-            }
-
-            // Author (editable if in edit mode)
-            if isEditing {
-                TextField("Author", text: $editedAuthor)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.body)
-                    .onChange(of: editedAuthor) { oldValue, newValue in
-                        onEdit(editedTitle, newValue)
-                    }
-            } else {
-                Text(book.resolvedAuthor)
-                    .font(.body)
-                    .foregroundColor(.swissText.opacity(0.8))
-            }
-
-            // ISBN (JetBrains Mono for data)
-            if let isbn = book.metadata.isbn {
-                Text("ISBN: \(isbn)")
-                    .font(.custom("JetBrainsMono-Regular", size: 12))
-                    .foregroundColor(.swissText.opacity(0.6))
-            }
-
-            // Action Buttons
-            HStack(spacing: 12) {
-                // Approve Button
-                Button(action: onApprove) {
-                    Text("Approve")
-                        .font(.body.bold())
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.internationalOrange)
-                        .cornerRadius(8)
                 }
 
-                // Reject Button
-                Button(action: onReject) {
-                    Text("Reject")
-                        .font(.body.bold())
+                // Title (editable if in edit mode)
+                if isEditing {
+                    TextField("Title", text: $editedTitle)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.title3.bold())
+                        .onChange(of: editedTitle) { oldValue, newValue in
+                            onEdit(newValue, editedAuthor)
+                        }
+                } else {
+                    Text(book.resolvedTitle)
+                        .font(.title3.bold())
                         .foregroundColor(.swissText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.swissText, lineWidth: 1)
-                        )
+                }
+
+                // Author (editable if in edit mode)
+                if isEditing {
+                    TextField("Author", text: $editedAuthor)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.body)
+                        .onChange(of: editedAuthor) { oldValue, newValue in
+                            onEdit(editedTitle, newValue)
+                        }
+                } else {
+                    Text(book.resolvedAuthor)
+                        .font(.body)
+                        .foregroundColor(.swissText.opacity(0.8))
+                }
+
+                // ISBN (JetBrains Mono for data)
+                if let isbn = book.metadata.isbn {
+                    Text("ISBN: \(isbn)")
+                        .font(.custom("JetBrainsMono-Regular", size: 12))
+                        .foregroundColor(.swissText.opacity(0.6))
+                }
+
+                // Action Buttons
+                HStack(spacing: 12) {
+                    // Approve Button
+                    Button(action: onApprove) {
+                        Text("Approve")
+                            .font(.body.bold())
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.internationalOrange)
+                            .cornerRadius(8)
+                    }
+
+                    // Reject Button
+                    Button(action: onReject) {
+                        Text("Reject")
+                            .font(.body.bold())
+                            .foregroundColor(.swissText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.swissText, lineWidth: 1)
+                            )
+                    }
                 }
             }
         }

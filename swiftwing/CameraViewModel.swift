@@ -77,10 +77,6 @@ final class CameraViewModel {
     // MARK: - Image Preprocessing
     private let imagePreprocessor = ImagePreprocessor()
 
-    // MARK: - Instance Segmentation (Epic 6 Sprint 1)
-    private let segmentationService = InstanceSegmentationService()
-    var isSegmenting = false
-
     // MARK: - ModelContext (injected by view)
     var modelContext: ModelContext?
 
@@ -228,156 +224,10 @@ final class CameraViewModel {
                 fatalError("ModelContext not injected into ViewModel")
             }
 
-            // Check feature flag for multi-book scanning
-            let multiBookEnabled = UserDefaults.standard.bool(forKey: "EnableMultiBookScanning")
-            print("📋 MultiBook: \(multiBookEnabled ? "ON" : "OFF"), routing to \(multiBookEnabled ? "processMultiBook" : "processCaptureWithImageData")")
-
-            if multiBookEnabled {
-                await processMultiBook(imageData: imageData, itemId: itemId, modelContext: modelContext)
-            } else {
-                await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
-            }
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
         } catch {
             print("❌ Camera capture failed: \(error)")
             await showProcessingErrorOverlay(error.localizedDescription)
-        }
-    }
-
-    /// Process bookshelf image with multi-book segmentation
-    private func processMultiBook(imageData: Data, itemId: UUID, modelContext: ModelContext) async {
-        isSegmenting = true
-        defer { isSegmenting = false }
-
-        do {
-            // Convert Data to CIImage
-            guard let uiImage = UIImage(data: imageData) else {
-                throw SegmentationError.visionFrameworkError(NSError(domain: "ImageConversion", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create UIImage from data"]))
-            }
-
-            guard let cgImage = uiImage.cgImage else {
-                throw SegmentationError.visionFrameworkError(NSError(domain: "ImageConversion", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to get CGImage from UIImage"]))
-            }
-
-            let ciImage = CIImage(cgImage: cgImage)
-
-            // Segment books
-            let books = try await segmentationService.segmentBooks(from: ciImage)
-
-            print("📚 Detected \(books.count) books in shelf photo")
-
-            // USER GUIDANCE: Detect likely stacked/horizontal books (low instance count for large image)
-            let imageArea = ciImage.extent.width * ciImage.extent.height
-            let avgBookSize = imageArea / CGFloat(max(books.count, 1))
-            let isLikelyStackedBooks = books.count == 1 && imageArea > 500_000 // Large single detection
-
-            if isLikelyStackedBooks {
-                print("💡 Hint: Try photographing books standing vertically on shelf (not stacked flat)")
-            }
-
-            // Handle zero-detection case
-            guard !books.isEmpty else {
-                print("❌ No books detected in image")
-                await MainActor.run {
-                    withAnimation(.swissSpring) {
-                        if let index = processingQueue.firstIndex(where: { $0.id == itemId }) {
-                            processingQueue[index].state = .error
-                            processingQueue[index].progressMessage = "No books detected - try different angle"
-                        }
-                    }
-                }
-                return
-            }
-
-            // Track conversion failures for user feedback
-            var failedConversions: [(instanceID: Int, reason: String)] = []
-            var processedCount = 0
-
-            // Reuse CIContext for performance (expensive to create)
-            let context = CIContext()
-
-            // Create ProcessingItem for each segmented book
-            for book in books {
-                // PRIORITY 1 FIX: Validate extent before conversion
-                let extent = book.croppedImage.extent
-
-                // Check for invalid extents that cause silent failures
-                guard !extent.isEmpty else {
-                    print("❌ Invalid extent (empty) for book \(book.instanceID)")
-                    failedConversions.append((book.instanceID, "Empty extent"))
-                    continue
-                }
-
-                guard !extent.isInfinite else {
-                    print("❌ Invalid extent (infinite) for book \(book.instanceID)")
-                    failedConversions.append((book.instanceID, "Infinite extent"))
-                    continue
-                }
-
-                guard extent.width > 0, extent.height > 0 else {
-                    print("❌ Invalid extent (zero dimensions) for book \(book.instanceID): \(extent)")
-                    failedConversions.append((book.instanceID, "Zero dimensions"))
-                    continue
-                }
-
-                // Convert CIImage to UIImage for ProcessingItem
-                guard let croppedCGImage = context.createCGImage(book.croppedImage, from: extent) else {
-                    print("❌ Failed to create CGImage for book \(book.instanceID)")
-                    failedConversions.append((book.instanceID, "CGImage conversion failed"))
-                    continue
-                }
-                let croppedUIImage = UIImage(cgImage: croppedCGImage)
-                guard let croppedImageData = croppedUIImage.jpegData(compressionQuality: 0.8) else {
-                    print("❌ Failed to create JPEG data for book \(book.instanceID)")
-                    failedConversions.append((book.instanceID, "JPEG encoding failed"))
-                    continue
-                }
-
-                processedCount += 1
-
-                let item = ProcessingItem(
-                    imageData: croppedImageData,
-                    state: .preprocessing,
-                    progressMessage: "Segmented book \(book.instanceID)"
-                )
-
-                withAnimation(.swissSpring) {
-                    processingQueue.append(item)
-                }
-
-                // Process each book independently
-                let bookItemId = item.id
-                let task = Task {
-                    // Always use Talaria (on-device extraction archived)
-                    await processCaptureWithImageData(
-                        itemId: bookItemId,
-                        imageData: croppedImageData,
-                        modelContext: modelContext
-                    )
-                }
-                activeStreamingTasks[bookItemId] = task
-            }
-
-            // Report processing results to user
-            if !failedConversions.isEmpty {
-                let successMessage = "Processed \(processedCount) of \(books.count) books"
-                let failedIDs = failedConversions.map { String($0.instanceID) }.joined(separator: ", ")
-                print("⚠️ \(successMessage). Failed instances: \(failedIDs)")
-
-                // Update UI with partial success message
-                await MainActor.run {
-                    withAnimation(.swissSpring) {
-                        // Show banner or update status
-                        // For now, log for visibility - UX improvement in Priority 3
-                    }
-                }
-            } else {
-                print("✅ Successfully processed all \(books.count) books")
-            }
-
-        } catch {
-            print("❌ Segmentation failed: \(error.localizedDescription)")
-            // Fallback to Talaria for full image processing
-            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
         }
     }
 
@@ -502,6 +352,11 @@ final class CameraViewModel {
                 case .result(let bookMetadata):
                     print("📚 Book identified: \(bookMetadata.title) by \(bookMetadata.author)")
 
+                    // Store metadata on processing item for detail sheet access
+                    if let index = processingQueue.firstIndex(where: { $0.id == item.id }) {
+                        processingQueue[index].bookMetadata = bookMetadata
+                    }
+
                     // Encode metadata to raw JSON string for debugging
                     let rawJSON: String?
                     if let jsonData = try? JSONEncoder().encode(bookMetadata),
@@ -511,7 +366,7 @@ final class CameraViewModel {
                         rawJSON = nil
                     }
 
-                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, modelContext: modelContext)
+                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext)
 
                 case .complete(let resultsUrl, let inlineBooks):
                     let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
@@ -580,7 +435,7 @@ final class CameraViewModel {
                             rawJSON = nil
                         }
 
-                        handleBookResult(metadata: book, rawJSON: rawJSON, modelContext: modelContext)
+                        handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext)
                     }
 
                     // Success - mark as done
@@ -1099,7 +954,7 @@ final class CameraViewModel {
                         rawJSON = nil
                     }
 
-                    handleBookResult(metadata: book, rawJSON: rawJSON, modelContext: ctx)
+                    handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: ctx)
                 }
 
                 // Success - mark as done
@@ -1114,7 +969,7 @@ final class CameraViewModel {
     }
 
     // MARK: - US-405: Book Result Handling
-    func handleBookResult(metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
+    func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, modelContext: ModelContext) {
         print("🔍 DEBUG: handleBookResult called for: \(metadata.title)")
 
         // FIX #3: Validate metadata quality before processing
@@ -1163,7 +1018,7 @@ final class CameraViewModel {
         let pendingBook = PendingBookResult(
             metadata: metadata,
             rawJSON: rawJSON,
-            thumbnailData: nil
+            thumbnailData: thumbnailData
         )
 
         print("🔍 DEBUG: PendingBookResult created successfully, id: \(pendingBook.id)")
@@ -1242,6 +1097,29 @@ final class CameraViewModel {
         }
 
         print("✅ All \(count) books approved and added to library")
+    }
+
+    func approveHighConfidenceBooks(modelContext: ModelContext) {
+        let highConfidence = pendingReviewBooks.filter { ($0.confidence ?? 1.0) >= 0.8 }
+        let count = highConfidence.count
+        guard count > 0 else { return }
+
+        for book in highConfidence {
+            addBookToLibrary(
+                title: book.resolvedTitle,
+                author: book.resolvedAuthor,
+                metadata: book.metadata,
+                rawJSON: book.rawJSON,
+                modelContext: modelContext
+            )
+        }
+
+        let approvedIds = Set(highConfidence.map { $0.id })
+        withAnimation(.swissSpring) {
+            pendingReviewBooks.removeAll { approvedIds.contains($0.id) }
+        }
+
+        print("✅ \(count) high-confidence books approved and added to library")
     }
 
     func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {

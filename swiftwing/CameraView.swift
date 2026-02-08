@@ -10,7 +10,6 @@ struct CameraView: View {
 
     // US-B2: Processing feedback overlay state
     @State private var showProcessingFeedback = false
-    @State private var processingBookCount = 0
 
     var body: some View {
         ZStack {
@@ -94,8 +93,7 @@ struct CameraView: View {
             if showProcessingFeedback {
                 GeometryReader { geometry in
                     ProcessingFeedbackView(
-                        bookCount: processingBookCount,
-                        isProcessing: !viewModel.processingQueue.isEmpty,
+                        processingCount: viewModel.processingQueue.count,
                         isVisible: $showProcessingFeedback
                     )
                     .position(x: geometry.size.width / 2, y: 200)
@@ -185,9 +183,8 @@ struct CameraView: View {
                     // Trigger capture
                     viewModel.captureImage()
 
-                    // US-B2: Show processing feedback with book count
+                    // US-B2: Show processing feedback (count derived from live queue)
                     Task {
-                        processingBookCount = viewModel.processingQueue.count
                         showProcessingFeedback = true
 
                         // Auto-dismiss after 2 seconds
