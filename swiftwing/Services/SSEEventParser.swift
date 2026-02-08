@@ -16,12 +16,13 @@ import Foundation
 /// - `progress`: Processing progress messages
 /// - `result`: Book metadata (BookMetadata)
 /// - `complete`/`completed`: Job completion with optional resultsUrl and books
-/// - `error`: Rich error information
+/// - `error`/`failed`: Rich error information (both treated as terminal error events)
 /// - `canceled`: Job cancellation
 /// - `segmented`: Segmented image preview
 /// - `book_progress`: Per-book processing progress
 /// - `ping`: SSE keepalive
 /// - `enrichment_degraded`: Enrichment fallback notification
+/// - Unknown events: Silently ignored for forward compatibility
 ///
 /// **Example:**
 /// ```swift
@@ -42,13 +43,15 @@ public struct SSEEventParser: Sendable {
     public func parse(event: String, data: String) throws -> SSEEvent {
         switch event {
         case "progress":
-            // Progress event with message
+            // Progress event with optional message field
             if let jsonData = data.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-               let message = json["message"] as? String {
+               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                let message = json["message"] as? String
+                    ?? json["stage"] as? String
+                    ?? "Processing..."
                 return .progress(message)
             } else {
-                throw SSEError.invalidEventFormat
+                return .progress("Processing...")
             }
 
         case "result":
@@ -91,12 +94,18 @@ public struct SSEEventParser: Sendable {
                 return .complete(resultsUrl: nil, books: nil)
             }
 
-        case "error":
-            // Error event with rich context
+        case "error", "failed":
+            // Error/failed event with rich context
+            // Talaria sends "error" for retryable errors and "failed" as a terminal event
             if let jsonData = data.data(using: .utf8),
                let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                let message = json["message"] as? String ?? "Unknown error"
-                let code = json["code"] as? String
+                // "failed" events may nest error info under "error" key
+                let errorObj = json["error"] as? [String: Any]
+                let message = errorObj?["message"] as? String
+                    ?? json["message"] as? String
+                    ?? "Unknown error"
+                let code = errorObj?["code"] as? String
+                    ?? json["code"] as? String
                 let retryable = json["retryable"] as? Bool
                 let jobId = json["jobId"] as? String
                 return .error(SSEErrorInfo(
@@ -167,10 +176,10 @@ public struct SSEEventParser: Sendable {
             ))
 
         default:
-            // BACKWARD COMPATIBILITY: Ignore unknown event types instead of throwing
+            // Forward compatibility: silently ignore unknown event types
             // This ensures older app versions don't crash when backend adds new events
-            print("SSE: Unknown event type '\(event)' - ignoring for forward compatibility")
-            throw SSEError.invalidEventFormat  // Will be caught and logged by caller
+            print("SSE: Unknown event type '\(event)' - skipping for forward compatibility")
+            return .ping  // Treat unknown events as no-ops (ping is the lightest event)
         }
     }
 }

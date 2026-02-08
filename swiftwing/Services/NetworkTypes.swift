@@ -226,9 +226,16 @@ public struct UploadResponseData: Codable, Sendable {
 // MARK: - Book Metadata
 
 /// Book metadata returned from Talaria AI enrichment
-public struct BookMetadata: Codable, Sendable, Equatable {
-    let title: String
-    let author: String
+///
+/// **Note:** `title` and `author` are optional because Talaria can return null
+/// for both when enrichment fails (enrichmentStatus: "review_needed").
+/// Use `resolvedTitle` and `resolvedAuthor` at the UI/display layer.
+///
+/// **Field mapping:** Talaria may send `publicationYear` (number) instead of
+/// `publishedDate` (string). Custom decoding handles both transparently.
+public struct BookMetadata: Sendable, Equatable {
+    let title: String?
+    let author: String?
     let isbn: String?
     let coverUrl: URL?
     let publisher: String?
@@ -238,9 +245,14 @@ public struct BookMetadata: Codable, Sendable, Equatable {
     let confidence: Double?
     let enrichmentStatus: EnrichmentStatus?
 
+    /// Title with fallback for display purposes
+    var resolvedTitle: String { title ?? "Unknown Title" }
+    /// Author with fallback for display purposes
+    var resolvedAuthor: String { author ?? "Unknown Author" }
+
     public init(
-        title: String,
-        author: String,
+        title: String? = nil,
+        author: String? = nil,
         isbn: String? = nil,
         coverUrl: URL? = nil,
         publisher: String? = nil,
@@ -260,6 +272,50 @@ public struct BookMetadata: Codable, Sendable, Equatable {
         self.format = format
         self.confidence = confidence
         self.enrichmentStatus = enrichmentStatus
+    }
+}
+
+extension BookMetadata: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case title, author, isbn, coverUrl, publisher
+        case publishedDate, publicationYear
+        case pageCount, format, confidence, enrichmentStatus
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        author = try container.decodeIfPresent(String.self, forKey: .author)
+        isbn = try container.decodeIfPresent(String.self, forKey: .isbn)
+        coverUrl = try container.decodeIfPresent(URL.self, forKey: .coverUrl)
+        publisher = try container.decodeIfPresent(String.self, forKey: .publisher)
+        pageCount = try container.decodeIfPresent(Int.self, forKey: .pageCount)
+        format = try container.decodeIfPresent(String.self, forKey: .format)
+        confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+        enrichmentStatus = try container.decodeIfPresent(EnrichmentStatus.self, forKey: .enrichmentStatus)
+
+        // Handle publishedDate (string) vs publicationYear (number) mismatch
+        if let date = try container.decodeIfPresent(String.self, forKey: .publishedDate) {
+            publishedDate = date
+        } else if let year = try container.decodeIfPresent(Int.self, forKey: .publicationYear) {
+            publishedDate = "\(year)-01-01"
+        } else {
+            publishedDate = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(author, forKey: .author)
+        try container.encodeIfPresent(isbn, forKey: .isbn)
+        try container.encodeIfPresent(coverUrl, forKey: .coverUrl)
+        try container.encodeIfPresent(publisher, forKey: .publisher)
+        try container.encodeIfPresent(publishedDate, forKey: .publishedDate)
+        try container.encodeIfPresent(pageCount, forKey: .pageCount)
+        try container.encodeIfPresent(format, forKey: .format)
+        try container.encodeIfPresent(confidence, forKey: .confidence)
+        try container.encodeIfPresent(enrichmentStatus, forKey: .enrichmentStatus)
     }
 }
 

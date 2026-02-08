@@ -497,7 +497,7 @@ actor TalariaService {
 
             // Log each book
             for (index, book) in response.data.results.enumerated() {
-                print("  ✅ Book \(index + 1): \(book.title) by \(book.author)")
+                print("  ✅ Book \(index + 1): \(book.resolvedTitle) by \(book.resolvedAuthor)")
             }
 
             return response.data.results

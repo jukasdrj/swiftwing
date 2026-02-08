@@ -350,7 +350,7 @@ final class CameraViewModel {
                     updateQueueItemProgress(id: item.id, message: message)
 
                 case .result(let bookMetadata):
-                    print("📚 Book identified: \(bookMetadata.title) by \(bookMetadata.author)")
+                    print("📚 Book identified: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
 
                     // Store metadata on processing item for detail sheet access
                     if let index = processingQueue.firstIndex(where: { $0.id == item.id }) {
@@ -970,11 +970,11 @@ final class CameraViewModel {
 
     // MARK: - US-405: Book Result Handling
     func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, modelContext: ModelContext) {
-        print("🔍 DEBUG: handleBookResult called for: \(metadata.title)")
+        print("🔍 DEBUG: handleBookResult called for: \(metadata.resolvedTitle)")
 
         // FIX #3: Validate metadata quality before processing
-        let title = metadata.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let author = metadata.author.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = (metadata.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let author = (metadata.author ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !title.isEmpty else {
             print("❌ Rejected book result: empty title")
@@ -1010,7 +1010,7 @@ final class CameraViewModel {
         }
 
         if isDuplicate {
-            print("⚠️ Duplicate book result suppressed: \(metadata.title) (ISBN: \(isbn))")
+            print("⚠️ Duplicate book result suppressed: \(metadata.resolvedTitle) (ISBN: \(isbn))")
             return
         }
 
@@ -1029,7 +1029,7 @@ final class CameraViewModel {
 
         print("🔍 DEBUG: Appended to pendingReviewBooks, new count: \(pendingReviewBooks.count)")
 
-        print("📋 Book added to review queue: \(metadata.title) (pending: \(pendingReviewBooks.count))")
+        print("📋 Book added to review queue: \(metadata.resolvedTitle) (pending: \(pendingReviewBooks.count))")
 
         // Haptic feedback for new review item
         let generator = UINotificationFeedbackGenerator()
@@ -1077,7 +1077,7 @@ final class CameraViewModel {
             pendingReviewBooks.removeAll { $0.id == pendingBook.id }
         }
 
-        print("❌ Book rejected from review queue: \(pendingBook.metadata.title)")
+        print("❌ Book rejected from review queue: \(pendingBook.metadata.resolvedTitle)")
     }
 
     func approveAllBooks(modelContext: ModelContext) {
@@ -1132,8 +1132,8 @@ final class CameraViewModel {
         }
 
         let newBook = Book(
-            title: title ?? metadata.title,        // Use override if provided
-            author: author ?? metadata.author,      // Use override if provided
+            title: title ?? metadata.resolvedTitle,        // Use override if provided
+            author: author ?? metadata.resolvedAuthor,      // Use override if provided
             isbn: metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)",
             coverUrl: metadata.coverUrl,
             format: metadata.format,
@@ -1150,7 +1150,7 @@ final class CameraViewModel {
 
         do {
             try modelContext.save()
-            print("✅ Book added to library: \(title ?? metadata.title)")
+            print("✅ Book added to library: \(title ?? metadata.resolvedTitle)")
 
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)

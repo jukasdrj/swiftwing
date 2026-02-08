@@ -16,8 +16,8 @@ struct PendingBookResult: Identifiable, Equatable {
     var editedAuthor: String?        // NEW
 
     // Resolved values (prefer edit over original)
-    var resolvedTitle: String { editedTitle ?? metadata.title }
-    var resolvedAuthor: String { editedAuthor ?? metadata.author }
+    var resolvedTitle: String { editedTitle ?? metadata.resolvedTitle }
+    var resolvedAuthor: String { editedAuthor ?? metadata.resolvedAuthor }
 
     init(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil) {
         self.id = UUID()
