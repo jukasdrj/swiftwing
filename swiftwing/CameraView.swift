@@ -250,7 +250,7 @@ struct CameraView: View {
             viewModel.stopCamera()
         }
         .onReceive(
-            NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
+            NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
         ) { _ in
             viewModel.cancelAllStreamingTasks()
         }
