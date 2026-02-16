@@ -6,7 +6,7 @@ struct RootView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var cameraPermissionStatus: CameraPermissionStatus = .notDetermined
     @State private var showOnboarding = false
-    @Query private var books: [Book]
+    @State private var wasPermissionPreviouslyDenied = false
 
     enum CameraPermissionStatus {
         case notDetermined
@@ -24,14 +24,24 @@ struct RootView: View {
             } else {
                 // Normal app flow
                 switch cameraPermissionStatus {
-                case .notDetermined, .denied:
+                case .notDetermined:
                     CameraPermissionPrimerView(
                         isPermissionGranted: Binding(
                             get: { cameraPermissionStatus == .authorized },
                             set: { if $0 { cameraPermissionStatus = .authorized } }
-                        ))
+                        ),
+                        wasPreviouslyDenied: false
+                    )
+                case .denied:
+                    CameraPermissionPrimerView(
+                        isPermissionGranted: Binding(
+                            get: { cameraPermissionStatus == .authorized },
+                            set: { if $0 { cameraPermissionStatus = .authorized } }
+                        ),
+                        wasPreviouslyDenied: true
+                    )
                 case .authorized:
-                    MainTabView(bookCount: books.count)
+                    MainTabView()
                 }
             }
         }
@@ -41,6 +51,11 @@ struct RootView: View {
                 showOnboarding = true
             }
             checkCameraPermission()
+        }
+        .onChange(of: showOnboarding) { _, newValue in
+            if !newValue {
+                checkCameraPermission()
+            }
         }
     }
 
@@ -62,31 +77,24 @@ struct RootView: View {
 /// TabView with Library, Review, and Camera tabs
 /// Review tab shows pending book count badge
 struct MainTabView: View {
-    let bookCount: Int
+    @Query private var books: [Book]
     @State private var viewModel = CameraViewModel()
 
     var body: some View {
         TabView {
             // Library Tab
-            Group {
-                if bookCount > 0 {
-                    LibraryView()
-                        .badge(bookCount)
-                } else {
-                    LibraryView()
+            LibraryView()
+                .tabItem {
+                    Label("Library", systemImage: "books.vertical")
                 }
-            }
-            .tabItem {
-                Label("Library", systemImage: "books.vertical")
-            }
+                .badge(books.count > 0 ? "\(books.count)" : nil)
 
             // Review Tab
             ReviewQueueView(viewModel: viewModel)
                 .tabItem {
                     Label("Review", systemImage: "checklist")
                 }
-                .badge(
-                    viewModel.pendingReviewBooks.count > 0 ? viewModel.pendingReviewBooks.count : 0)
+                .badge(viewModel.pendingReviewBooks.count > 0 ? "\(viewModel.pendingReviewBooks.count)" : nil)
 
             // Camera Tab
             CameraView(viewModel: viewModel)

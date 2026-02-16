@@ -1123,6 +1123,14 @@ final class CameraViewModel {
     }
 
     func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
+        let resolvedTitle = (title ?? metadata.resolvedTitle).trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedAuthor = (author ?? metadata.resolvedAuthor).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !resolvedTitle.isEmpty, !resolvedAuthor.isEmpty else {
+            print("❌ Rejected addBookToLibrary: empty title or author")
+            return
+        }
+
         let publishedDate: Date?
         if let dateString = metadata.publishedDate {
             let formatter = ISO8601DateFormatter()
@@ -1132,8 +1140,8 @@ final class CameraViewModel {
         }
 
         let newBook = Book(
-            title: title ?? metadata.resolvedTitle,        // Use override if provided
-            author: author ?? metadata.resolvedAuthor,      // Use override if provided
+            title: resolvedTitle,
+            author: resolvedAuthor,
             isbn: metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)",
             coverUrl: metadata.coverUrl,
             format: metadata.format,
@@ -1150,7 +1158,7 @@ final class CameraViewModel {
 
         do {
             try modelContext.save()
-            print("✅ Book added to library: \(title ?? metadata.resolvedTitle)")
+            print("✅ Book added to library: \(resolvedTitle)")
 
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
@@ -1193,7 +1201,13 @@ final class CameraViewModel {
         withAnimation(.swissSpring) {
             showDuplicateAlert = false
             if let metadata = pendingBookMetadata {
-                addBookToLibrary(metadata: metadata, rawJSON: pendingRawJSON, modelContext: modelContext)
+                addBookToLibrary(
+                    title: pendingBookBeingApproved?.resolvedTitle,
+                    author: pendingBookBeingApproved?.resolvedAuthor,
+                    metadata: metadata,
+                    rawJSON: pendingRawJSON,
+                    modelContext: modelContext
+                )
             }
             // Remove from review queue if it was an approve-time duplicate
             if let pending = pendingBookBeingApproved {

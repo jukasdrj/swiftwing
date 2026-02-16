@@ -149,14 +149,20 @@ struct ReviewQueueView: View {
             }
             .navigationTitle("Review Queue")
             .sheet(item: $selectedProcessingItem) { item in
-                BookDetailSheetView(item: item) { title, author, isbn in
-                    saveToLibrary(
+                ProcessingItemDetailSheet(item: item) { title, author, isbn in
+                    let metadata = item.bookMetadata ?? BookMetadata(
                         title: title,
                         author: author,
-                        isbn: isbn ?? "",
-                        imageData: item.originalImageData ?? Data()
+                        isbn: isbn,
+                        confidence: nil
                     )
-                    // Remove from processing queue
+                    viewModel.addBookToLibrary(
+                        title: title,
+                        author: author,
+                        metadata: metadata,
+                        rawJSON: nil,
+                        modelContext: modelContext
+                    )
                     if let index = viewModel.processingQueue.firstIndex(where: { $0.id == item.id })
                     {
                         withAnimation(.swissSpring) {
@@ -211,22 +217,6 @@ struct ReviewQueueView: View {
         .padding()
     }
 
-    private func saveToLibrary(title: String, author: String, isbn: String, imageData: Data) {
-        let book = Book(
-            title: title,
-            author: author,
-            isbn: isbn,
-            addedDate: Date()
-        )
-
-        modelContext.insert(book)
-
-        do {
-            try modelContext.save()
-        } catch {
-            print("Failed to save book: \(error)")
-        }
-    }
 }
 
 // MARK: - US-B3: Processing Item Row

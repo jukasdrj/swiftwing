@@ -242,27 +242,20 @@ struct CameraView: View {
         }
         .statusBar(hidden: true)  // Full immersion
         .task {
-            // Inject modelContext into viewModel
             viewModel.modelContext = modelContext
             await viewModel.setupCamera()
+            await viewModel.checkAndUploadQueuedScans()
         }
         .onDisappear {
-            viewModel.cancelAllStreamingTasks()  // NEW: Cancel SSE streams + backend cleanup
             viewModel.stopCamera()
         }
-        // US-406: Cancel active SSE streams when app goes to background
         .onReceive(
             NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
         ) { _ in
             viewModel.cancelAllStreamingTasks()
         }
-        // US-409: Auto-upload queued scans when network returns
         .onChange(of: viewModel.networkMonitor.isConnected) { oldValue, newValue in
             viewModel.handleNetworkChange(oldValue: oldValue, newValue: newValue)
-        }
-        .task {
-            // US-409: Check for queued scans on startup
-            await viewModel.checkAndUploadQueuedScans()
         }
     }
 }
