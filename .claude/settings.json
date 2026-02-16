@@ -27,6 +27,19 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'xcodebuild'; then echo '🔨 Build completed. Consider running tests next.'; fi",
+            "timeout": 3000,
+            "description": "Remind about tests after xcodebuild runs"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [

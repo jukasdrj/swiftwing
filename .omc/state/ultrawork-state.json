@@ -1,7 +1,0 @@
-{
-  "active": true,
-  "started_at": "2026-02-03T18:21:24.994Z",
-  "original_prompt": "apply fix #1 deduplication guard, then continue, update plan docs, ulw when possible",
-  "reinforcement_count": 0,
-  "last_checked_at": "2026-02-03T18:21:24.994Z"
-}

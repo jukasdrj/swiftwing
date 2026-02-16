@@ -90,6 +90,11 @@ if echo "$PROMPT" | grep -qE "^/?planning-with-files"; then
     exit 0
 fi
 
+# Check for skip-planning bypass
+if echo "$PROMPT" | grep -qi "skip-planning"; then
+    exit 0
+fi
+
 # Threshold: Score >= 5 requires planning (roughly >3 tool calls expected)
 THRESHOLD=5
 
