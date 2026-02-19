@@ -12,8 +12,8 @@
 | **2** | Viewfinder (Camera) | 1-2 weeks | ✅ Complete |
 | **3** | Library (Browse/Search) | 1-2 weeks | ✅ Complete |
 | **4** | Talaria Integration (AI) | 1-2 weeks | ✅ Complete |
-| **5** | Polish (UX Details) | 1 week | 🔄 In Progress (Phase 2A Done) |
-| **6** | Launch (App Store) | 1 week | ⚪ Pending |
+| **5** | Polish (UX Details) | 1 week | ✅ Complete |
+| **6** | Launch (App Store) | 1 week | 🔄 In Progress |
 
 **Total:** 8-10 weeks to MVP
 

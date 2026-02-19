@@ -294,11 +294,13 @@ extension BookMetadata: Codable {
         confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
         enrichmentStatus = try container.decodeIfPresent(EnrichmentStatus.self, forKey: .enrichmentStatus)
 
-        // Handle publishedDate (string) vs publicationYear (number) mismatch
+        // Handle publishedDate (string) vs publicationYear (number or string) mismatch
         if let date = try container.decodeIfPresent(String.self, forKey: .publishedDate) {
             publishedDate = date
         } else if let year = try container.decodeIfPresent(Int.self, forKey: .publicationYear) {
             publishedDate = "\(year)-01-01"
+        } else if let yearStr = try container.decodeIfPresent(String.self, forKey: .publicationYear) {
+            publishedDate = "\(yearStr)-01-01"
         } else {
             publishedDate = nil
         }

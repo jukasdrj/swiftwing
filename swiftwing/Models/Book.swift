@@ -45,7 +45,7 @@ public final class Book {
 
     // Computed property for review threshold
     var needsReview: Bool {
-        spineConfidence ?? 1.0 < 0.8
+        (spineConfidence ?? 1.0) < 0.8
     }
 
     // Computed property for enrichment review needs

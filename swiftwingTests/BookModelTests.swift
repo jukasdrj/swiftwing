@@ -28,7 +28,7 @@ final class BookModelTests: XCTestCase {
         XCTAssertNotNil(book.coverUrl)
         XCTAssertEqual(book.format, "Hardcover")
         XCTAssertEqual(book.pageCount, 250)
-        XCTAssertEqual(book.spineConfidence, 0.95, accuracy: 0.001)
+        XCTAssertEqual(book.spineConfidence, 0.95)
         XCTAssertEqual(book.readingStatus, nil)
         XCTAssertEqual(book.userRating, nil)
         XCTAssertEqual(book.notes, nil)
@@ -68,7 +68,7 @@ final class BookModelTests: XCTestCase {
         )
 
         XCTAssertNotNil(book.isbn)
-        XCTAssertFalse(book.needsReview, accuracy: 0.1)
+        XCTAssertFalse(book.needsReview)
     }
 
     func testISBN13Validation() {
@@ -81,7 +81,7 @@ final class BookModelTests: XCTestCase {
         )
 
         XCTAssertNotNil(book.isbn)
-        XCTAssertFalse(book.needsReview, accuracy: 0.1)
+        XCTAssertFalse(book.needsReview)
     }
 
     func testLowConfidenceTriggersReviewNeeded() {
@@ -110,17 +110,17 @@ final class BookModelTests: XCTestCase {
         XCTAssertFalse(book.needsReview, "High confidence should not trigger review")
     }
 
-    func testNilConfidenceDefaultsToReviewNeeded() {
+    func testNilConfidenceDefaultsToNoReview() {
         // Arrange
         let book = Book(
             title: "No Confidence Book",
             author: "Author",
             isbn: "1234567890",
-            spineConfidence: nil  // Should default to 1.0, triggering review
+            spineConfidence: nil  // Defaults to 1.0 (high confidence) — no review needed
         )
 
         // Assert
-        XCTAssertTrue(book.needsReview, "Nil confidence should default to review needed")
+        XCTAssertFalse(book.needsReview, "Nil confidence should default to 1.0 (no review needed)")
     }
 
     // MARK: - Reading Status
