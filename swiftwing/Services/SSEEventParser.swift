@@ -55,14 +55,18 @@ public struct SSEEventParser: Sendable {
             }
 
         case "result":
-            // Result event with book metadata
-            guard let jsonData = data.data(using: .utf8) else {
+            // Result event with book metadata nested under "book" key
+            // Server sends: { jobId, status, message, progress, book: { title, author, isbn, ... } }
+            guard let jsonData = data.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                  let bookDict = json["book"] as? [String: Any],
+                  let bookData = try? JSONSerialization.data(withJSONObject: bookDict)
+            else {
                 throw SSEError.invalidEventFormat
             }
 
-            // Decode BookMetadata directly (matches OpenAPI schema)
             let decoder = JSONDecoder()
-            let metadata = try decoder.decode(BookMetadata.self, from: jsonData)
+            let metadata = try decoder.decode(BookMetadata.self, from: bookData)
 
             return .result(metadata)
 

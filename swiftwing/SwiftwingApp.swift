@@ -17,6 +17,8 @@ struct SwiftwingApp: App {
     }()
 
     init() {
+        configureForUITesting()
+
         #if DEBUG
         // OPTIONAL: Uncomment to auto-seed library on first launch
         // Useful for rapid development iteration without manual button taps
@@ -36,6 +38,43 @@ struct SwiftwingApp: App {
                 .preferredColorScheme(.dark)
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    /// Configures app state based on launch arguments for UI testing
+    private func configureForUITesting() {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        guard arguments.contains("UI_TESTING") else { return }
+
+        // Skip onboarding for test determinism
+        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+        // Reset review filter to off for deterministic state
+        UserDefaults.standard.set(false, forKey: "show_review_needed")
+
+        let context = sharedModelContainer.mainContext
+
+        if arguments.contains("CLEAR_DATA") {
+            // Delete all books for clean-slate testing
+            do {
+                try context.delete(model: Book.self)
+                try context.save()
+            } catch {
+                print("UI_TESTING: Failed to clear data: \(error)")
+            }
+        }
+
+        #if DEBUG
+        if arguments.contains("SEED_LIBRARY") {
+            // Clear first to ensure deterministic seed count
+            do {
+                try context.delete(model: Book.self)
+                try context.save()
+            } catch {
+                print("UI_TESTING: Failed to clear before seed: \(error)")
+            }
+            DataSeeder.seedLibrary(context: context)
+        }
+        #endif
     }
 
     #if DEBUG

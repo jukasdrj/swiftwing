@@ -1,4 +1,27 @@
 import Foundation
+import os
+
+private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "e2e-talaria")
+
+#if DEBUG
+/// File-based debug logger for SSE stream diagnosis
+private func sseLog(_ msg: String) {
+    guard ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") else { return }
+    let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
+    let timestamp = ISO8601DateFormatter().string(from: Date())
+    let line = "[\(timestamp)] SSE_STREAM: \(msg)\n"
+    guard let data = line.data(using: .utf8) else { return }
+    if FileManager.default.fileExists(atPath: logFile.path) {
+        if let handle = try? FileHandle(forWritingTo: logFile) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            handle.closeFile()
+        }
+    } else {
+        try? data.write(to: logFile)
+    }
+}
+#endif
 
 // Import NetworkTypes for domain models
 // Provides: NetworkError, BookMetadata, SSEEvent, UploadResponse, etc.
@@ -237,15 +260,45 @@ actor TalariaService {
                             throw SSEError.connectionFailed
                         }
 
+                        e2eLogger.info("✅ SSE: Connection established, status 200")
                         print("✅ SSE: Connection established successfully")
+                        #if DEBUG
+                        sseLog("Connection established, status=200, content-type=\(httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "nil")")
+                        #endif
 
                         // Parse SSE events
+                        // WORKAROUND: bytes.lines silently fails to yield data over HTTP/3 (QUIC)
+                        // on iOS 26. Read raw bytes and split on newlines manually instead.
                         var currentEvent: String?
                         var currentData: String?
                         var currentId: String?
+                        var lineBuffer = Data()
+                        var byteCount = 0
 
-                        for try await line in bytes.lines {
-                            print("🔍 SSE Line received: '\(line.isEmpty ? "<BLANK>" : line.prefix(80))'")
+                        #if DEBUG
+                        sseLog("Starting byte iterator loop... Task.isCancelled=\(Task.isCancelled)")
+                        #endif
+                        for try await byte in bytes {
+                            byteCount += 1
+                            #if DEBUG
+                            if byteCount == 1 {
+                                sseLog("First byte received!")
+                            }
+                            #endif
+                            if byte == UInt8(ascii: "\n") {
+                                let line: String
+                                // Strip trailing \r if present (SSE uses \r\n)
+                                if lineBuffer.last == UInt8(ascii: "\r") {
+                                    line = String(data: lineBuffer.dropLast(), encoding: .utf8) ?? ""
+                                } else {
+                                    line = String(data: lineBuffer, encoding: .utf8) ?? ""
+                                }
+                                lineBuffer.removeAll(keepingCapacity: true)
+
+                            #if DEBUG
+                            sseLog("LINE[\(byteCount)]: '\(line.isEmpty ? "<BLANK>" : String(line.prefix(120)))'")
+                            #endif
+                            print("🔍 SSE Line received: '\(line.isEmpty ? "<BLANK>" : String(line.prefix(80)))'")
                             if line.hasPrefix("event:") {
                                 currentEvent = String(line.dropFirst(6).trimmingCharacters(in: .whitespaces))
                                 print("📨 SSE: Received event type: \(currentEvent ?? "nil")")
@@ -265,7 +318,11 @@ actor TalariaService {
                                     do {
                                         let parser = SSEEventParser()
                                         let sseEvent = try parser.parse(event: event, data: data)
+                                        e2eLogger.info("✅ SSE parsed: \(String(describing: sseEvent))")
                                         print("✅ SSE: Parsed event successfully: \(sseEvent)")
+                                        #if DEBUG
+                                        sseLog("YIELDING event to continuation: \(event)")
+                                        #endif
                                         continuation.yield(sseEvent)
 
                                         // Store last event ID for reconnection
@@ -307,13 +364,23 @@ actor TalariaService {
                                 currentData = nil
                                 currentId = nil
                             }
+                            } else {
+                                // Accumulate non-newline bytes into line buffer
+                                lineBuffer.append(byte)
+                            }
                         }
 
+                        #if DEBUG
+                        sseLog("Byte loop exited normally after \(byteCount) bytes, Task.isCancelled=\(Task.isCancelled)")
+                        #endif
                         print("✅ SSE: Stream completed normally")
                         continuation.finish()
                         return // Success - exit retry loop
 
                     } catch let error as SSEError where error == SSEError.connectionFailed {
+                        #if DEBUG
+                        sseLog("CATCH connectionFailed: attempt=\(attempt+1)/\(maxAttempts)")
+                        #endif
                         attempt += 1
                         if attempt < maxAttempts {
                             let delay = pow(2.0, Double(attempt))
@@ -325,7 +392,11 @@ actor TalariaService {
                             return
                         }
                     } catch {
+                        #if DEBUG
+                        sseLog("CATCH generic error: \(error) - type=\(type(of: error)) - cancelled=\(Task.isCancelled)")
+                        #endif
                         // Don't retry non-connection errors
+                        e2eLogger.error("❌ SSE stream error: \(error.localizedDescription)")
                         print("❌ SSE: Stream error (non-retryable): \(error)")
                         print("   Error type: \(type(of: error))")
                         print("   Error description: \(error.localizedDescription)")

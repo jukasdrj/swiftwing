@@ -5,6 +5,7 @@ import UIKit
 struct CameraPermissionPrimerView: View {
     @State private var showPermissionDeniedAlert = false
     @Binding var isPermissionGranted: Bool
+    var wasPreviouslyDenied: Bool = false
 
     var body: some View {
         ZStack {
@@ -15,12 +16,12 @@ struct CameraPermissionPrimerView: View {
                 Spacer()
 
                 VStack(spacing: 16) {
-                    Text("SwiftWing Needs Camera Access")
+                    Text(wasPreviouslyDenied ? "Camera Access Required" : "SwiftWing Needs Camera Access")
                         .font(.title.bold())
                         .foregroundColor(.swissText)
                         .multilineTextAlignment(.center)
 
-                    Text("We use your camera to scan book spines. Images are processed and deleted immediately.")
+                    Text(wasPreviouslyDenied ? "Camera access was denied. Please enable it in Settings to scan book spines." : "We use your camera to scan book spines. Images are processed and deleted immediately.")
                         .font(.body)
                         .foregroundColor(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
@@ -30,9 +31,15 @@ struct CameraPermissionPrimerView: View {
                 Spacer()
 
                 Button {
-                    requestCameraPermission()
+                    if wasPreviouslyDenied {
+                        if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(settingsURL)
+                        }
+                    } else {
+                        requestCameraPermission()
+                    }
                 } label: {
-                    Text("Continue")
+                    Text(wasPreviouslyDenied ? "Open Settings" : "Continue")
                         .font(.body.weight(.semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -43,6 +50,7 @@ struct CameraPermissionPrimerView: View {
                 .cornerRadius(12)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
+                .accessibilityIdentifier("permission_continue")
             }
         }
         .alert("Camera Access Needed", isPresented: $showPermissionDeniedAlert) {
@@ -59,7 +67,7 @@ struct CameraPermissionPrimerView: View {
 
     private func requestCameraPermission() {
         AVCaptureDevice.requestAccess(for: .video) { granted in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 if granted {
                     isPermissionGranted = true
                 } else {
@@ -71,6 +79,6 @@ struct CameraPermissionPrimerView: View {
 }
 
 #Preview {
-    CameraPermissionPrimerView(isPermissionGranted: .constant(false))
+    CameraPermissionPrimerView(isPermissionGranted: .constant(false), wasPreviouslyDenied: false)
         .preferredColorScheme(.dark)
 }

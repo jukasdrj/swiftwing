@@ -14,6 +14,10 @@ struct RootView: View {
         case authorized
     }
 
+    private var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("UI_TESTING")
+    }
+
     var body: some View {
         Group {
             if showOnboarding {
@@ -21,6 +25,9 @@ struct RootView: View {
                 OnboardingView(onComplete: {
                     showOnboarding = false
                 })
+            } else if isUITesting {
+                // Skip camera permission gate during UI testing
+                MainTabView()
             } else {
                 // Normal app flow
                 switch cameraPermissionStatus {
@@ -79,15 +86,17 @@ struct RootView: View {
 struct MainTabView: View {
     @Query private var books: [Book]
     @State private var viewModel = CameraViewModel()
+    @State private var selectedTab: Int = ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") ? 2 : 0
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             // Library Tab
             LibraryView()
                 .tabItem {
                     Label("Library", systemImage: "books.vertical")
                 }
                 .badge(books.count > 0 ? "\(books.count)" : nil)
+                .tag(0)
 
             // Review Tab
             ReviewQueueView(viewModel: viewModel)
@@ -95,14 +104,22 @@ struct MainTabView: View {
                     Label("Review", systemImage: "checklist")
                 }
                 .badge(viewModel.pendingReviewBooks.count > 0 ? "\(viewModel.pendingReviewBooks.count)" : nil)
+                .tag(1)
 
             // Camera Tab
             CameraView(viewModel: viewModel)
                 .tabItem {
                     Label("Camera", systemImage: "camera")
                 }
+                .tag(2)
         }
         .tint(.internationalOrange)  // Swiss Glass accent color for selected tab
+        .onChange(of: viewModel.requestedTab) { _, newTab in
+            if let tab = newTab {
+                selectedTab = tab
+                viewModel.requestedTab = nil
+            }
+        }
     }
 }
 

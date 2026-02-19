@@ -21,6 +21,7 @@ struct OnboardingView: View {
                         Circle()
                             .fill(index == currentPage ? Color.internationalOrange : Color.white.opacity(0.3))
                             .frame(width: 8, height: 8)
+                            .accessibilityIdentifier("onboarding_page_\(index)")
                     }
                 }
                 .padding(.top, 60)
@@ -52,6 +53,7 @@ struct OnboardingView: View {
                                 .background(Color.internationalOrange)
                                 .cornerRadius(12)
                         }
+                        .accessibilityIdentifier("onboarding_get_started")
                         .transition(.opacity)
                     } else {
                         // Next button
@@ -64,6 +66,7 @@ struct OnboardingView: View {
                                 .background(Color.internationalOrange)
                                 .cornerRadius(12)
                         }
+                        .accessibilityIdentifier("onboarding_next")
                         .transition(.opacity)
                     }
 
@@ -73,6 +76,7 @@ struct OnboardingView: View {
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white.opacity(0.6))
                     }
+                    .accessibilityIdentifier("onboarding_skip")
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 40)

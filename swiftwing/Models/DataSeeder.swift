@@ -26,152 +26,183 @@ struct DataSeeder {
             return
         }
 
+        /// Generates an Open Library cover URL from an ISBN
+        func coverUrl(isbn: String) -> URL? {
+            URL(string: "https://covers.openlibrary.org/b/isbn/\(isbn)-L.jpg")
+        }
+
         // Curated collection of diverse books
         let books = [
             // Science Fiction
             Book(
                 title: "Dune",
                 author: "Frank Herbert",
-                isbn: "9780441172719"
+                isbn: "9780441172719",
+                coverUrl: coverUrl(isbn: "9780441172719")
             ),
             Book(
                 title: "Neuromancer",
                 author: "William Gibson",
-                isbn: "9780441569595"
+                isbn: "9780441569595",
+                coverUrl: coverUrl(isbn: "9780441569595")
             ),
             Book(
                 title: "The Three-Body Problem",
                 author: "Liu Cixin",
-                isbn: "9780765382030"
+                isbn: "9780765382030",
+                coverUrl: coverUrl(isbn: "9780765382030")
             ),
             Book(
                 title: "Foundation",
                 author: "Isaac Asimov",
-                isbn: "9780553293357"
+                isbn: "9780553293357",
+                coverUrl: coverUrl(isbn: "9780553293357")
             ),
             Book(
                 title: "Snow Crash",
                 author: "Neal Stephenson",
-                isbn: "9780553380958"
+                isbn: "9780553380958",
+                coverUrl: coverUrl(isbn: "9780553380958")
             ),
 
             // Fantasy
             Book(
                 title: "The Name of the Wind",
                 author: "Patrick Rothfuss",
-                isbn: "9780756404079"
+                isbn: "9780756404079",
+                coverUrl: coverUrl(isbn: "9780756404079")
             ),
             Book(
                 title: "The Way of Kings",
                 author: "Brandon Sanderson",
-                isbn: "9780765365279"
+                isbn: "9780765365279",
+                coverUrl: coverUrl(isbn: "9780765365279")
             ),
             Book(
                 title: "The Hobbit",
                 author: "J.R.R. Tolkien",
-                isbn: "9780547928227"
+                isbn: "9780547928227",
+                coverUrl: coverUrl(isbn: "9780547928227")
             ),
 
             // Mystery/Thriller
             Book(
                 title: "The Girl with the Dragon Tattoo",
                 author: "Stieg Larsson",
-                isbn: "9780307949486"
+                isbn: "9780307949486",
+                coverUrl: coverUrl(isbn: "9780307949486")
             ),
             Book(
                 title: "Gone Girl",
                 author: "Gillian Flynn",
-                isbn: "9780307588371"
+                isbn: "9780307588371",
+                coverUrl: coverUrl(isbn: "9780307588371")
             ),
             Book(
                 title: "The Silent Patient",
                 author: "Alex Michaelides",
-                isbn: "9781250301697"
+                isbn: "9781250301697",
+                coverUrl: coverUrl(isbn: "9781250301697")
             ),
 
             // Non-Fiction (Technology)
             Book(
                 title: "The Pragmatic Programmer",
                 author: "David Thomas & Andrew Hunt",
-                isbn: "9780135957059"
+                isbn: "9780135957059",
+                coverUrl: coverUrl(isbn: "9780135957059")
             ),
             Book(
                 title: "Clean Code",
                 author: "Robert C. Martin",
-                isbn: "9780132350884"
+                isbn: "9780132350884",
+                coverUrl: coverUrl(isbn: "9780132350884")
             ),
             Book(
                 title: "Sapiens",
                 author: "Yuval Noah Harari",
-                isbn: "9780062316110"
+                isbn: "9780062316110",
+                coverUrl: coverUrl(isbn: "9780062316110")
             ),
             Book(
                 title: "Atomic Habits",
                 author: "James Clear",
-                isbn: "9780735211292"
+                isbn: "9780735211292",
+                coverUrl: coverUrl(isbn: "9780735211292")
             ),
 
             // Non-Fiction (Science)
             Book(
                 title: "A Brief History of Time",
                 author: "Stephen Hawking",
-                isbn: "9780553380163"
+                isbn: "9780553380163",
+                coverUrl: coverUrl(isbn: "9780553380163")
             ),
             Book(
                 title: "The Selfish Gene",
                 author: "Richard Dawkins",
-                isbn: "9780198788607"
+                isbn: "9780198788607",
+                coverUrl: coverUrl(isbn: "9780198788607")
             ),
 
             // Literary Fiction
             Book(
                 title: "1984",
                 author: "George Orwell",
-                isbn: "9780451524935"
+                isbn: "9780451524935",
+                coverUrl: coverUrl(isbn: "9780451524935")
             ),
             Book(
                 title: "To Kill a Mockingbird",
                 author: "Harper Lee",
-                isbn: "9780061120084"
+                isbn: "9780061120084",
+                coverUrl: coverUrl(isbn: "9780061120084")
             ),
             Book(
                 title: "The Great Gatsby",
                 author: "F. Scott Fitzgerald",
-                isbn: "9780743273565"
+                isbn: "9780743273565",
+                coverUrl: coverUrl(isbn: "9780743273565")
             ),
             Book(
                 title: "One Hundred Years of Solitude",
                 author: "Gabriel García Márquez",
-                isbn: "9780060883287"
+                isbn: "9780060883287",
+                coverUrl: coverUrl(isbn: "9780060883287")
             ),
 
             // Contemporary Fiction
             Book(
                 title: "Project Hail Mary",
                 author: "Andy Weir",
-                isbn: "9780593135204"
+                isbn: "9780593135204",
+                coverUrl: coverUrl(isbn: "9780593135204")
             ),
             Book(
                 title: "Klara and the Sun",
                 author: "Kazuo Ishiguro",
-                isbn: "9780593318171"
+                isbn: "9780593318171",
+                coverUrl: coverUrl(isbn: "9780593318171")
             ),
             Book(
                 title: "The Midnight Library",
                 author: "Matt Haig",
-                isbn: "9780525559474"
+                isbn: "9780525559474",
+                coverUrl: coverUrl(isbn: "9780525559474")
             ),
 
             // Graphic Novels
             Book(
                 title: "Watchmen",
                 author: "Alan Moore",
-                isbn: "9781401245252"
+                isbn: "9781401245252",
+                coverUrl: coverUrl(isbn: "9781401245252")
             ),
             Book(
                 title: "Saga, Vol. 1",
                 author: "Brian K. Vaughan",
-                isbn: "9781607066019"
+                isbn: "9781607066019",
+                coverUrl: coverUrl(isbn: "9781607066019")
             )
         ]
 

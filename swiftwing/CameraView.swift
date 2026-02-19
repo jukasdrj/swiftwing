@@ -1,6 +1,9 @@
 import AVFoundation
+import os
 import SwiftData
 import SwiftUI
+
+private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "e2e-test")
 
 /// Main camera view with zero-lag preview
 /// Performance target: < 0.5s cold start to live feed
@@ -141,6 +144,29 @@ struct CameraView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
 
+            // Scan complete banner (shown above shutter when books land in review queue)
+            if let banner = viewModel.scanCompleteBanner {
+                VStack {
+                    Spacer()
+
+                    ScanCompleteBannerView(
+                        bookCount: banner.bookCount,
+                        thumbnailData: banner.thumbnailData,
+                        onTap: {
+                            viewModel.dismissScanCompleteBanner()
+                            viewModel.requestedTab = 1
+                        },
+                        onDismiss: {
+                            viewModel.dismissScanCompleteBanner()
+                        }
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 180)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .zIndex(99)
+            }
+
             // Zoom level display and offline indicator (top-right corner)
             VStack {
                 HStack {
@@ -201,6 +227,8 @@ struct CameraView: View {
                         .contentShape(Circle())
                         .opacity(viewModel.isRateLimited || viewModel.isInterrupted ? 0.3 : 1.0)
                 }
+                .accessibilityIdentifier("camera_shutter")
+                .accessibilityLabel("Capture")
                 .disabled(viewModel.isRateLimited || viewModel.isInterrupted)
                 .haptic(.impact, trigger: viewModel.showFlash)
                 .padding(.bottom, 40)
@@ -245,6 +273,72 @@ struct CameraView: View {
             viewModel.modelContext = modelContext
             await viewModel.setupCamera()
             await viewModel.checkAndUploadQueuedScans()
+
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") {
+                // Write debug log to file for integration test diagnosis
+                let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
+                func debugLog(_ msg: String) {
+                    let timestamp = ISO8601DateFormatter().string(from: Date())
+                    let line = "[\(timestamp)] \(msg)\n"
+                    if let data = line.data(using: .utf8) {
+                        if FileManager.default.fileExists(atPath: logFile.path) {
+                            if let handle = try? FileHandle(forWritingTo: logFile) {
+                                handle.seekToEndOfFile()
+                                handle.write(data)
+                                handle.closeFile()
+                            }
+                        } else {
+                            try? data.write(to: logFile)
+                        }
+                    }
+                    e2eLogger.info("🧪 \(msg)")
+                }
+
+                debugLog("INJECT_TEST_IMAGE: Starting test image injection")
+                debugLog("INJECT_TEST_IMAGE: modelContext available = \(modelContext != nil)")
+
+                let imageData: Data?
+                if let bundleUrl = Bundle.main.url(forResource: "test_book_stack", withExtension: "jpg") {
+                    debugLog("INJECT_TEST_IMAGE: Found image in bundle at \(bundleUrl.path)")
+                    imageData = try? Data(contentsOf: bundleUrl)
+                } else {
+                    debugLog("INJECT_TEST_IMAGE: Bundle lookup failed, trying filesystem")
+                    let paths = [
+                        "/Users/juju/dev_repos/swiftwing/test_book_stack.jpg",
+                        ProcessInfo.processInfo.environment["TEST_IMAGE_PATH"]
+                    ].compactMap { $0 }
+                    imageData = paths.compactMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }.first
+                }
+
+                if let imageData = imageData {
+                    debugLog("INJECT_TEST_IMAGE: Loaded \(imageData.count) bytes")
+                    debugLog("INJECT_TEST_IMAGE: Launching scan (fire-and-forget)...")
+                    let itemId = UUID()
+                    // CRITICAL: Use fire-and-forget Task, NOT await.
+                    // Awaiting inside .task{} causes cancellation when @Observable state
+                    // changes trigger view re-render (SwiftUI cancels .task on identity change).
+                    // This matches the normal captureImage() pattern at line 232.
+                    let scanTask = Task {
+                        await viewModel.processCaptureWithImageData(
+                            itemId: itemId,
+                            imageData: imageData,
+                            modelContext: modelContext
+                        )
+                        debugLog("INJECT_TEST_IMAGE: processCaptureWithImageData completed")
+                        debugLog("INJECT_TEST_IMAGE: pendingReviewBooks.count = \(viewModel.pendingReviewBooks.count)")
+                        debugLog("INJECT_TEST_IMAGE: processingQueue.count = \(viewModel.processingQueue.count)")
+                        for (i, book) in viewModel.pendingReviewBooks.enumerated() {
+                            debugLog("INJECT_TEST_IMAGE: pendingBook[\(i)] = '\(book.metadata.resolvedTitle)' by '\(book.metadata.resolvedAuthor)'")
+                        }
+                    }
+                    viewModel.activeStreamingTasks[itemId] = scanTask
+                    debugLog("INJECT_TEST_IMAGE: Scan task launched successfully")
+                } else {
+                    debugLog("INJECT_TEST_IMAGE: ERROR - Could not load test image from any path")
+                }
+            }
+            #endif
         }
         .onDisappear {
             viewModel.stopCamera()
@@ -318,6 +412,50 @@ struct FocusIndicatorView: View {
             .frame(width: 60, height: 60, alignment: .topLeading)
         }
         .frame(width: 60, height: 60)
+    }
+}
+
+// MARK: - Scan Complete Banner
+struct ScanCompleteBannerView: View {
+    let bookCount: Int
+    let thumbnailData: Data?
+    let onTap: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // Thumbnail preview
+                if let data = thumbnailData, let image = UIImage(data: data) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(bookCount) book\(bookCount == 1 ? "" : "s") found")
+                        .font(.headline)
+                        .foregroundColor(.swissText)
+                    Text("Tap to review")
+                        .font(.caption)
+                        .foregroundColor(.internationalOrange)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.internationalOrange)
+            }
+            .padding(16)
+            .swissGlassCard()
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.internationalOrange.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

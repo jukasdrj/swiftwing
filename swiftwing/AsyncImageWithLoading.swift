@@ -46,8 +46,58 @@ struct ShimmerView: View {
 ///     .frame(width: 100, height: 150)
 ///     .cornerRadius(8)
 /// ```
+struct GeneratedCoverView: View {
+    let title: String
+    let author: String
+
+    private static let coverPalette: [Color] = [
+        Color(red: 0.6, green: 0.2, blue: 0.2),
+        Color(red: 0.2, green: 0.4, blue: 0.6),
+        Color(red: 0.4, green: 0.3, blue: 0.6),
+        Color(red: 0.2, green: 0.5, blue: 0.4),
+        Color(red: 0.6, green: 0.4, blue: 0.2),
+        Color(red: 0.3, green: 0.5, blue: 0.3),
+        Color(red: 0.5, green: 0.2, blue: 0.4),
+        Color(red: 0.3, green: 0.3, blue: 0.5),
+    ]
+
+    private var baseColor: Color {
+        // Safe hashValue to non-negative index: mask off sign bit to avoid abs() trap on Int.min
+        let index = Int(UInt(bitPattern: title.hashValue) % UInt(Self.coverPalette.count))
+        return Self.coverPalette[index]
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [baseColor, baseColor.opacity(0.6)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+
+                Text(author)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
+            .padding(8)
+        }
+    }
+}
+
 struct AsyncImageWithLoading: View {
     let url: URL?
+    var title: String?
+    var author: String?
     @State private var loadedImage: UIImage?
     @State private var isLoading = false
     @State private var loadFailed = false
@@ -55,7 +105,9 @@ struct AsyncImageWithLoading: View {
 
     var body: some View {
         Group {
-            if let image = loadedImage {
+            if url == nil {
+                noCoverPlaceholderView
+            } else if let image = loadedImage {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -119,7 +171,34 @@ struct AsyncImageWithLoading: View {
                             .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
                     )
                 }
+                .accessibilityIdentifier("image_retry")
                 .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - No Cover Placeholder
+    private var noCoverPlaceholderView: some View {
+        Group {
+            if let title = title, let author = author {
+                GeneratedCoverView(title: title, author: author)
+            } else if let title = title {
+                GeneratedCoverView(title: title, author: "")
+            } else {
+                ZStack {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.15))
+                        .background(.ultraThinMaterial)
+
+                    VStack(spacing: 6) {
+                        Image(systemName: "book.closed")
+                            .font(.title2)
+                            .foregroundColor(.gray.opacity(0.6))
+                        Text("No Cover")
+                            .font(.caption2)
+                            .foregroundColor(.gray.opacity(0.6))
+                    }
+                }
             }
         }
     }

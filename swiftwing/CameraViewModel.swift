@@ -1,9 +1,32 @@
+import os
 import SwiftUI
 import AVFoundation
 import SwiftData
 
+private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "e2e-vm")
+
 #if canImport(UIKit)
 import UIKit
+#endif
+
+#if DEBUG
+/// File-based debug logger for integration test diagnosis
+private func integrationLog(_ msg: String) {
+    guard ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") else { return }
+    let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
+    let timestamp = ISO8601DateFormatter().string(from: Date())
+    let line = "[\(timestamp)] \(msg)\n"
+    guard let data = line.data(using: .utf8) else { return }
+    if FileManager.default.fileExists(atPath: logFile.path) {
+        if let handle = try? FileHandle(forWritingTo: logFile) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            handle.closeFile()
+        }
+    } else {
+        try? data.write(to: logFile)
+    }
+}
 #endif
 
 /// ViewModel for CameraView with @Observable for reactive state management
@@ -35,6 +58,27 @@ final class CameraViewModel {
     // MARK: - Review Queue State
     var pendingReviewBooks: [PendingBookResult] = []
     var pendingBookBeingApproved: PendingBookResult?
+
+    // MARK: - Scan Complete Banner
+    struct ScanCompleteBanner: Identifiable {
+        let id = UUID()
+        let bookCount: Int
+        let thumbnailData: Data?
+    }
+    var scanCompleteBanner: ScanCompleteBanner?
+
+    // MARK: - Scan Batch Summary
+    struct ScanBatch {
+        let timestamp: Date
+        let totalBooks: Int
+        let highConfidenceCount: Int
+        let lowConfidenceCount: Int
+        let thumbnailData: Data?
+    }
+    var lastScanBatch: ScanBatch?
+
+    // MARK: - Tab Navigation
+    var requestedTab: Int?
 
     // MARK: - US-406: Active Streaming Tasks
     var activeStreamingTasks: [UUID: Task<Void, Never>] = [:]
@@ -245,10 +289,13 @@ final class CameraViewModel {
         }
 
         do {
+            e2eLogger.info("📸 Processing image data (\(imageData.count) bytes)")
             print("📸 Processing image data (\(imageData.count) bytes)")
 
             // US-409: Check if offline - if so, queue for later upload
+            e2eLogger.info("🌐 Network check: isConnected=\(self.networkMonitor.isConnected)")
             if !networkMonitor.isConnected {
+                e2eLogger.warning("📴 Offline mode - queueing scan for later upload")
                 print("📴 Offline mode - queueing scan for later upload")
 
                 // Add to processing queue with offline state
@@ -311,9 +358,17 @@ final class CameraViewModel {
             let uploadStart = CFAbsoluteTimeGetCurrent()
 
             // Use persistent device ID (stored in UserDefaults)
+            e2eLogger.info("📤 Starting upload to Talaria...")
+            #if DEBUG
+            integrationLog("UPLOAD: Starting upload to Talaria...")
+            #endif
             let (uploadedJobId, streamUrl, uploadedAuthToken) = try await talariaService.uploadScan(image: uploadData, deviceId: self.deviceId)
             jobId = uploadedJobId
             authToken = uploadedAuthToken
+            e2eLogger.info("📤 Upload success! jobId=\(uploadedJobId), streamUrl=\(streamUrl.absoluteString)")
+            #if DEBUG
+            integrationLog("UPLOAD: Success! jobId=\(uploadedJobId), streamUrl=\(streamUrl.absoluteString)")
+            #endif
 
             // NEW: Store auth token for disconnect cleanup
             if let uploadedAuthToken = uploadedAuthToken {
@@ -336,9 +391,15 @@ final class CameraViewModel {
             // Stream SSE events from Talaria (use same deviceId as upload)
             let eventStream = talariaService.streamEvents(streamUrl: streamUrl, deviceId: self.deviceId, authToken: authToken)
 
+            e2eLogger.info("📡 Starting SSE event loop...")
+            #if DEBUG
+            integrationLog("SSE: Starting event loop for streamUrl=\(streamUrl.absoluteString)")
+            #endif
+            let reviewCountBeforeStream = pendingReviewBooks.count
             for try await event in eventStream {
                 // Check for task cancellation (app backgrounding)
                 if Task.isCancelled {
+                    e2eLogger.warning("🛑 SSE stream cancelled (app backgrounding)")
                     print("🛑 SSE stream cancelled (app backgrounding)")
                     await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
                     return
@@ -346,11 +407,19 @@ final class CameraViewModel {
 
                 switch event {
                 case .progress(let message):
+                    e2eLogger.info("📡 SSE progress: \(message)")
                     print("📡 SSE progress: \(message)")
+                    #if DEBUG
+                    integrationLog("SSE: progress event: \(message)")
+                    #endif
                     updateQueueItemProgress(id: item.id, message: message)
 
                 case .result(let bookMetadata):
+                    e2eLogger.info("📚 Book result: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
                     print("📚 Book identified: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
+                    #if DEBUG
+                    integrationLog("SSE: result event: '\(bookMetadata.resolvedTitle)' by '\(bookMetadata.resolvedAuthor)'")
+                    #endif
 
                     // Store metadata on processing item for detail sheet access
                     if let index = processingQueue.firstIndex(where: { $0.id == item.id }) {
@@ -370,7 +439,11 @@ final class CameraViewModel {
 
                 case .complete(let resultsUrl, let inlineBooks):
                     let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
+                    e2eLogger.info("✅ SSE complete! duration=\(String(format: "%.1f", streamDuration))s, hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
                     print("✅ SSE stream lasted \(String(format: "%.1f", streamDuration))s")
+                    #if DEBUG
+                    integrationLog("SSE: COMPLETE event! hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
+                    #endif
 
                     var books: [BookMetadata] = []
 
@@ -415,17 +488,84 @@ final class CameraViewModel {
                     } else {
                         // Missing both inline books and resultsUrl
                         print("⚠️ No results available in completion event")
-                        updateQueueItemError(id: item.id, errorMessage: "No results available")
-                        await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
-                        if let jid = jobId {
-                            jobAuthTokens.removeValue(forKey: jid)
+                        #if DEBUG
+                        integrationLog("SSE: COMPLETE but NO RESULTS - no inline books and no resultsUrl")
+                        #endif
+
+                        // Check if books were already delivered via individual SSE result events
+                        let booksFromResultEvents = pendingReviewBooks.count - reviewCountBeforeStream
+                        if booksFromResultEvents > 0 {
+                            // Books were delivered via result events before complete fired — treat as success
+                            print("✅ \(booksFromResultEvents) book(s) already delivered via result events, treating complete as success")
+                            #if DEBUG
+                            integrationLog("SSE: COMPLETE with books from result events (\(booksFromResultEvents) books), treating as success")
+                            #endif
+
+                            // Show scan complete banner
+                            let bannerId = UUID()
+                            withAnimation(.swissSpring) {
+                                scanCompleteBanner = ScanCompleteBanner(
+                                    bookCount: booksFromResultEvents,
+                                    thumbnailData: item.thumbnailData
+                                )
+                            }
+                            // Auto-dismiss after 5 seconds (only if banner still matches)
+                            Task {
+                                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                                // Guard: only dismiss if the banner is still the same one
+                                if scanCompleteBanner?.id == bannerId {
+                                    withAnimation(.swissSpring) {
+                                        scanCompleteBanner = nil
+                                    }
+                                }
+                            }
+
+                            // Update scan batch summary header
+                            let booksFromScan = pendingReviewBooks.suffix(booksFromResultEvents)
+                            let high = booksFromScan.filter { ($0.confidence ?? 1.0) >= 0.8 }.count
+                            let low = booksFromScan.filter { ($0.confidence ?? 1.0) < 0.5 }.count
+                            lastScanBatch = ScanBatch(
+                                timestamp: Date(),
+                                totalBooks: booksFromResultEvents,
+                                highConfidenceCount: high,
+                                lowConfidenceCount: low,
+                                thumbnailData: item.thumbnailData
+                            )
+
+                            // Success - mark as done
+                            updateQueueItem(id: item.id, state: .done, message: nil)
+
+                            // Cleanup resources (non-blocking)
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+
+                            // Remove auth token (job is done)
+                            if let jid = jobId {
+                                jobAuthTokens.removeValue(forKey: jid)
+                            }
+
+                            // Auto-remove from queue after 5 seconds
+                            await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+                        } else {
+                            // Truly no books at all — treat as error
+                            #if DEBUG
+                            integrationLog("SSE: COMPLETE with no books at all - treating as error")
+                            #endif
+                            updateQueueItemError(id: item.id, errorMessage: "No results available")
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                            if let jid = jobId {
+                                jobAuthTokens.removeValue(forKey: jid)
+                            }
+                            await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
                         }
-                        await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
                         return
                     }
 
                     // Process all books
+                    let countBefore = pendingReviewBooks.count
                     for book in books {
+                        #if DEBUG
+                        integrationLog("SSE: Processing book from complete: '\(book.resolvedTitle)' by '\(book.resolvedAuthor)'")
+                        #endif
                         // Encode to raw JSON for debugging
                         let rawJSON: String?
                         if let jsonData = try? JSONEncoder().encode(book),
@@ -436,6 +576,36 @@ final class CameraViewModel {
                         }
 
                         handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext)
+                    }
+
+                    // Show scan complete banner if any books were added
+                    let booksAdded = pendingReviewBooks.count - countBefore
+                    if booksAdded > 0 {
+                        withAnimation(.swissSpring) {
+                            scanCompleteBanner = ScanCompleteBanner(
+                                bookCount: booksAdded,
+                                thumbnailData: item.thumbnailData
+                            )
+                        }
+                        // Auto-dismiss after 5 seconds
+                        Task {
+                            try? await Task.sleep(nanoseconds: 5_000_000_000)
+                            withAnimation(.swissSpring) {
+                                scanCompleteBanner = nil
+                            }
+                        }
+
+                        // Update scan batch summary header
+                        let booksFromScan = pendingReviewBooks.suffix(booksAdded)
+                        let high = booksFromScan.filter { ($0.confidence ?? 1.0) >= 0.8 }.count
+                        let low = booksFromScan.filter { ($0.confidence ?? 1.0) < 0.5 }.count
+                        lastScanBatch = ScanBatch(
+                            timestamp: Date(),
+                            totalBooks: booksAdded,
+                            highConfidenceCount: high,
+                            lowConfidenceCount: low,
+                            thumbnailData: item.thumbnailData
+                        )
                     }
 
                     // Success - mark as done
@@ -454,6 +624,9 @@ final class CameraViewModel {
 
                 case .error(let errorInfo):
                     print("❌ SSE error (jobId: \(jobId ?? "unknown")): \(errorInfo.message), retryable: \(errorInfo.retryable ?? false)")
+                    #if DEBUG
+                    integrationLog("SSE: ERROR event: \(errorInfo.message), retryable=\(errorInfo.retryable ?? false)")
+                    #endif
 
                     // Handle retryable errors with automatic retry
                     if errorInfo.retryable == true {
@@ -558,7 +731,15 @@ final class CameraViewModel {
                 }
             }
 
+            #if DEBUG
+            integrationLog("SSE: for-await loop EXITED normally (no more events). Task.isCancelled=\(Task.isCancelled)")
+            #endif
+
         } catch {
+            e2eLogger.error("❌ processCaptureWithImageData error: \(error.localizedDescription)")
+            #if DEBUG
+            integrationLog("ERROR: processCaptureWithImageData catch: \(error) - \(error.localizedDescription)")
+            #endif
             // US-408: Check if this is a rate limit error
             if let networkError = error as? NetworkError,
                case .rateLimited(let retryAfter) = networkError {
@@ -972,6 +1153,20 @@ final class CameraViewModel {
     func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, modelContext: ModelContext) {
         print("🔍 DEBUG: handleBookResult called for: \(metadata.resolvedTitle)")
 
+        // Debug logging for integration test
+        if ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") {
+            let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            let line = "[\(timestamp)] handleBookResult: title='\(metadata.title ?? "nil")' author='\(metadata.author ?? "nil")' isbn='\(metadata.isbn ?? "nil")'\n"
+            if let data = line.data(using: .utf8) {
+                if let handle = try? FileHandle(forWritingTo: logFile) {
+                    handle.seekToEndOfFile()
+                    handle.write(data)
+                    handle.closeFile()
+                }
+            }
+        }
+
         // FIX #3: Validate metadata quality before processing
         let title = (metadata.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let author = (metadata.author ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1194,6 +1389,12 @@ final class CameraViewModel {
             pendingBookMetadata = nil
             pendingRawJSON = nil
             pendingBookBeingApproved = nil
+        }
+    }
+
+    func dismissScanCompleteBanner() {
+        withAnimation(.swissSpring) {
+            scanCompleteBanner = nil
         }
     }
 

@@ -148,7 +148,7 @@ class CameraManager: ObservableObject {
 
                 // Process vision result in structured concurrency (non-detached)
                 // This maintains proper actor isolation while allowing async work
-                let result = await self.visionService.processFrame(
+                let result = self.visionService.processFrame(
                     frame.pixelBuffer, orientation: frame.orientation)
 
                 // Update UI state (already on MainActor)

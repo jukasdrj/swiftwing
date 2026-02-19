@@ -79,9 +79,12 @@ struct LibraryView: View {
         }
     }
 
-    // Use cached filtered books
+    // Use cached filtered books, with fallback to sortedBooks on initial load
     private var filteredBooks: [Book] {
-        cachedFilteredBooks
+        if cachedFilteredBooks.isEmpty && searchText.isEmpty && !showReviewNeeded && !books.isEmpty {
+            return sortedBooks
+        }
+        return cachedFilteredBooks
     }
 
     // Count of books that need review (for badge)
@@ -122,7 +125,6 @@ struct LibraryView: View {
                 }
             }
             .searchable(text: $searchText, prompt: "Search title or author")
-            .accessibilityLabel("Search books by title or author")
             .onChange(of: searchText) { updateFilteredBooks() }
             .onChange(of: showReviewNeeded) { updateFilteredBooks() }
             .onChange(of: sortOptionRaw) { updateFilteredBooks() }
@@ -135,6 +137,7 @@ struct LibraryView: View {
                             exitSelectionMode()
                         }
                         .foregroundColor(.swissText)
+                        .accessibilityIdentifier("library_cancel_selection")
                     } else {
                         Button {
                             exportLibrary()
@@ -143,6 +146,7 @@ struct LibraryView: View {
                                 .foregroundColor(.swissText)
                                 .accessibilityLabel("Export library to CSV")
                         }
+                        .accessibilityIdentifier("library_export_button")
                     }
                 }
 
@@ -162,6 +166,7 @@ struct LibraryView: View {
                             }
                         }
                         .badge(reviewNeededCount > 0 ? "\(reviewNeededCount)" : nil)
+                        .accessibilityIdentifier("library_review_filter")
                         .accessibilityLabel("Filter to show books that need review")
                         .accessibilityHint(showReviewNeeded ? "Currently showing only low-confidence books" : "Tap to show only low-confidence books")
                     }
@@ -188,6 +193,7 @@ struct LibraryView: View {
                                 .foregroundColor(.swissText)
                                 .accessibilityLabel("Sort library")
                         }
+                        .accessibilityIdentifier("library_sort_menu")
                     }
                 }
 
@@ -202,13 +208,14 @@ struct LibraryView: View {
                     }
                     .foregroundColor(.internationalOrange)
                     .disabled(!searchText.isEmpty)
+                    .accessibilityIdentifier("library_select_button")
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
         }
         .sheet(item: $selectedBook) { book in
             BookDetailSheet(book: book)
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showExportSheet) {
             if let fileURL = exportFileURL {
@@ -256,6 +263,7 @@ struct LibraryView: View {
                                 showDeleteConfirmation = true
                             }
                         )
+                        .accessibilityIdentifier("book_cell_\(book.isbn)")
                         .accessibilityLabel("\(book.title) by \(book.author)")
                         .transition(.asymmetric(insertion: .scale, removal: .opacity))
                         .onTapGesture {
@@ -315,6 +323,7 @@ struct LibraryView: View {
                 value: "\(books.count)",
                 icon: "book.fill"
             )
+            .accessibilityIdentifier("library_stats_books")
 
             // Card 2: Unique Authors
             StatCard(
@@ -322,6 +331,7 @@ struct LibraryView: View {
                 value: "\(uniqueAuthorsCount)",
                 icon: "person.fill"
             )
+            .accessibilityIdentifier("library_stats_authors")
 
             // Card 3: Most Common Format
             StatCard(
@@ -329,6 +339,7 @@ struct LibraryView: View {
                 value: mostCommonFormatText,
                 icon: "square.stack.3d.up.fill"
             )
+            .accessibilityIdentifier("library_stats_format")
         }
     }
 
@@ -365,6 +376,7 @@ struct LibraryView: View {
             Text("No Books Yet")
                 .font(.title2.bold())
                 .foregroundColor(.swissText)
+                .accessibilityIdentifier("library_empty_state")
 
             // Description with guidance
             Text("Tap the camera tab to scan your first book spine. SwiftWing will identify it automatically.")
@@ -381,48 +393,57 @@ struct LibraryView: View {
                     Label("Feature Flags", systemImage: "flag.fill")
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_feature_flags")
 
                 Button("Add Sample Book") {
                     addSampleBook()
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_add_sample")
 
                 Button("Seed Library") {
                     seedLibrary()
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_seed_library")
 
                 // US-321: Performance test data generation
                 Button("Generate 100 Books (Performance Test)") {
                     generatePerformanceTestData(count: 100)
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_generate_100")
 
                 Button("Generate 1000 Books (Stress Test)") {
                     generatePerformanceTestData(count: 1000)
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_generate_1000")
 
                 Button("Clear All Books") {
                     clearAllBooks()
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_clear_all")
 
                 Button("Test US-301 Schema") {
                     testFullMetadataBook()
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_test_schema")
 
                 Button("Test US-311 Duplicate Detection") {
                     testDuplicateDetection()
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_test_duplicates")
 
                 // US-321: Performance logging
                 Button("Log Cache Statistics") {
                     logImageCacheStats()
                 }
                 .swissGlassButton()
+                .accessibilityIdentifier("debug_log_cache")
             }
             .padding(.top, 12)
             #endif
@@ -442,6 +463,7 @@ struct LibraryView: View {
                 .font(.title3)
                 .foregroundColor(.swissText)
                 .multilineTextAlignment(.center)
+                .accessibilityIdentifier("library_no_results")
 
             Text("Try searching by title or author")
                 .font(.subheadline)
@@ -462,6 +484,7 @@ struct LibraryView: View {
                 .font(.title3)
                 .foregroundColor(.swissText)
                 .multilineTextAlignment(.center)
+                .accessibilityIdentifier("library_no_review_needed")
 
             Text("All your books have high AI confidence scores!")
                 .font(.subheadline)
@@ -486,6 +509,7 @@ struct LibraryView: View {
                     .background(Color.red)
                     .cornerRadius(12)
             }
+            .accessibilityIdentifier("library_bulk_delete")
             .accessibilityLabel("Delete \(selectedBookIDs.count) selected books")
         }
         .padding()
@@ -782,7 +806,7 @@ struct BookGridCell: View {
         VStack(spacing: 8) {
             // Cover image with 100x150 aspect ratio
             ZStack(alignment: .topLeading) {
-                AsyncImageWithLoading(url: book.coverUrl)
+                AsyncImageWithLoading(url: book.coverUrl, title: book.title, author: book.author)
                     .frame(height: 150)
                     .aspectRatio(2/3, contentMode: .fit)
                     .cornerRadius(8)
@@ -866,98 +890,68 @@ struct BookDetailSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                HStack(alignment: .top, spacing: 24) {
-                    // Left: Cover image (200x300)
-                    AsyncImageWithLoading(url: book.coverUrl)
-                        .frame(width: 200, height: 300)
-                        .cornerRadius(8)
+                VStack(spacing: 20) {
+                    // Cover image (centered, capped height)
+                    AsyncImageWithLoading(url: book.coverUrl, title: book.title, author: book.author)
+                        .frame(width: 140, height: 210)
+                        .cornerRadius(12)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
                         )
+                        .shadow(color: .black.opacity(0.5), radius: 8, y: 4)
 
-                    // Right: Metadata VStack
-                    VStack(alignment: .leading, spacing: 16) {
-                        // AI Confidence (if available)
-                        if let confidence = book.spineConfidence {
-                            HStack(spacing: 4) {
-                                Text("AI Confidence:")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                                Text("\(Int(confidence * 100))%")
-                                    .font(.caption.bold())
-                                    .foregroundColor(confidenceColor(confidence))
-                            }
-                        }
-
-                        // Title
-                        MetadataField(
-                            label: "Title",
-                            value: $editedTitle,
-                            isEditing: isEditing
-                        )
-
-                        // Author
-                        MetadataField(
-                            label: "Author",
-                            value: $editedAuthor,
-                            isEditing: isEditing
-                        )
-
-                        // ISBN
-                        MetadataField(
-                            label: "ISBN",
-                            value: $editedISBN,
-                            isEditing: isEditing
-                        )
-
-                        // Format
-                        MetadataField(
-                            label: "Format",
-                            value: $editedFormat,
-                            isEditing: isEditing,
-                            placeholder: "e.g., Hardcover, Paperback"
-                        )
-
-                        // Publisher
-                        MetadataField(
-                            label: "Publisher",
-                            value: $editedPublisher,
-                            isEditing: isEditing,
-                            placeholder: "Publisher name"
-                        )
-
-                        // Published Date
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Published Date")
+                    // AI Confidence badge (if available)
+                    if let confidence = book.spineConfidence {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(confidenceColor(confidence))
+                                .frame(width: 8, height: 8)
+                            Text("AI Confidence: \(Int(confidence * 100))%")
                                 .font(.caption)
                                 .foregroundColor(.gray)
+                        }
+                    }
 
-                            if isEditing {
-                                DatePicker(
-                                    "",
-                                    selection: Binding(
-                                        get: { editedPublishedDate ?? Date() },
-                                        set: { editedPublishedDate = $0 }
-                                    ),
-                                    displayedComponents: .date
-                                )
-                                .labelsHidden()
-                            } else {
-                                Text(editedPublishedDate?.formatted(date: .long, time: .omitted) ?? "Not set")
-                                    .font(.body)
-                                    .foregroundColor(.swissText)
+                    // Metadata fields
+                    VStack(alignment: .leading, spacing: 16) {
+                        MetadataField(label: "Title", value: $editedTitle, isEditing: isEditing)
+                        MetadataField(label: "Author", value: $editedAuthor, isEditing: isEditing)
+                        MetadataField(label: "ISBN", value: $editedISBN, isEditing: isEditing)
+
+                        // Only show optional fields if they have values OR we're editing
+                        if isEditing || !editedFormat.isEmpty {
+                            MetadataField(label: "Format", value: $editedFormat, isEditing: isEditing, placeholder: "e.g., Hardcover, Paperback")
+                        }
+                        if isEditing || !editedPublisher.isEmpty {
+                            MetadataField(label: "Publisher", value: $editedPublisher, isEditing: isEditing, placeholder: "Publisher name")
+                        }
+                        if isEditing || editedPublishedDate != nil {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Published Date")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                if isEditing {
+                                    DatePicker(
+                                        "",
+                                        selection: Binding(
+                                            get: { editedPublishedDate ?? Date() },
+                                            set: { editedPublishedDate = $0 }
+                                        ),
+                                        displayedComponents: .date
+                                    )
+                                    .labelsHidden()
+                                } else {
+                                    Text(editedPublishedDate?.formatted(date: .long, time: .omitted) ?? "Not set")
+                                        .font(.body)
+                                        .foregroundColor(.swissText)
+                                }
                             }
                         }
-
-                        // Page Count
-                        MetadataField(
-                            label: "Page Count",
-                            value: $editedPageCount,
-                            isEditing: isEditing,
-                            placeholder: "e.g., 432"
-                        )
-                        .keyboardType(.numberPad)
+                        if isEditing || !editedPageCount.isEmpty {
+                            MetadataField(label: "Page Count", value: $editedPageCount, isEditing: isEditing, placeholder: "e.g., 432")
+                                .keyboardType(.numberPad)
+                        }
 
                         // Epic 5: Reading status fields (display only, no editing UI yet)
                         if let status = book.readingStatus {
@@ -970,7 +964,6 @@ struct BookDetailSheet: View {
                                     .foregroundColor(.swissText)
                             }
                         }
-
                         if let dateRead = book.dateRead {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Date Read")
@@ -981,7 +974,6 @@ struct BookDetailSheet: View {
                                     .foregroundColor(.swissText)
                             }
                         }
-
                         if let rating = book.userRating {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Your Rating")
@@ -992,59 +984,58 @@ struct BookDetailSheet: View {
                                     .foregroundColor(.swissText)
                             }
                         }
-
-                        Spacer()
-                    }
-                }
-                .padding(24)
-
-                // Personal Notes Section (Expandable)
-                VStack(alignment: .leading, spacing: 12) {
-                    Button {
-                        withAnimation(.swissSpring) {
-                            isNotesExpanded.toggle()
-                        }
-                    } label: {
-                        HStack {
-                            Text("Personal Notes")
-                                .font(.headline)
-                                .foregroundColor(.swissText)
-
-                            Spacer()
-
-                            Image(systemName: isNotesExpanded ? "chevron.up" : "chevron.down")
-                                .foregroundColor(.gray)
-                        }
                     }
                     .padding(.horizontal, 24)
 
-                    if isNotesExpanded {
-                        TextEditor(text: $editedNotes)
-                            .frame(minHeight: 120)
-                            .padding(8)
-                            .background(Color.black.opacity(0.3))
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
-                            )
-                            .foregroundColor(.swissText)
-                            .font(.body)
-                            .scrollContentBackground(.hidden)
-                            .overlay(alignment: .topLeading) {
-                                if editedNotes.isEmpty {
-                                    Text("Add personal notes...")
-                                        .foregroundColor(.gray)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 16)
-                                        .allowsHitTesting(false)
-                                }
+                    // Personal Notes Section (Expandable)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Button {
+                            withAnimation(.swissSpring) {
+                                isNotesExpanded.toggle()
                             }
-                            .padding(.horizontal, 24)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        } label: {
+                            HStack {
+                                Text("Personal Notes")
+                                    .font(.headline)
+                                    .foregroundColor(.swissText)
+
+                                Spacer()
+
+                                Image(systemName: isNotesExpanded ? "chevron.up" : "chevron.down")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+
+                        if isNotesExpanded {
+                            TextEditor(text: $editedNotes)
+                                .frame(minHeight: 120)
+                                .padding(8)
+                                .background(Color.black.opacity(0.3))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                                )
+                                .foregroundColor(.swissText)
+                                .font(.body)
+                                .scrollContentBackground(.hidden)
+                                .overlay(alignment: .topLeading) {
+                                    if editedNotes.isEmpty {
+                                        Text("Add personal notes...")
+                                            .foregroundColor(.gray)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 16)
+                                            .allowsHitTesting(false)
+                                    }
+                                }
+                                .padding(.horizontal, 24)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
                     }
+                    .padding(.vertical, 16)
                 }
-                .padding(.vertical, 16)
+                .padding(.top, 16)
             }
             .background(Color.swissBackground)
             .navigationTitle("Book Details")
@@ -1056,11 +1047,13 @@ struct BookDetailSheet: View {
                             cancelEditing()
                         }
                         .foregroundColor(.swissText)
+                        .accessibilityIdentifier("detail_cancel_button")
                     } else {
                         Button("Close") {
                             dismiss()
                         }
                         .foregroundColor(.swissText)
+                        .accessibilityIdentifier("detail_close_button")
                     }
                 }
 
@@ -1071,11 +1064,13 @@ struct BookDetailSheet: View {
                         }
                         .foregroundColor(.internationalOrange)
                         .bold()
+                        .accessibilityIdentifier("detail_save_button")
                     } else {
                         Button("Edit") {
                             isEditing = true
                         }
                         .foregroundColor(.internationalOrange)
+                        .accessibilityIdentifier("detail_edit_button")
                     }
                 }
             }

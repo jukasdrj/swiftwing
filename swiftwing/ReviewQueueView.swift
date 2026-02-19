@@ -44,6 +44,12 @@ struct ReviewQueueView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
+                            // Scan batch summary header
+                            if let batch = viewModel.lastScanBatch {
+                                ScanBatchHeaderView(batch: batch)
+                                    .padding(.bottom, 8)
+                            }
+
                             // US-B3: Processing items section (at top for immediate visibility)
                             if !viewModel.processingQueue.isEmpty {
                                 SectionHeader(
@@ -165,7 +171,7 @@ struct ReviewQueueView: View {
                     )
                     if let index = viewModel.processingQueue.firstIndex(where: { $0.id == item.id })
                     {
-                        withAnimation(.swissSpring) {
+                        let _ = withAnimation(.swissSpring) {
                             viewModel.processingQueue.remove(at: index)
                         }
                     }
@@ -178,6 +184,7 @@ struct ReviewQueueView: View {
                             viewModel.approveAllBooks(modelContext: modelContext)
                         }
                         .foregroundColor(.internationalOrange)
+                        .accessibilityIdentifier("review_approve_all")
                     }
                 }
             }
@@ -474,6 +481,7 @@ struct ReviewCardView: View {
                             .background(Color.internationalOrange)
                             .cornerRadius(8)
                     }
+                    .accessibilityIdentifier("review_approve_button")
 
                     // Reject Button
                     Button(action: onReject) {
@@ -487,6 +495,7 @@ struct ReviewCardView: View {
                                     .stroke(Color.swissText, lineWidth: 1)
                             )
                     }
+                    .accessibilityIdentifier("review_reject_button")
                 }
             }
         }
@@ -519,6 +528,69 @@ struct ReviewCardView: View {
         } else {
             return ("xmark.octagon.fill", .red, "\(Int(confidence * 100))%")
         }
+    }
+}
+
+// MARK: - Scan Batch Header
+
+struct ScanBatchHeaderView: View {
+    let batch: CameraViewModel.ScanBatch
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Scan thumbnail
+            if let data = batch.thumbnailData, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.internationalOrange.opacity(0.2))
+                    .frame(width: 48, height: 48)
+                    .overlay(
+                        Image(systemName: "camera.fill")
+                            .foregroundColor(.internationalOrange)
+                    )
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Last Scan")
+                    .font(.headline)
+                    .foregroundColor(.swissText)
+
+                HStack(spacing: 8) {
+                    Text("\(batch.totalBooks) book\(batch.totalBooks == 1 ? "" : "s")")
+                        .font(.subheadline.bold())
+                        .foregroundColor(.internationalOrange)
+
+                    if batch.highConfidenceCount > 0 {
+                        Label("\(batch.highConfidenceCount) ready", systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+
+                    if batch.lowConfidenceCount > 0 {
+                        Label("\(batch.lowConfidenceCount) review", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                }
+
+                Text(batch.timestamp.formatted(.relative(presentation: .named)))
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .swissGlassCard()
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.internationalOrange.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 

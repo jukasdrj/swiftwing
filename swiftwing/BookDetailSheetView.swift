@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-struct BookDetailSheetView: View {
+struct ProcessingItemDetailSheet: View {
     let item: ProcessingItem
     let onSave: (String, String, String?) -> Void
 
@@ -17,7 +17,6 @@ struct BookDetailSheetView: View {
     init(item: ProcessingItem, onSave: @escaping (String, String, String?) -> Void) {
         self.item = item
         self.onSave = onSave
-        // Use book metadata from Talaria results when available
         _editedTitle = State(initialValue: item.bookMetadata?.title ?? "")
         _editedAuthor = State(initialValue: item.bookMetadata?.author ?? "")
     }
@@ -113,6 +112,7 @@ struct BookDetailSheetView: View {
                         dismiss()
                     }
                     .foregroundColor(.swissText)
+                    .accessibilityIdentifier("processing_detail_discard")
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
@@ -122,6 +122,7 @@ struct BookDetailSheetView: View {
                     }
                     .foregroundColor(.internationalOrange)
                     .disabled(editedTitle.isEmpty || editedAuthor.isEmpty)
+                    .accessibilityIdentifier("processing_detail_save")
                 }
             }
         }
@@ -153,7 +154,7 @@ struct BookDetailSheetView: View {
         return i
     }()
 
-    BookDetailSheetView(
+    ProcessingItemDetailSheet(
         item: item,
         onSave: { title, author, isbn in
             print("Saved: \(title) by \(author), ISBN: \(isbn ?? "none")")
