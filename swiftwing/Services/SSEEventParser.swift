@@ -28,7 +28,7 @@ import Foundation
 /// ```swift
 /// let parser = SSEEventParser()
 /// let event = try parser.parse(event: "progress", data: #"{"message":"Reading..."}"#)
-/// // event == .progress("Reading...")
+/// // event == .progress(ProgressInfo(message: "Reading...", ...))
 /// ```
 public struct SSEEventParser: Sendable {
     public init() {}
@@ -43,15 +43,23 @@ public struct SSEEventParser: Sendable {
     public func parse(event: String, data: String) throws -> SSEEvent {
         switch event {
         case "progress":
-            // Progress event with optional message field
+            // Progress event with rich progress data
             if let jsonData = data.data(using: .utf8),
                let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
                 let message = json["message"] as? String
                     ?? json["stage"] as? String
                     ?? "Processing..."
-                return .progress(message)
+                let progress = json["progress"] as? Double
+                let processedCount = json["processedCount"] as? Int
+                let totalCount = json["totalCount"] as? Int
+                return .progress(ProgressInfo(
+                    message: message,
+                    progress: progress,
+                    processedCount: processedCount,
+                    totalCount: totalCount
+                ))
             } else {
-                return .progress("Processing...")
+                return .progress(ProgressInfo(message: "Processing...", progress: nil, processedCount: nil, totalCount: nil))
             }
 
         case "result":
@@ -79,15 +87,15 @@ public struct SSEEventParser: Sendable {
             return .result(metadata)
 
         case "complete", "completed":
-            // Extract resultsUrl and optional books from completion event
+            // Extract resultsUrl, optional books, summary stats, and duration from completion event
             guard let jsonData = data.data(using: .utf8) else {
-                return .complete(resultsUrl: nil, books: nil)
+                return .complete(resultsUrl: nil, books: nil, summary: nil, duration: nil)
             }
 
             if let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
                 let resultsUrl = json["resultsUrl"] as? String
 
-                // Try to decode inline books array if present
+                // Decode inline books
                 var books: [BookMetadata]?
                 if let booksArray = json["books"] as? [[String: Any]] {
                     let decoder = JSONDecoder()
@@ -97,13 +105,37 @@ public struct SSEEventParser: Sendable {
                     }
                 }
 
+                // Extract summary stats
+                var summary: ScanSummary?
+                if let totalDetected = json["totalDetected"] as? Int,
+                   let totalUnique = json["totalUnique"] as? Int {
+                    summary = ScanSummary(
+                        totalDetected: totalDetected,
+                        totalUnique: totalUnique,
+                        approved: json["approved"] as? Int ?? 0,
+                        needsReview: json["needsReview"] as? Int ?? 0
+                    )
+                }
+
+                // Extract duration
+                var duration: ScanDuration?
+                if let durationDict = json["duration"] as? [String: Any] {
+                    duration = ScanDuration(
+                        totalMs: durationDict["totalMs"] as? Int,
+                        uploadMs: durationDict["uploadMs"] as? Int,
+                        geminiMs: durationDict["geminiMs"] as? Int,
+                        enrichmentMs: durationDict["enrichmentMs"] as? Int,
+                        cleanupMs: durationDict["cleanupMs"] as? Int
+                    )
+                }
+
                 if let resultsUrl = resultsUrl {
                     print("✅ SSE: Completed with results at: \(resultsUrl)")
                 }
-                return .complete(resultsUrl: resultsUrl, books: books)
+                return .complete(resultsUrl: resultsUrl, books: books, summary: summary, duration: duration)
             } else {
                 print("⚠️ SSE: Completed without resultsUrl or books")
-                return .complete(resultsUrl: nil, books: nil)
+                return .complete(resultsUrl: nil, books: nil, summary: nil, duration: nil)
             }
 
         case "error", "failed":

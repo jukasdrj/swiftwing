@@ -245,28 +245,31 @@ Font.system()          // San Francisco Pro for UI (native)
 **API Endpoints:**
 - `POST /v3/jobs/scans` - Upload image, returns `{ jobId, sseUrl, authToken }`
 - `GET {sseUrl}` - SSE stream for real-time progress (auth required if token provided)
-- `DELETE /v3/jobs/scans/{jobId}/cleanup` - Cleanup after completion
+- `DELETE /v3/jobs/scans/{jobId}/cleanup` - Cleanup after completion **(no-op since Feb 2026; images auto-deleted)**
 
 **SSE Event Types:**
 ```swift
-// Server-Sent Events (RFC 9457 compliant error handling)
-event: progress       // {"stage": "analyzing_image", "progress": 25}
-event: result         // {"book": {...}, "enrichmentStatus": "success"}
+// Server-Sent Events
+event: progress       // {"message": "Processing...", "progress": 0.35, "processedCount": 1, "totalCount": 3}
+event: result         // {"book": {title, author, isbn, ...}, "processedCount": 1, "totalCount": 7}
+event: completed      // {"totalDetected": 7, "books": [...], "duration": {"totalMs": 17400, ...}}
 event: ping           // Keep-alive heartbeat (no data)
 event: enrichment_degraded  // Graceful degradation (circuit breaker open)
-event: complete       // Job finished successfully
-event: error          // {"code": "...", "detail": "...", "retryable": true}
+event: error          // {"error": "...", "code": "...", "retryable": true}
 ```
 
-**Known API Inconsistencies (Documented):**
+**Known API Inconsistencies (Updated Feb 2026):**
 
-SwiftWing handles 5 known inconsistencies in Talaria API:
+SwiftWing handles these Talaria API quirks:
 
-1. **Status Format Mismatch**: SSE events use `ScanStage` enum but status endpoint returns `JobStatus`. Always check both.
-2. **Retry Field Names**: `Retry-After` header uses seconds but response body has `retryAfterMs` (milliseconds). Handler converts automatically.
-3. **Field Naming**: Problem details use camelCase (non-standard) instead of snake_case.
-4. **Enrichment Errors**: When enrichment endpoints fail, API returns `circuitOpen` status rather than error (graceful degradation).
-5. **Error Metadata**: Not all error codes documented in OpenAPI spec. Check Talaria docs for authoritative list.
+1. **Retry Field Names**: `Retry-After` header uses seconds but response body has `retryAfterMs` (milliseconds). Handler converts automatically.
+2. **Field Naming**: Problem details use camelCase (non-standard) instead of snake_case.
+3. **Enrichment Errors**: When enrichment endpoints fail, API returns `circuitOpen` status rather than error (graceful degradation).
+
+**Resolved (Feb 2026):**
+- ~~publicationYear format mismatch~~ — Now always Int
+- ~~Status Format Mismatch~~ — SSE and status endpoint now use consistent schemas
+- ~~Cleanup endpoint auth issues~~ — Endpoint is now a documented no-op
 
 **Implementation Pattern (TalariaService):**
 ```swift
@@ -318,8 +321,9 @@ For comprehensive Talaria API documentation beyond this file:
 - **Talaria API Documentation:** Available at https://api.oooefam.net/docs (external, requires access)
 - **RFC 9457 Problem Details:** https://tools.ietf.org/html/rfc9457 (error format standard)
 - **SwiftWing Integration Tests:** `swiftwingTests/TalariaIntegrationTests.swift` (real API examples)
+- **Talaria SwiftWing Integration Guide:** `/Users/juju/dev_repos/talaria/docs/SWIFTWING_INTEGRATION.md` (authoritative, Feb 2026)
 
-For details on the 5 known API inconsistencies and workarounds:
+For details on the known API inconsistencies and workarounds:
 - See `Services/NetworkTypes.swift` doc comments on `ProblemDetails` and error enums
 - See `Services/TalariaService.swift` implementation comments on status mapping
 
@@ -1207,6 +1211,6 @@ Create `.claude/settings.json` for project-specific configuration:
 
 ---
 
-**Last Updated:** January 22, 2026
+**Last Updated:** February 20, 2026
 **Claude Code Features:** Skills, PAL MCP, Planning-with-Files, Hooks (v2.0.64+)
 **Setup Guide:** This file covers configuration; implement `.claude/` directory as needed

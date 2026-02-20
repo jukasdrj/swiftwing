@@ -239,14 +239,23 @@ public struct UploadResponseData: Codable, Sendable {
 
 // MARK: - Book Metadata
 
+/// Bounding box for detected book spine on shelf image
+public struct BoundingBox: Codable, Sendable, Equatable {
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+}
+
 /// Book metadata returned from Talaria AI enrichment
 ///
 /// **Note:** `title` and `author` are optional because Talaria can return null
 /// for both when enrichment fails (enrichmentStatus: "review_needed").
 /// Use `resolvedTitle` and `resolvedAuthor` at the UI/display layer.
 ///
-/// **Field mapping:** Talaria may send `publicationYear` (number) instead of
-/// `publishedDate` (string). Custom decoding handles both transparently.
+/// **Field mapping (Feb 2026):** Talaria sends `publicationYear` as Int.
+/// Custom decoding converts to `publishedDate` string for backward compatibility.
+/// Fields not in API response (pageCount, format) are kept as optional for future use.
 public struct BookMetadata: Sendable, Equatable {
     let title: String?
     let author: String?
@@ -257,6 +266,7 @@ public struct BookMetadata: Sendable, Equatable {
     let pageCount: Int?
     let format: String?
     let confidence: Double?
+    let boundingBox: BoundingBox?
     let enrichmentStatus: EnrichmentStatus?
 
     /// Title with fallback for display purposes
@@ -274,6 +284,7 @@ public struct BookMetadata: Sendable, Equatable {
         pageCount: Int? = nil,
         format: String? = nil,
         confidence: Double? = nil,
+        boundingBox: BoundingBox? = nil,
         enrichmentStatus: EnrichmentStatus? = nil
     ) {
         self.title = title
@@ -285,6 +296,7 @@ public struct BookMetadata: Sendable, Equatable {
         self.pageCount = pageCount
         self.format = format
         self.confidence = confidence
+        self.boundingBox = boundingBox
         self.enrichmentStatus = enrichmentStatus
     }
 }
@@ -293,7 +305,7 @@ extension BookMetadata: Codable {
     private enum CodingKeys: String, CodingKey {
         case title, author, isbn, coverUrl, publisher
         case publishedDate, publicationYear
-        case pageCount, format, confidence, enrichmentStatus
+        case pageCount, format, confidence, boundingBox, enrichmentStatus
     }
 
     public init(from decoder: Decoder) throws {
@@ -309,6 +321,7 @@ extension BookMetadata: Codable {
         coverUrl = try? container.decodeIfPresent(URL.self, forKey: .coverUrl)
         pageCount = try? container.decodeIfPresent(Int.self, forKey: .pageCount)
         confidence = try? container.decodeIfPresent(Double.self, forKey: .confidence)
+        boundingBox = try? container.decodeIfPresent(BoundingBox.self, forKey: .boundingBox)
         enrichmentStatus = try? container.decodeIfPresent(EnrichmentStatus.self, forKey: .enrichmentStatus)
 
         // Handle publishedDate (string) vs publicationYear (number or string) mismatch.
@@ -336,11 +349,37 @@ extension BookMetadata: Codable {
         try container.encodeIfPresent(pageCount, forKey: .pageCount)
         try container.encodeIfPresent(format, forKey: .format)
         try container.encodeIfPresent(confidence, forKey: .confidence)
+        try container.encodeIfPresent(boundingBox, forKey: .boundingBox)
         try container.encodeIfPresent(enrichmentStatus, forKey: .enrichmentStatus)
     }
 }
 
 // MARK: - SSE Events
+
+/// Rich progress information from SSE progress events
+public struct ProgressInfo: Sendable, Equatable {
+    let message: String
+    let progress: Double?        // 0.0 - 1.0
+    let processedCount: Int?
+    let totalCount: Int?
+}
+
+/// Summary statistics from a completed scan
+public struct ScanSummary: Sendable, Equatable {
+    let totalDetected: Int
+    let totalUnique: Int
+    let approved: Int
+    let needsReview: Int
+}
+
+/// Timing breakdown for a completed scan
+public struct ScanDuration: Codable, Sendable, Equatable {
+    let totalMs: Int?
+    let uploadMs: Int?
+    let geminiMs: Int?
+    let enrichmentMs: Int?
+    let cleanupMs: Int?
+}
 
 /// Enrichment degraded information
 public struct EnrichmentDegradedInfo: Codable, Sendable {
@@ -362,13 +401,13 @@ public struct SSEErrorInfo: Codable, Sendable {
 
 /// Server-Sent Event types from Talaria streaming API
 public enum SSEEvent: Sendable {
-    case progress(String)           // Real-time status: "Looking...", "Reading...", "Enriching..."
+    case progress(ProgressInfo)     // Real-time status with optional progress fraction and counts
     case result(BookMetadata)       // Book metadata from AI (legacy - some API versions send in stream)
-    case complete(resultsUrl: String?, books: [BookMetadata]?)  // Job finished successfully, fetch results from URL or use inline books
+    case complete(resultsUrl: String?, books: [BookMetadata]?, summary: ScanSummary?, duration: ScanDuration?)  // Job finished successfully
     case error(SSEErrorInfo)        // Job failed with error information
     case canceled                   // Job was canceled by user or system
-    case segmented(SegmentedPreview)    // NEW: segmented image with detected regions
-    case bookProgress(BookProgressInfo) // NEW: per-book processing progress
+    case segmented(SegmentedPreview)    // Segmented image with detected regions
+    case bookProgress(BookProgressInfo) // Per-book processing progress
     case enrichmentDegraded(EnrichmentDegradedInfo) // Enrichment degraded event
     case ping                       // SSE keepalive ping
 }

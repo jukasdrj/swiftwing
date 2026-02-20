@@ -163,13 +163,13 @@ actor ScanJobCoordinator {
             }
 
             switch event {
-            case .progress(let message):
-                e2eLogger.info("📡 SSE progress: \(message)")
-                print("📡 SSE progress: \(message)")
+            case .progress(let info):
+                e2eLogger.info("📡 SSE progress: \(info.message)")
+                print("📡 SSE progress: \(info.message)")
                 #if DEBUG
-                integrationLog("SSE: progress event: \(message)")
+                integrationLog("SSE: progress event: \(info.message)")
                 #endif
-                await callbacks.onProgress(message)
+                await callbacks.onProgress(info.message)
 
             case .result(let bookMetadata):
                 e2eLogger.info("📚 Book result: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
@@ -191,10 +191,12 @@ actor ScanJobCoordinator {
 
                 await callbacks.onBookResult(bookMetadata, rawJSON)
 
-            case .complete(let resultsUrl, let inlineBooks):
+            case .complete(let resultsUrl, let inlineBooks, let summary, let duration):
                 let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
                 e2eLogger.info("✅ SSE complete! duration=\(String(format: "%.1f", streamDuration))s, hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
                 print("✅ SSE stream lasted \(String(format: "%.1f", streamDuration))s")
+                if let summary { print("📊 Scan summary: \(summary.totalDetected) detected, \(summary.totalUnique) unique") }
+                if let duration, let totalMs = duration.totalMs { print("⏱️ Scan duration: \(totalMs)ms") }
                 #if DEBUG
                 integrationLog("SSE: COMPLETE event! hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
                 #endif

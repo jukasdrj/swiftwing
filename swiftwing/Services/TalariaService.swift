@@ -416,8 +416,9 @@ actor TalariaService {
     ///   - authToken: Optional authentication token from upload response
     /// - Throws: NetworkError on failure
     ///
-    /// Sends DELETE request to free server resources after scan completion.
-    /// Should be called after receiving .complete or .error SSE events.
+    /// **Note (Feb 2026):** This endpoint is a no-op on the server side — R2 images
+    /// are automatically deleted after Gemini processing. The call is kept for
+    /// forward compatibility. Non-200 responses (including 401) are harmless.
     func cleanup(jobId: String, authToken: String? = nil) async throws {
         // Construct cleanup endpoint
         guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)/cleanup") else {
