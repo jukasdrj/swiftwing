@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import OSLog
 
 @main
 struct SwiftwingApp: App {
@@ -12,6 +13,8 @@ struct SwiftwingApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
+            Logger(subsystem: "com.ooheynerds.swiftwing", category: "app-init")
+                .fault("Could not create ModelContainer: \(error)")
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()

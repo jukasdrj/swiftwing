@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Foundation
 
 /// Smart capture guidance overlay that displays real-time feedback to users
 /// during camera capture. Uses Swiss Glass design system with smooth animations.
@@ -169,9 +168,10 @@ private struct CaptureGuidanceAnimationPreview: View {
             .spineDetected
         ]
 
-        var currentIndex = 0
-        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
-            Task { @MainActor in
+        Task { @MainActor in
+            var currentIndex = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
                 currentIndex = (currentIndex + 1) % states.count
                 currentGuidance = states[currentIndex]
             }
