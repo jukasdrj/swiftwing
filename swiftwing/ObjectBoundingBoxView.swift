@@ -47,16 +47,39 @@ struct ObjectBoundingBoxView: View {
         imageSize: CGSize,
         viewSize: CGSize
     ) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
+
+        // Adjust imageSize for orientation if needed.
+        // Assuming the app is Portrait and camera sensor is Landscape (standard).
+        var effectiveImageSize = imageSize
+        if viewSize.height > viewSize.width && imageSize.width > imageSize.height {
+            effectiveImageSize = CGSize(width: imageSize.height, height: imageSize.width)
+        }
+
+        // Calculate Aspect Fill scale
+        let widthRatio = viewSize.width / effectiveImageSize.width
+        let heightRatio = viewSize.height / effectiveImageSize.height
+        let scale = max(widthRatio, heightRatio)
+
+        let scaledWidth = effectiveImageSize.width * scale
+        let scaledHeight = effectiveImageSize.height * scale
+
+        let offsetX = (viewSize.width - scaledWidth) / 2
+        let offsetY = (viewSize.height - scaledHeight) / 2
+
         // Vision uses bottom-left origin, SwiftUI uses top-left
-        let flippedY = 1.0 - visionRect.origin.y - visionRect.height
+        // Normalized coordinates relative to the effective image
+        let x = visionRect.origin.x * effectiveImageSize.width
+        let y = (1.0 - visionRect.maxY) * effectiveImageSize.height
+        let width = visionRect.width * effectiveImageSize.width
+        let height = visionRect.height * effectiveImageSize.height
 
-        // Scale from normalized [0,1] to view points
-        let x = visionRect.origin.x * viewSize.width
-        let y = flippedY * viewSize.height
-        let width = visionRect.width * viewSize.width
-        let height = visionRect.height * viewSize.height
-
-        return CGRect(x: x, y: y, width: width, height: height)
+        return CGRect(
+            x: x * scale + offsetX,
+            y: y * scale + offsetY,
+            width: width * scale,
+            height: height * scale
+        )
     }
 
     /// Line width based on confidence (high confidence = thicker border)

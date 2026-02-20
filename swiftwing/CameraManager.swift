@@ -12,6 +12,7 @@ import Vision
 class CameraManager: ObservableObject {
     @Published private(set) var captureSession: AVCaptureSession?
     @Published var currentZoomFactor: CGFloat = 1.0
+    @Published var resolution: CGSize = .zero
     private var photoOutput: AVCapturePhotoOutput?
     private var videoOutput: AVCaptureVideoDataOutput?
     private(set) var videoDevice: AVCaptureDevice?  // Exposed for RotationCoordinator
@@ -120,6 +121,11 @@ class CameraManager: ObservableObject {
         session.commitConfiguration()
         self.captureSession = session
         self.isConfigured = true
+
+        if let format = camera.activeFormat.formatDescription {
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format)
+            self.resolution = CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+        }
 
         observeNotifications()
 
