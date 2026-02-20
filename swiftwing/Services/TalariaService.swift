@@ -348,14 +348,16 @@ actor TalariaService {
                                             // Continue processing stream
                                             break
                                         }
+                                    } catch SSEError.unknownEvent(let name) {
+                                        // Silently skip unknown events — forward compatibility.
+                                        // New server event types must not crash older app builds.
+                                        print("ℹ️ SSE: Skipping unknown event type '\(name)'")
                                     } catch {
-                                        print("❌ SSE: Failed to parse event '\(event)': \(error)")
-                                        continuation.yield(.error(SSEErrorInfo(
-                                            message: "Failed to parse event: \(error.localizedDescription)",
-                                            code: nil,
-                                            retryable: false,
-                                            jobId: nil
-                                        )))
+                                        // Log parse failure but don't kill the stream —
+                                        // a single malformed event shouldn't abort the whole scan.
+                                        // The complete event with resultsUrl is the primary delivery mechanism.
+                                        print("⚠️ SSE: Failed to parse event '\(event)': \(error) — skipping")
+                                        print("   Raw data: \(data.prefix(200))")
                                     }
                                 }
 
@@ -450,6 +452,11 @@ actor TalariaService {
             case 200, 204:
                 // Success
                 print("✅ Cleanup successful for job: \(jobId)")
+                return
+
+            case 401:
+                // Auth token expired or invalid — job likely already cleaned up server-side
+                print("ℹ️ Cleanup auth expired (401) for job: \(jobId) — treating as success")
                 return
 
             case 404:
@@ -550,29 +557,42 @@ actor TalariaService {
             throw NetworkError.serverError(httpResponse.statusCode)
         }
 
-        // Parse JSON response (optimized direct decode)
-        // Expected format: {"success": Bool, "data": {"results": [BookMetadata, ...]}}
-        struct ResultsData: Codable {
-            let results: [BookMetadata]
-        }
-        struct ResultsResponse: Codable {
-            let success: Bool
-            let data: ResultsData
-        }
-
+        // Parse JSON response
+        // Talaria may return books under "results" or "books" key:
+        //   Format A: {"success": true, "data": {"results": [BookMetadata, ...]}}
+        //   Format B: {"success": true, "data": {"books": [BookMetadata, ...]}}
         let decoder = JSONDecoder()
 
         do {
-            let response = try decoder.decode(ResultsResponse.self, from: data)
-            print("✅ Fetched \(response.data.results.count) books from results URL")
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let dataObj = json["data"] as? [String: Any] else {
+                print("❌ Results fetch: Missing top-level data object")
+                throw NetworkError.invalidResponse
+            }
 
-            // Log each book
-            for (index, book) in response.data.results.enumerated() {
+            // Try "results" key first, then "books" (OpenAPI spec uses "books")
+            let booksArray: [[String: Any]]
+            if let results = dataObj["results"] as? [[String: Any]] {
+                booksArray = results
+            } else if let books = dataObj["books"] as? [[String: Any]] {
+                booksArray = books
+            } else {
+                print("❌ Results fetch: No 'results' or 'books' key in data")
+                throw NetworkError.invalidResponse
+            }
+
+            let booksData = try JSONSerialization.data(withJSONObject: booksArray)
+            let books = try decoder.decode([BookMetadata].self, from: booksData)
+            print("✅ Fetched \(books.count) books from results URL")
+
+            for (index, book) in books.enumerated() {
                 print("  ✅ Book \(index + 1): \(book.resolvedTitle) by \(book.resolvedAuthor)")
             }
 
-            return response.data.results
+            return books
 
+        } catch let error as NetworkError {
+            throw error
         } catch {
             print("❌ Results fetch: Failed to decode response - \(error)")
             throw NetworkError.invalidResponse

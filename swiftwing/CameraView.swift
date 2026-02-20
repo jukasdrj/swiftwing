@@ -296,7 +296,7 @@ struct CameraView: View {
                 }
 
                 debugLog("INJECT_TEST_IMAGE: Starting test image injection")
-                debugLog("INJECT_TEST_IMAGE: modelContext available = \(modelContext != nil)")
+                debugLog("INJECT_TEST_IMAGE: modelContext available = true")
 
                 let imageData: Data?
                 if let bundleUrl = Bundle.main.url(forResource: "test_book_stack", withExtension: "jpg") {

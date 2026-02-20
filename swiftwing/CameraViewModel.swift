@@ -127,9 +127,13 @@ final class CameraViewModel {
     // MARK: - Device Identity
     private let deviceId: String
 
+    // MARK: - Talaria Service (single shared instance)
+    private let talariaService: TalariaService
+
     // MARK: - Initialization
-    init(deviceId: String = DeviceIdentifier.current) {
+    init(deviceId: String = DeviceIdentifier.current, talariaService: TalariaService? = nil) {
         self.deviceId = deviceId
+        self.talariaService = talariaService ?? TalariaService(deviceId: deviceId)
     }
 
     // MARK: - Camera Setup
@@ -265,7 +269,9 @@ final class CameraViewModel {
 
             // Process with injected modelContext
             guard let modelContext = modelContext else {
-                fatalError("ModelContext not injected into ViewModel")
+                print("❌ ModelContext not injected — cannot process capture")
+                await showProcessingErrorOverlay("Internal error: storage unavailable. Please restart the app.")
+                return
             }
 
             await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
@@ -281,7 +287,6 @@ final class CameraViewModel {
         var tempFileURL: URL?
         var jobId: String?
         var authToken: String?
-        let talariaService = TalariaService()
 
         // Cleanup task tracker when done
         defer {
@@ -401,7 +406,7 @@ final class CameraViewModel {
                 if Task.isCancelled {
                     e2eLogger.warning("🛑 SSE stream cancelled (app backgrounding)")
                     print("🛑 SSE stream cancelled (app backgrounding)")
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
                     return
                 }
 
@@ -536,7 +541,7 @@ final class CameraViewModel {
                             updateQueueItem(id: item.id, state: .done, message: nil)
 
                             // Cleanup resources (non-blocking)
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
 
                             // Remove auth token (job is done)
                             if let jid = jobId {
@@ -551,7 +556,7 @@ final class CameraViewModel {
                             integrationLog("SSE: COMPLETE with no books at all - treating as error")
                             #endif
                             updateQueueItemError(id: item.id, errorMessage: "No results available")
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
                             if let jid = jobId {
                                 jobAuthTokens.removeValue(forKey: jid)
                             }
@@ -581,17 +586,20 @@ final class CameraViewModel {
                     // Show scan complete banner if any books were added
                     let booksAdded = pendingReviewBooks.count - countBefore
                     if booksAdded > 0 {
+                        let bannerId = UUID()
                         withAnimation(.swissSpring) {
                             scanCompleteBanner = ScanCompleteBanner(
                                 bookCount: booksAdded,
                                 thumbnailData: item.thumbnailData
                             )
                         }
-                        // Auto-dismiss after 5 seconds
+                        // Auto-dismiss after 5 seconds (only if banner still matches)
                         Task {
                             try? await Task.sleep(nanoseconds: 5_000_000_000)
-                            withAnimation(.swissSpring) {
-                                scanCompleteBanner = nil
+                            if scanCompleteBanner?.id == bannerId {
+                                withAnimation(.swissSpring) {
+                                    scanCompleteBanner = nil
+                                }
                             }
                         }
 
@@ -612,7 +620,7 @@ final class CameraViewModel {
                     updateQueueItem(id: item.id, state: .done, message: nil)
 
                     // Cleanup resources (non-blocking)
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
 
                     // Remove auth token (job is done)
                     if let jid = jobId {
@@ -645,7 +653,7 @@ final class CameraViewModel {
                             }
 
                             // Cleanup partial resources
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
                             if let jid = jobId {
                                 jobAuthTokens.removeValue(forKey: jid)
                             }
@@ -664,7 +672,7 @@ final class CameraViewModel {
                             let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
                             impactFeedback.impactOccurred()
 
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
                             if let jid = jobId {
                                 jobAuthTokens.removeValue(forKey: jid)
                             }
@@ -679,7 +687,7 @@ final class CameraViewModel {
                         let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
                         impactFeedback.impactOccurred()
 
-                        await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                        await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
 
                         // Remove auth token (job is done)
                         if let jid = jobId {
@@ -692,7 +700,7 @@ final class CameraViewModel {
 
                     updateQueueItem(id: item.id, state: .error, message: "Canceled")
 
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
 
                     // Remove auth token (job is done)
                     if let jid = jobId {
@@ -776,7 +784,7 @@ final class CameraViewModel {
                 let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
                 impactFeedback.impactOccurred()
 
-                await performCleanup(jobId: jobId, tempFileURL: tempFileURL, talariaService: talariaService, authToken: authToken)
+                await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
 
                 await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
             }
@@ -882,7 +890,8 @@ final class CameraViewModel {
         impactFeedback.impactOccurred()
 
         guard let ctx = modelContext else {
-            fatalError("ModelContext not injected into ViewModel")
+            print("❌ ModelContext not injected — cannot retry failed item")
+            return
         }
 
         let itemId = UUID()
@@ -910,7 +919,8 @@ final class CameraViewModel {
 
                     let queuedScans = await rateLimitState.dequeueAllScans()
                     guard let ctx = modelContext else {
-                        fatalError("ModelContext not injected into ViewModel")
+                        print("❌ ModelContext not injected — cannot process rate-limit queue")
+                        break
                     }
                     for imageData in queuedScans {
                         let itemId = UUID()
@@ -949,8 +959,8 @@ final class CameraViewModel {
         // Fire-and-forget cleanup calls to backend with stored auth tokens
         for activeJobId in activeJobIds {
             let storedAuthToken = jobAuthTokens[activeJobId]
+            let service = talariaService
             Task {
-                let service = TalariaService()
                 do {
                     try await service.cleanup(jobId: activeJobId, authToken: storedAuthToken)
                     print("Backend cleanup sent for disconnected job: \(activeJobId)")
@@ -990,7 +1000,7 @@ final class CameraViewModel {
     private func showEnrichmentDegradedBanner(reason: String?) async {
         enrichmentDegradedMessage = "Some book details may be limited (enrichment service degraded)"
         if let reason = reason {
-            enrichmentDegradedMessage! += ": \(reason)"
+            enrichmentDegradedMessage = (enrichmentDegradedMessage ?? "") + ": \(reason)"
         }
 
         withAnimation(.swissSpring) {
@@ -1065,7 +1075,8 @@ final class CameraViewModel {
             }
 
             guard let ctx = modelContext else {
-                fatalError("ModelContext not injected into ViewModel")
+                print("❌ ModelContext not injected — cannot upload queued scans")
+                return
             }
 
             for (metadata, imageData) in queuedScans {
@@ -1110,8 +1121,6 @@ final class CameraViewModel {
         updateQueueItem(id: item.id, state: .analyzing, message: "Retrying...")
 
         Task {
-            let talariaService = TalariaService()
-
             do {
                 let books = try await talariaService.fetchResults(
                     resultsUrl: context.resultsUrl,
@@ -1422,7 +1431,7 @@ final class CameraViewModel {
     }
 
     // MARK: - Resource Cleanup
-    private func performCleanup(jobId: String?, tempFileURL: URL?, talariaService: TalariaService, authToken: String? = nil) async {
+    private func performCleanup(jobId: String?, tempFileURL: URL?, authToken: String? = nil) async {
         if let jobId = jobId {
             do {
                 try await talariaService.cleanup(jobId: jobId, authToken: authToken)

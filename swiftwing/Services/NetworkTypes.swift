@@ -199,13 +199,27 @@ public enum ScanStage: String, Codable, Sendable {
 ///     showManualReviewOverlay(book)
 /// }
 /// ```
-public enum EnrichmentStatus: String, Codable, Sendable {
+public enum EnrichmentStatus: String, Sendable {
     case pending
     case success
     case notFound = "not_found"
     case error
     case circuitOpen = "circuit_open"
     case reviewNeeded = "review_needed"
+    // OpenAPI spec values (map to closest equivalent)
+    case complete
+    case partial
+    case degraded
+    case failed
+}
+
+extension EnrichmentStatus: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        // Accept any known value, default to .pending for unknown
+        self = EnrichmentStatus(rawValue: rawValue) ?? .pending
+    }
 }
 
 // MARK: - Upload Response
@@ -287,19 +301,24 @@ extension BookMetadata: Codable {
         title = try container.decodeIfPresent(String.self, forKey: .title)
         author = try container.decodeIfPresent(String.self, forKey: .author)
         isbn = try container.decodeIfPresent(String.self, forKey: .isbn)
-        coverUrl = try container.decodeIfPresent(URL.self, forKey: .coverUrl)
         publisher = try container.decodeIfPresent(String.self, forKey: .publisher)
-        pageCount = try container.decodeIfPresent(Int.self, forKey: .pageCount)
         format = try container.decodeIfPresent(String.self, forKey: .format)
-        confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
-        enrichmentStatus = try container.decodeIfPresent(EnrichmentStatus.self, forKey: .enrichmentStatus)
 
-        // Handle publishedDate (string) vs publicationYear (number or string) mismatch
-        if let date = try container.decodeIfPresent(String.self, forKey: .publishedDate) {
+        // Resilient decoding: use try? for fields where Talaria may send unexpected types.
+        // This prevents a single malformed field from killing the entire book decode.
+        coverUrl = try? container.decodeIfPresent(URL.self, forKey: .coverUrl)
+        pageCount = try? container.decodeIfPresent(Int.self, forKey: .pageCount)
+        confidence = try? container.decodeIfPresent(Double.self, forKey: .confidence)
+        enrichmentStatus = try? container.decodeIfPresent(EnrichmentStatus.self, forKey: .enrichmentStatus)
+
+        // Handle publishedDate (string) vs publicationYear (number or string) mismatch.
+        // decodeIfPresent throws typeMismatch when key exists but type is wrong,
+        // so we must use try? to fall through gracefully.
+        if let date = try? container.decodeIfPresent(String.self, forKey: .publishedDate) {
             publishedDate = date
-        } else if let year = try container.decodeIfPresent(Int.self, forKey: .publicationYear) {
+        } else if let year = try? container.decodeIfPresent(Int.self, forKey: .publicationYear) {
             publishedDate = "\(year)-01-01"
-        } else if let yearStr = try container.decodeIfPresent(String.self, forKey: .publicationYear) {
+        } else if let yearStr = try? container.decodeIfPresent(String.self, forKey: .publicationYear) {
             publishedDate = "\(yearStr)-01-01"
         } else {
             publishedDate = nil
@@ -372,11 +391,12 @@ public struct BookProgressInfo: Sendable, Codable {
 // MARK: - SSE Error
 
 /// Errors specific to SSE streaming
-public enum SSEError: Error {
+public enum SSEError: Error, Equatable {
     case streamTimeout
     case invalidEventFormat
     case connectionFailed
     case maxRetriesExceeded
+    case unknownEvent(String)   // Forward-compatibility: unknown event type from server
 
     public var localizedDescription: String {
         switch self {
@@ -388,6 +408,8 @@ public enum SSEError: Error {
             return "Failed to establish SSE connection"
         case .maxRetriesExceeded:
             return "Maximum reconnection attempts exceeded"
+        case .unknownEvent(let name):
+            return "Unknown SSE event type: \(name)"
         }
     }
 }

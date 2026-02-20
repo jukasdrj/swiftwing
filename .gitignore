@@ -50,8 +50,19 @@ build.log
 # Ralph-TUI runtime
 .ralph-tui/
 
-# OMC session files
+# OMC session files and state
 .omc/sessions/
+.omc/state/
+.omc/.omc/
+.omc/project-memory.json
+.omc/notepad.md
+
+# Sample/reference projects
+camSample/
+
+# Test artifacts
+test_book_stack.jpg
+e2e_screenshots/
 
 # OpenAPI specs are committed to repo (not generated during build)
 # See swiftwing/OpenAPI/talaria-openapi.yaml

@@ -55,19 +55,27 @@ public struct SSEEventParser: Sendable {
             }
 
         case "result":
-            // Result event with book metadata nested under "book" key
-            // Server sends: { jobId, status, message, progress, book: { title, author, isbn, ... } }
+            // Result event with book metadata
+            // Talaria may send book data in two formats:
+            //   1. Nested: { jobId, status, book: { title, author, isbn, ... } }
+            //   2. Flat:   { title, author, isbn, coverUrl, ... }
             guard let jsonData = data.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                  let bookDict = json["book"] as? [String: Any],
-                  let bookData = try? JSONSerialization.data(withJSONObject: bookDict)
+                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
             else {
                 throw SSEError.invalidEventFormat
             }
 
             let decoder = JSONDecoder()
-            let metadata = try decoder.decode(BookMetadata.self, from: bookData)
 
+            // Try nested "book" key first (legacy format)
+            if let bookDict = json["book"] as? [String: Any],
+               let bookData = try? JSONSerialization.data(withJSONObject: bookDict) {
+                let metadata = try decoder.decode(BookMetadata.self, from: bookData)
+                return .result(metadata)
+            }
+
+            // Fall back to flat format (current API per OpenAPI spec)
+            let metadata = try decoder.decode(BookMetadata.self, from: jsonData)
             return .result(metadata)
 
         case "complete", "completed":
@@ -180,10 +188,11 @@ public struct SSEEventParser: Sendable {
             ))
 
         default:
-            // Forward compatibility: silently ignore unknown event types
-            // This ensures older app versions don't crash when backend adds new events
-            print("SSE: Unknown event type '\(event)' - skipping for forward compatibility")
-            return .ping  // Treat unknown events as no-ops (ping is the lightest event)
+            // Forward compatibility: unknown event types are silently ignored.
+            // Throw a dedicated error so the caller can skip without yielding a fake event.
+            // TalariaService catches SSEError.unknownEvent and continues the stream.
+            print("SSE: Unknown event type '\(event)' - ignoring for forward compatibility")
+            throw SSEError.unknownEvent(event)
         }
     }
 }
