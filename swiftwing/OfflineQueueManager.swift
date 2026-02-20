@@ -18,14 +18,10 @@ actor OfflineQueueManager {
 
     // MARK: - Initialization
 
-    init(queueDirectory: URL? = nil) {
-        if let queueDirectory = queueDirectory {
-            self.queueDirectory = queueDirectory
-        } else {
-            // Create offline queue directory in app's documents folder
-            let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            self.queueDirectory = documentsDir.appendingPathComponent("OfflineQueue", isDirectory: true)
-        }
+    init() {
+        // Create offline queue directory in app's documents folder
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        self.queueDirectory = documentsDir.appendingPathComponent("OfflineQueue", isDirectory: true)
 
         // Create directory if it doesn't exist (non-blocking)
         Task {
@@ -81,36 +77,30 @@ actor OfflineQueueManager {
 
         let metadataFiles = contents.filter { $0.pathExtension == "json" }
 
-        print("🔄 Loading \(metadataFiles.count) queued scans in parallel...")
+        var results: [(metadata: QueuedScanMetadata, imageData: Data)] = []
 
-        // Capture queueDirectory to avoid actor isolation issues inside TaskGroup
-        let queueDir = self.queueDirectory
+        for metadataFile in metadataFiles {
+            do {
+                // Load metadata
+                let metadataData = try Data(contentsOf: metadataFile)
+                let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
 
-        return await withTaskGroup(of: (QueuedScanMetadata, Data)?.self) { group in
-            for metadataFile in metadataFiles {
-                group.addTask {
-                    do {
-                        return try await self.loadScan(metadataFile: metadataFile, queueDirectory: queueDir)
-                    } catch {
-                        print("⚠️ Failed to load queued scan from \(metadataFile.lastPathComponent): \(error)")
-                        return nil
-                    }
-                }
+                // Load corresponding image
+                let imageURL = queueDirectory.appendingPathComponent(metadata.imageFileName)
+                let imageData = try Data(contentsOf: imageURL)
+
+                results.append((metadata: metadata, imageData: imageData))
+            } catch {
+                print("⚠️ Failed to load queued scan from \(metadataFile.lastPathComponent): \(error)")
+                // Continue with other scans even if one fails
             }
-
-            var results: [(metadata: QueuedScanMetadata, imageData: Data)] = []
-            for await result in group {
-                if let result = result {
-                    results.append(result)
-                }
-            }
-
-            // Sort by capture date (oldest first)
-            results.sort { $0.metadata.captureDate < $1.metadata.captureDate }
-
-            print("📂 Found \(results.count) queued offline scans")
-            return results
         }
+
+        // Sort by capture date (oldest first)
+        results.sort { $0.metadata.captureDate < $1.metadata.captureDate }
+
+        print("📂 Found \(results.count) queued offline scans")
+        return results
     }
 
     /// Remove a queued scan after successful upload
@@ -156,21 +146,5 @@ actor OfflineQueueManager {
             )
             print("📁 Created offline queue directory")
         }
-    }
-
-    /// Loads scan data asynchronously and safely off the main actor
-    /// - Parameters:
-    ///   - metadataFile: URL to the metadata JSON file
-    ///   - queueDirectory: The base directory for queued files
-    /// - Returns: Tuple containing metadata and image data
-    nonisolated func loadScan(metadataFile: URL, queueDirectory: URL) async throws -> (QueuedScanMetadata, Data) {
-        // Use URLSession for async non-blocking file I/O
-        let (metadataData, _) = try await URLSession.shared.data(from: metadataFile)
-        let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
-
-        let imageURL = queueDirectory.appendingPathComponent(metadata.imageFileName)
-        let (imageData, _) = try await URLSession.shared.data(from: imageURL)
-
-        return (metadata, imageData)
     }
 }
