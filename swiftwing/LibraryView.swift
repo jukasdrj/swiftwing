@@ -369,7 +369,7 @@ struct LibraryView: View {
         cachedUniqueAuthorsCount = Set(books.map { $0.author }).count
 
         // 2. Review Needed Count (O(n))
-        cachedReviewNeededCount = books.filter { ($0.spineConfidence ?? 1.0) < 0.8 }.count
+        cachedReviewNeededCount = books.lazy.filter { ($0.spineConfidence ?? 1.0) < 0.8 }.count
 
         // 3. Most Common Format (O(n))
         let formatCounts = Dictionary(grouping: books.compactMap { $0.format }, by: { $0 })
