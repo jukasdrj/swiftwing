@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "sse-parser")
 
 /// Parses Server-Sent Events (SSE) from Talaria API
 ///
@@ -130,11 +133,11 @@ public struct SSEEventParser: Sendable {
                 }
 
                 if let resultsUrl = resultsUrl {
-                    print("✅ SSE: Completed with results at: \(resultsUrl)")
+                    logger.info("SSE: Completed with results at: \(resultsUrl, privacy: .public)")
                 }
                 return .complete(resultsUrl: resultsUrl, books: books, summary: summary, duration: duration)
             } else {
-                print("⚠️ SSE: Completed without resultsUrl or books")
+                logger.debug("SSE: Completed without resultsUrl or books")
                 return .complete(resultsUrl: nil, books: nil, summary: nil, duration: nil)
             }
 
@@ -223,7 +226,7 @@ public struct SSEEventParser: Sendable {
             // Forward compatibility: unknown event types are silently ignored.
             // Throw a dedicated error so the caller can skip without yielding a fake event.
             // TalariaService catches SSEError.unknownEvent and continues the stream.
-            print("SSE: Unknown event type '\(event)' - ignoring for forward compatibility")
+            logger.debug("SSE: Unknown event type '\(event, privacy: .public)' - ignoring for forward compatibility")
             throw SSEError.unknownEvent(event)
         }
     }

@@ -49,7 +49,7 @@ See [`.claude/rules/swift-conventions.md`](../.claude/rules/swift-conventions.md
 See [`.claude/rules/build-workflow.md`](../.claude/rules/build-workflow.md)
 
 ### Planning Requirements
-See [`.claude/rules/planning-mandatory.md`](../.claude/rules/planning-mandatory.md)
+See [`.claude/rules/planning-mandatory.md`](../.claude/rules/planning-mandatory.md) (policy and workflow combined)
 
 ---
 

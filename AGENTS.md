@@ -1,9 +1,9 @@
 # SwiftWing: AI Agent Reference & Architecture
 
-**Last Updated:** January 30, 2026
-**Status:** Epic 5 Complete (Refactoring)
-**Branch:** `main` / `refactor/camera-view-decomposition`
-**Build:** ✅ SUCCESS (0 errors, 1 warning) | **iOS 26.0+ | Swift 6.2**
+**Last Updated:** February 20, 2026
+**Status:** Epics 1-5 Complete — Epic 6 (App Store Launch) In Progress
+**Branch:** `main`
+**Build:** ✅ SUCCESS (0 errors, 0 warnings) | **iOS 26.0+ | Swift 6.2**
 
 ---
 
@@ -165,8 +165,7 @@ swiftwing/
 2. **Check `.claude/rules/` directory** - Project-specific conventions:
    - `swift-conventions.md` - Actor patterns, concurrency requirements
    - `build-workflow.md` - xcodebuild + xcsift (NEVER omit xcsift)
-   - `planning-mandatory.md` - Planning-with-files requirement (>4 tool calls)
-   - `planning-workflow.md` - Specialist agent coordination
+   - `planning-mandatory.md` - Planning-with-files policy and workflow (>4 tool calls)
    - `swiftdata-patterns.md` - SwiftData best practices (@Model, queries)
 
 3. **Understand Build Requirements:**
@@ -651,8 +650,7 @@ APP_STORE_PRIVACY.md           ← App Store manifest
 ├── rules/
 │   ├── swift-conventions.md   ← Actor patterns, concurrency
 │   ├── build-workflow.md      ← xcodebuild + xcsift
-│   ├── planning-mandatory.md  ← Planning requirement
-│   ├── planning-workflow.md   ← Agent coordination
+│   ├── planning-mandatory.md  ← Planning policy and workflow
 │   └── swiftdata-patterns.md  ← Data layer patterns
 ├── hooks/
 │   ├── enforce-planning.sh    ← Complexity detection

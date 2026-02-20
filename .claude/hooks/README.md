@@ -152,8 +152,7 @@ graph TD
 
 ## Related Documentation
 
-- `.claude/rules/planning-workflow.md` - Full workflow guide
-- `.claude/rules/planning-mandatory.md` - Planning policy
+- `.claude/rules/planning-mandatory.md` - Planning policy and workflow
 - `.claude/rules/build-workflow.md` - Build verification rules
 - `CLAUDE.md` - Main project instructions
 

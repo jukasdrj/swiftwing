@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "network")
 
 // MARK: - RFC 9457 Problem Details
 

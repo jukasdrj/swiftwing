@@ -62,7 +62,8 @@ struct SwiftwingApp: App {
                 try context.delete(model: Book.self)
                 try context.save()
             } catch {
-                print("UI_TESTING: Failed to clear data: \(error)")
+                Logger(subsystem: "com.ooheynerds.swiftwing", category: "app-init")
+                    .error("UI_TESTING: Failed to clear data: \(error.localizedDescription, privacy: .public)")
             }
         }
 
@@ -73,7 +74,8 @@ struct SwiftwingApp: App {
                 try context.delete(model: Book.self)
                 try context.save()
             } catch {
-                print("UI_TESTING: Failed to clear before seed: \(error)")
+                Logger(subsystem: "com.ooheynerds.swiftwing", category: "app-init")
+                    .error("UI_TESTING: Failed to clear before seed: \(error.localizedDescription, privacy: .public)")
             }
             DataSeeder.seedLibrary(context: context)
         }

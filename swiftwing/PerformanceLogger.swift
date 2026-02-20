@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "performance")
 
 // MARK: - Performance Logger
 /// US-321: Performance measurement and logging for library rendering
@@ -67,13 +70,11 @@ struct PerformanceLogger {
         let milliseconds = duration * 1000
         let emoji = getEmoji(for: duration, category: category)
 
-        print(
-            "\(emoji) [\(category.rawValue)] \(operation): \(String(format: "%.2f", milliseconds))ms"
-        )
+        logger.info("[\(category.rawValue, privacy: .public)] \(operation, privacy: .public): \(String(format: "%.2f", milliseconds), privacy: .public)ms")
 
         // Warn if operation is slow
         if shouldWarn(duration: duration, category: category) {
-            print("  ⚠️ Performance warning: Operation took longer than expected")
+            logger.warning("Performance warning: Operation took longer than expected")
         }
     }
 
@@ -85,14 +86,14 @@ struct PerformanceLogger {
         let milliseconds = duration * 1000
         let avgPerBook = bookCount > 0 ? milliseconds / Double(bookCount) : 0
 
-        print("📊 Library rendered \(bookCount) books in \(String(format: "%.2f", milliseconds))ms")
-        print("  Average: \(String(format: "%.3f", avgPerBook))ms per book")
+        logger.info("Library rendered \(bookCount, privacy: .public) books in \(String(format: "%.2f", milliseconds), privacy: .public)ms")
+        logger.info("Average: \(String(format: "%.3f", avgPerBook), privacy: .public)ms per book")
 
         // Check against target (60 FPS = 16.67ms per frame)
         if milliseconds > 100 {
-            print("  ⚠️ Initial render exceeded 100ms target")
+            logger.warning("Initial render exceeded 100ms target")
         } else {
-            print("  ✅ Performance target met (< 100ms)")
+            logger.info("Performance target met (< 100ms)")
         }
     }
 
@@ -104,14 +105,14 @@ struct PerformanceLogger {
         let fps = 1.0 / frameTime
         let emoji = fps >= 55 ? "✅" : (fps >= 30 ? "⚠️" : "❌")
 
-        print("\(emoji) Scroll FPS: \(String(format: "%.1f", fps))")
+        logger.info("Scroll FPS: \(String(format: "%.1f", fps), privacy: .public)")
 
         if scrollDistance > 0 {
-            print("  Distance: \(String(format: "%.0f", scrollDistance))px")
+            logger.debug("Scroll distance: \(String(format: "%.0f", scrollDistance), privacy: .public)px")
         }
 
         if fps < 55 {
-            print("  ⚠️ Below 60 FPS target")
+            logger.warning("Below 60 FPS target")
         }
     }
 
@@ -125,13 +126,16 @@ struct PerformanceLogger {
         diskUsed: Int,
         hitRate: Double? = nil
     ) {
-        print("📦 Image Cache Statistics:")
-        print("  Memory: \(memoryUsed / 1024 / 1024)MB / 50MB")
-        print("  Disk: \(diskUsed / 1024 / 1024)MB / 200MB")
+        logger.info("Image Cache Statistics: Memory \(memoryUsed / 1024 / 1024, privacy: .public)MB / 50MB, Disk \(diskUsed / 1024 / 1024, privacy: .public)MB / 200MB")
 
         if let hitRate = hitRate {
-            let emoji = hitRate > 0.8 ? "✅" : (hitRate > 0.5 ? "⚠️" : "❌")
-            print("  \(emoji) Hit Rate: \(String(format: "%.1f", hitRate * 100))%")
+            if hitRate > 0.8 {
+                logger.info("Cache hit rate: \(String(format: "%.1f", hitRate * 100), privacy: .public)%")
+            } else if hitRate > 0.5 {
+                logger.warning("Cache hit rate low: \(String(format: "%.1f", hitRate * 100), privacy: .public)%")
+            } else {
+                logger.error("Cache hit rate very low: \(String(format: "%.1f", hitRate * 100), privacy: .public)%")
+            }
         }
     }
 

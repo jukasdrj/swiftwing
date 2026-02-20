@@ -1,8 +1,11 @@
 import SwiftUI
+import os
 
 #if canImport(UIKit)
 import UIKit
 #endif
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "theme")
 
 // MARK: - Swiss Glass Design System
 //
@@ -46,7 +49,7 @@ extension Font {
         #if canImport(UIKit)
         let testFont = UIFont(name: "JetBrainsMono-Regular", size: 16)
         if testFont == nil {
-            print("⚠️ JetBrains Mono not found, falling back to system monospaced font")
+            logger.warning("JetBrains Mono not found, falling back to system monospaced font")
             return false
         }
         return true

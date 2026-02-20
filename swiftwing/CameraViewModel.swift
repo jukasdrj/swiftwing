@@ -378,49 +378,67 @@ final class CameraViewModel {
             #if DEBUG
             integrationLog("ERROR: processCaptureWithImageData catch: \(error) - \(error.localizedDescription)")
             #endif
-            // US-408: Check if this is a rate limit error
             if let networkError = error as? NetworkError,
                case .rateLimited(let retryAfter) = networkError {
-                e2eLogger.warning("Rate limited: retry after \(retryAfter ?? 0)s")
-
-                await rateLimitState.queueScan(imageData, preScannedISBN: capturedISBN)
-
-                let retryDuration = retryAfter ?? 60.0
-                await rateLimitState.setRateLimited(retryAfter: retryDuration)
-
-                await startRateLimitCountdown()
-
-                if let item = queueItem {
-                    withAnimation(.swissSpring) {
-                        processingQueue.removeAll { $0.id == item.id }
-                    }
-                }
-
-                if let tempFileURL = tempFileURL {
-                    try? FileManager.default.removeItem(at: tempFileURL)
-                }
-
-                return
+                await handleRateLimitError(retryAfter: retryAfter, imageData: imageData, capturedISBN: capturedISBN, queueItem: queueItem, tempFileURL: tempFileURL)
+            } else {
+                await handleProcessingError(error: error, queueItem: queueItem, jobId: jobId, authToken: authToken, tempFileURL: tempFileURL)
             }
+        }
+    }
 
-            // Other errors:
-            e2eLogger.error("Image processing/upload failed: \(error.localizedDescription)")
+    // MARK: - Error Handling Helpers
 
-            await showProcessingErrorOverlay(error.localizedDescription)
+    private func handleRateLimitError(
+        retryAfter: TimeInterval?,
+        imageData: Data,
+        capturedISBN: String?,
+        queueItem: ProcessingItem?,
+        tempFileURL: URL?
+    ) async {
+        e2eLogger.warning("Rate limited: retry after \(retryAfter ?? 0)s")
 
-            if let item = queueItem {
-                updateQueueItemError(id: item.id, errorMessage: error.localizedDescription)
+        await rateLimitState.queueScan(imageData, preScannedISBN: capturedISBN)
 
-                let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-                impactFeedback.impactOccurred()
+        let retryDuration = retryAfter ?? 60.0
+        await rateLimitState.setRateLimited(retryAfter: retryDuration)
 
-                if let jid = jobId {
-                    await scanCoordinator.cleanup(jobId: jid, authToken: authToken)
-                }
-                if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
+        await startRateLimitCountdown()
 
-                await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
+        if let item = queueItem {
+            withAnimation(.swissSpring) {
+                processingQueue.removeAll { $0.id == item.id }
             }
+        }
+
+        if let tempFileURL = tempFileURL {
+            try? FileManager.default.removeItem(at: tempFileURL)
+        }
+    }
+
+    private func handleProcessingError(
+        error: Error,
+        queueItem: ProcessingItem?,
+        jobId: String?,
+        authToken: String?,
+        tempFileURL: URL?
+    ) async {
+        e2eLogger.error("Image processing/upload failed: \(error.localizedDescription)")
+
+        await showProcessingErrorOverlay(error.localizedDescription)
+
+        if let item = queueItem {
+            updateQueueItemError(id: item.id, errorMessage: error.localizedDescription)
+
+            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+            impactFeedback.impactOccurred()
+
+            if let jid = jobId {
+                await scanCoordinator.cleanup(jobId: jid, authToken: authToken)
+            }
+            if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
+
+            await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
         }
     }
 

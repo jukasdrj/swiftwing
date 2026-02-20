@@ -1,5 +1,8 @@
 import Foundation
 import Network
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "network-monitor")
 
 /// Monitors network connectivity using NWPathMonitor
 /// Adaptable to Swift Concurrency via AsyncStream
@@ -54,9 +57,9 @@ final class NetworkMonitor: Sendable {
 
         if wasConnected != nowConnected {
             if nowConnected {
-                print("📡 Network connected - ready to upload queued scans")
+                logger.info("Network connected - ready to upload queued scans")
             } else {
-                print("📡 Network disconnected - offline mode active")
+                logger.info("Network disconnected - offline mode active")
             }
         }
     }

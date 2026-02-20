@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "duplicate")
 
 /// Swiss Glass styled alert for duplicate book detection
 /// US-311: Duplicate Detection Warning
@@ -112,9 +115,9 @@ struct DuplicateBookAlert: View {
 
     DuplicateBookAlert(
         duplicateBook: sampleBook,
-        onCancel: { print("Cancelled") },
-        onAddAnyway: { print("Add Anyway") },
-        onViewExisting: { print("View Existing") }
+        onCancel: { logger.debug("Cancelled") },
+        onAddAnyway: { logger.debug("Add Anyway") },
+        onViewExisting: { logger.debug("View Existing") }
     )
     .preferredColorScheme(.dark)
 }

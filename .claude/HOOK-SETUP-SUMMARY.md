@@ -30,7 +30,7 @@
 ### 3. Documentation
 
 **Created:**
-- `.claude/rules/planning-workflow.md` - Full workflow guide with PAL integration
+- `.claude/rules/planning-mandatory.md` - Planning policy and workflow (policy + PAL integration combined)
 - `.claude/hooks/README.md` - Hook testing and maintenance guide
 - `.claude/HOOK-SETUP-SUMMARY.md` - This file
 

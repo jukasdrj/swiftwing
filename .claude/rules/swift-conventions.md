@@ -330,7 +330,7 @@ Task {
 - **Epic 2**: ✅ Camera (Complete - Jan 23, Grade: A 98/100)
 - **Epic 3**: ✅ Library (Complete - Jan 24, Grade: A 97/100)
 - **Epic 4**: ✅ AI Integration (Complete - Jan 25, Grade: A 99/100)
-- **Epic 5**: ✅ Refactoring (Complete - Phases 2A-2E done)
+- **Epic 5**: ✅ Refactoring (Complete — MVVM extraction, OSLog migration, actor cleanup)
 - **Epic 6**: 🔄 App Store Launch (In Progress)
 
 ### Epic 5 Achievement

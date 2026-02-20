@@ -1,5 +1,8 @@
 import SwiftUI
 import UIKit
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "processing-queue")
 
 /// Processing queue UI showing live thumbnails of captured images
 /// Horizontal scrolling view above shutter button
@@ -182,7 +185,7 @@ struct ProcessingThumbnailView: View {
             Spacer()
 
             ProcessingQueueView(items: items, onRetry: { item in
-                print("Retry item: \(item.id)")
+                logger.debug("Retry item: \(item.id, privacy: .public)")
             })
                 .padding(.bottom, 140)
         }

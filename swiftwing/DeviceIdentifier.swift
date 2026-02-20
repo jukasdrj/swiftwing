@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "device")
 
 /// Persistent device identifier stored in UserDefaults
 /// Generates UUID v4 on first access, then persists across app sessions
@@ -14,13 +17,13 @@ struct DeviceIdentifier {
         // Generate new UUID v4 and persist
         let newId = UUID().uuidString
         UserDefaults.standard.set(newId, forKey: key)
-        print("📱 Generated new device ID: \(newId)")
+        logger.info("Generated new device ID")
         return newId
     }
 
     /// Reset device ID (for testing or user-initiated logout)
     static func reset() {
         UserDefaults.standard.removeObject(forKey: key)
-        print("🔄 Device ID reset")
+        logger.info("Device ID reset")
     }
 }

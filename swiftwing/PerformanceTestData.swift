@@ -1,5 +1,8 @@
 import Foundation
 import SwiftData
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "perf-test")
 
 // MARK: - Performance Test Data Generator
 /// US-321: Generator for creating large test datasets to profile library performance
@@ -85,7 +88,7 @@ struct PerformanceTestData {
         container: ModelContainer,
         includeCovers: Bool = true
     ) async {
-        print("🔧 US-321: Generating \(count) test books for performance testing...")
+        logger.info("US-321: Generating \(count, privacy: .public) test books for performance testing...")
 
         // Run on detached task to unblock MainActor
         await Task.detached(priority: .userInitiated) {
@@ -148,9 +151,9 @@ struct PerformanceTestData {
             if (i + 1) % 100 == 0 {
                 do {
                     try context.save()
-                    print("  Saved \(i + 1)/\(count) books...")
+                    logger.debug("Saved \(i + 1, privacy: .public)/\(count, privacy: .public) books...")
                 } catch {
-                    print("  ⚠️ Failed to save batch: \(error)")
+                    logger.warning("Failed to save batch: \(error.localizedDescription, privacy: .public)")
                 }
             }
         }
@@ -159,12 +162,12 @@ struct PerformanceTestData {
             do {
                 try context.save()
             } catch {
-                print("  ⚠️ Failed to save final batch: \(error)")
+                logger.warning("Failed to save final batch: \(error.localizedDescription, privacy: .public)")
             }
 
             let duration = CFAbsoluteTimeGetCurrent() - startTime
-            print("✅ Generated \(count) test books in \(String(format: "%.2f", duration * 1000))ms")
-            print("  Average: \(String(format: "%.2f", (duration * 1000) / Double(count)))ms per book")
+            logger.info("Generated \(count, privacy: .public) test books in \(String(format: "%.2f", duration * 1000), privacy: .public)ms")
+            logger.info("Average: \(String(format: "%.2f", (duration * 1000) / Double(count)), privacy: .public)ms per book")
         }.value
     }
 
@@ -172,16 +175,16 @@ struct PerformanceTestData {
     /// - Parameter container: SwiftData model container
     @MainActor
     static func clearTestData(container: ModelContainer) async {
-        print("🧹 Clearing test data...")
+        logger.info("Clearing test data...")
 
         await Task.detached {
             let context = ModelContext(container)
             do {
                 // Efficient batch delete
                 try context.delete(model: Book.self)
-                print("✅ Cleared all books")
+                logger.info("Cleared all books")
             } catch {
-                print("⚠️ Failed to clear test data: \(error)")
+                logger.warning("Failed to clear test data: \(error.localizedDescription, privacy: .public)")
             }
         }.value
     }

@@ -1,5 +1,8 @@
 import Foundation
 import SwiftData
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "duplicate")
 
 /// Utility for detecting duplicate books in the library
 /// US-311: Duplicate Detection Warning
@@ -34,7 +37,7 @@ enum DuplicateDetection {
             let results = try context.fetch(descriptor)
             return results.first
         } catch {
-            print("❌ Duplicate detection failed: \(error)")
+            logger.error("Duplicate detection failed: \(error.localizedDescription, privacy: .public)")
             throw DuplicateDetectionError.fetchFailed(error)
         }
     }

@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "library")
 
 // MARK: - Sort Options
 enum LibrarySortOption: String, CaseIterable {
@@ -667,7 +670,7 @@ struct LibraryView: View {
             exportFileURL = fileURL
             showExportSheet = true
         } catch {
-            print("Failed to export library: \(error)")
+            logger.error("Failed to export library: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -728,14 +731,13 @@ struct LibraryView: View {
         modelContext.insert(fullBook)
         modelContext.insert(lowConfidenceBook)
 
-        print("✅ US-301 Test:")
-        print("  - Minimal book created: \(minimalBook.title)")
-        print("  - Full metadata book created: \(fullBook.title)")
-        print("  - Full book has cover URL: \(fullBook.coverUrl != nil)")
-        print("  - Full book has publisher: \(fullBook.publisher ?? "nil")")
-        print("  - Full book has page count: \(fullBook.pageCount ?? 0)")
-        print("  - Low confidence book needs review: \(lowConfidenceBook.needsReview)")
-        print("  - Full book does NOT need review: \(!fullBook.needsReview)")
+        logger.info("US-301 Test: Minimal book created: \(minimalBook.title, privacy: .public)")
+        logger.info("US-301 Test: Full metadata book created: \(fullBook.title, privacy: .public)")
+        logger.info("US-301 Test: Full book has cover URL: \(fullBook.coverUrl != nil, privacy: .public)")
+        logger.info("US-301 Test: Full book has publisher: \(fullBook.publisher ?? "nil", privacy: .public)")
+        logger.info("US-301 Test: Full book has page count: \(fullBook.pageCount ?? 0, privacy: .public)")
+        logger.info("US-301 Test: Low confidence book needs review: \(lowConfidenceBook.needsReview, privacy: .public)")
+        logger.info("US-301 Test: Full book does NOT need review: \(!fullBook.needsReview, privacy: .public)")
     }
 
     /// US-311: Test duplicate detection logic
@@ -745,11 +747,9 @@ struct LibraryView: View {
         do {
             // Test 1: Check for existing duplicate
             if let existingBook = try DuplicateDetection.findDuplicate(isbn: testISBN, in: modelContext) {
-                print("✅ US-311 Test 1: Found existing duplicate")
-                print("  - Title: \(existingBook.title)")
-                print("  - ISBN: \(existingBook.isbn)")
+                logger.info("US-311 Test 1: Found existing duplicate - Title: \(existingBook.title, privacy: .public), ISBN: \(existingBook.isbn, privacy: .public)")
             } else {
-                print("✅ US-311 Test 1: No duplicate found (adding test book)")
+                logger.info("US-311 Test 1: No duplicate found (adding test book)")
 
                 // Add a test book
                 let testBook = Book(
@@ -760,33 +760,31 @@ struct LibraryView: View {
 
                 modelContext.insert(testBook)
                 try? modelContext.save()
-                print("  - Test book added with ISBN: \(testISBN)")
+                logger.info("US-311 Test 1: Test book added with ISBN: \(testISBN, privacy: .public)")
             }
 
             // Test 2: Try to find the duplicate again (should succeed after Test 1)
             if let duplicate = try DuplicateDetection.findDuplicate(isbn: testISBN, in: modelContext) {
-                print("✅ US-311 Test 2: Duplicate detection working correctly")
-                print("  - Found: \(duplicate.title)")
-                print("  - ISBN match: \(duplicate.isbn == testISBN)")
+                logger.info("US-311 Test 2: Duplicate detection working correctly - Found: \(duplicate.title, privacy: .public), ISBN match: \(duplicate.isbn == testISBN, privacy: .public)")
             } else {
-                print("❌ US-311 Test 2: Duplicate detection failed")
+                logger.error("US-311 Test 2: Duplicate detection failed")
             }
 
             // Test 3: Check non-existent ISBN
             let nonExistentISBN = "9999999999999"
             if try DuplicateDetection.findDuplicate(isbn: nonExistentISBN, in: modelContext) == nil {
-                print("✅ US-311 Test 3: Correctly returns nil for non-existent ISBN")
+                logger.info("US-311 Test 3: Correctly returns nil for non-existent ISBN")
             } else {
-                print("❌ US-311 Test 3: Incorrectly found book with non-existent ISBN")
+                logger.error("US-311 Test 3: Incorrectly found book with non-existent ISBN")
             }
         } catch {
-            print("❌ US-311 Test failed with error: \(error.localizedDescription)")
+            logger.error("US-311 Test failed with error: \(error.localizedDescription, privacy: .public)")
         }
     }
 
     /// US-321: Generate performance test dataset
     private func generatePerformanceTestData(count: Int) {
-        print("📊 US-321: Generating \(count) test books...")
+        logger.info("US-321: Generating \(count, privacy: .public) test books...")
         Task {
             await PerformanceTestData.generateTestDataset(
                 count: count,

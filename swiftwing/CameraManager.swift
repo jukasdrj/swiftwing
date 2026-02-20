@@ -132,7 +132,7 @@ class CameraManager: ObservableObject {
         observeNotifications()
 
         let duration = CFAbsoluteTimeGetCurrent() - startTime
-        print("✅ Camera session configured in \(String(format: "%.3f", duration))s")
+        logger.info("Camera session configured in \(String(format: "%.3f", duration), privacy: .public)s")
     }
 
     /// Consumes the AsyncStream of frames from FrameProcessor

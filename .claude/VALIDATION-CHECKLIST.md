@@ -4,7 +4,7 @@
 
 - [x] `.claude/hooks/enforce-planning.sh` - Complexity detection hook (executable)
 - [x] `.claude/hooks/README.md` - Hook documentation and testing guide
-- [x] `.claude/rules/planning-workflow.md` - Workflow with specialists + PAL
+- [x] `.claude/rules/planning-mandatory.md` - Planning policy and workflow (merged)
 - [x] `.claude/HOOK-SETUP-SUMMARY.md` - Implementation summary
 - [x] `.claude/VALIDATION-CHECKLIST.md` - This file
 
@@ -96,7 +96,7 @@ User Prompt
   → Complete ✅
 ```
 
-- [x] All steps documented in planning-workflow.md
+- [x] All steps documented in planning-mandatory.md
 - [x] Real-world examples provided
 - [x] Integration with existing rules (.claude/rules/*.md)
 
@@ -193,7 +193,7 @@ All criteria met ✅:
 **Files Modified:**
 - Created: `.claude/hooks/enforce-planning.sh`
 - Created: `.claude/hooks/README.md`
-- Created: `.claude/rules/planning-workflow.md`
+- Created: `.claude/rules/planning-mandatory.md` (merged policy + workflow)
 - Created: `.claude/HOOK-SETUP-SUMMARY.md`
 - Created: `.claude/VALIDATION-CHECKLIST.md`
 - Updated: `.claude/settings.json`

@@ -12,7 +12,7 @@
 | **2** | Viewfinder (Camera) | 1-2 weeks | ✅ Complete |
 | **3** | Library (Browse/Search) | 1-2 weeks | ✅ Complete |
 | **4** | Talaria Integration (AI) | 1-2 weeks | ✅ Complete |
-| **5** | Polish (UX Details) | 1 week | ✅ Complete |
+| **5** | Polish + Refactoring | 1 week | ✅ Complete |
 | **6** | Launch (App Store) | 1 week | 🔄 In Progress |
 
 **Total:** 8-10 weeks to MVP
@@ -347,16 +347,14 @@ After Epic 6, you could add:
 
 ---
 
-**Current Status:** 🔄 Epic 5 IN PROGRESS - Phase 2A Complete (CameraView Refactoring)
-**Next Up:** Epic 5 Phase 2B-2F (Extract child views, complete refactoring)
+**Current Status:** 🔄 Epic 6 IN PROGRESS (App Store Launch)
 
 **Epic Completion Dates:**
 - ✅ Epic 1: January 22, 2026 (Grade: A - 95/100)
 - ✅ Epic 2: January 23, 2026 (Grade: A - 98/100)
 - ✅ Epic 3: January 24, 2026 (Grade: A - 97/100)
 - ✅ Epic 4: January 25, 2026 (Grade: A - 99/100)
-- 🔄 Epic 5: In Progress - Phase 2A Done (January 25, 2026)
-
-**Phase 2A Achievement:** CameraView reduced from 1,098 → 268 lines (75% reduction)
+- ✅ Epic 5: Complete (MVVM refactor, OSLog migration, actor extraction)
+- 🔄 Epic 6: In Progress
 
 **Remember:** Each epic is a complete feature. Ship working code every 1-2 weeks.

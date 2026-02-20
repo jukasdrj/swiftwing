@@ -1,93 +1,37 @@
-# Mandatory Planning-with-Files Usage
-
-## ABSOLUTE REQUIREMENT
-
-**You MUST use `/planning-with-files` for ANY task requiring >4 tool calls**
-
-This is not optional. This is not a suggestion. This is MANDATORY.
+# Planning-with-Files — Policy & Workflow
 
 ## When Planning is REQUIRED
 
-### ✅ MUST Use Planning For:
-- Build failures requiring diagnosis
+Use `/planning-with-files` before starting any task that involves >4 tool calls, >3 files, or any build failure diagnosis. This is not optional.
+
+### Must use planning for:
+- Build failures
 - Multi-step features (>3 files touched)
 - Architecture decisions
 - Performance optimization
+- Integration work (APIs, networking)
 - Code review findings with multiple fixes
-- Integration work (APIs, services, networking)
-- **Any time you use >4 tools**
-- **Any time you make >3 decisions**
-- **Any time you're going in circles**
-- **Any time you catch yourself repeating fixes**
+- Any time you are repeating fixes or going in circles
 
-### ❌ Only Skip Planning For:
+### Skip planning only for:
 - Single-file edits (< 10 lines)
 - Obvious one-line bug fixes
-- Simple questions (not requiring file changes)
-- Trivial refactors (rename, format only)
+- Simple questions with no file changes
+- Trivial renames or formatting
 
-## Required Planning Files
+## Planning Files
 
-**You MUST create these in the project root:**
+Create these files (use a descriptive prefix, e.g. `camera_fix_`):
 
-1. **`{task_name}_task_plan.md`**
-   - Goal statement
-   - Phases with status (pending/in_progress/complete)
-   - Decision log
-   - Error attempts table
-   - Lessons learned
+1. **`{task}_task_plan.md`** — goal, phases with status, decision log, error attempts table
+2. **`{task}_findings.md`** — root cause, expert advice from PAL tools, solution approaches
+3. **`{task}_progress.md`** (optional) — session log, test results, errors with resolutions
 
-2. **`{task_name}_findings.md`**
-   - Root cause analysis
-   - Expert advice (from PAL tools)
-   - Technical discoveries
-   - Solution approaches evaluated
+Planning files go in the project root. Archive or delete them when the task is complete.
 
-3. **`{task_name}_progress.md`** (optional but recommended)
-   - Session log
-   - Test results
-   - Errors encountered with resolutions
+## Error Tracking (Mandatory)
 
-## Real Example: Build Failure Fix
-
-**Without Planning (8+ circular attempts):**
-```
-Try fix 1 → Build fails
-Try fix 2 → Same error
-Try fix 3 → Different error
-Try fix 4 → Back to original error
-Try fix 5 → Lost context, try fix 1 again
-...repeat...
-```
-
-**With Planning-with-Files (3 systematic steps):**
-```
-Step 1: Create planning files, invoke PAL thinkdeep
-Step 2: Document root cause (@Environment(\.modelContainer) invalid)
-Step 3: Apply solution systematically
-Result: BUILD SUCCESSFUL
-```
-
-**Time Saved:** Hours of circular debugging → 20 minutes systematic fix
-
-## Integration with PAL Tools
-
-**Planning files provide persistent context for:**
-- `mcp__pal__thinkdeep` - Multi-stage investigation
-- `mcp__pal__debug` - Systematic debugging
-- `mcp__pal__codereview` - Comprehensive review
-- `mcp__pal__analyze` - Code analysis
-
-**Pattern:**
-1. Create planning files first
-2. Run PAL tool with full context
-3. Document findings in `*_findings.md`
-4. Track progress in `*_task_plan.md`
-5. Update after each phase
-
-## Error Tracking is MANDATORY
-
-**Every failed attempt MUST be logged:**
+Log every failed attempt — prevents repeating the same fix:
 
 ```markdown
 ## Errors Encountered
@@ -95,48 +39,31 @@ Result: BUILD SUCCESSFUL
 |-------|---------|------------|--------|
 | cannot find 'ImageCacheManager' | 1 | Added to Xcode | ✅ |
 | actor isolation on urlSession | 2 | Used nonisolated(unsafe) | ✅ |
-| nonisolated init() invalid | 3 | Removed nonisolated | ✅ |
 ```
 
-**Why This Matters:**
-- Prevents repeating same failed fixes
-- Shows user you're tracking progress
-- Enables learning from mistakes
-- Provides audit trail of problem-solving
+## Workflow
 
-## User Signals That Planning is Needed
+1. Invoke `/planning-with-files` — creates planning files
+2. Run PAL tools for expert diagnosis, document findings
+3. Execute plan phase by phase; log errors as you go
+4. Mark phases complete only when verified
+5. Build verify: `xcodebuild ... | xcsift` → 0 errors, 0 warnings
+6. Delete or archive planning files after task completes
 
-**If user says ANY of these, STOP and use planning:**
-- "I keep failing"
-- "Why is this still broken?"
-- "You tried that already"
-- "We're going in circles"
-- "How did you/tool miss this?"
+## PAL Tool Selection
 
-**Your Response:**
-1. Acknowledge circular behavior
-2. Invoke `/planning-with-files` immediately
-3. Create all three planning files
-4. Use PAL tools for expert diagnosis
-5. Work systematically with persistent memory
+| Situation | Tool |
+|-----------|------|
+| Build failure / data race | `mcp__pal__debug` |
+| Architecture decision | `mcp__pal__thinkdeep` |
+| Code quality review | `mcp__pal__codereview` |
+| Multi-model consensus | `mcp__pal__consensus` |
+| Code analysis | `mcp__pal__analyze` |
 
-## The Planning Mandate
+## Hook Enforcement
 
-**This project has proven:**
-- ✅ Planning prevents circular debugging
-- ✅ Planning files preserve context
-- ✅ PAL tools + planning = fast solutions
-- ❌ Skip planning = wasted time + user frustration
+`.claude/hooks/enforce-planning.sh` scores task complexity on every prompt. Score ≥ 5 triggers a mandatory planning reminder. Override with `skip-planning` in prompt (for genuinely trivial tasks only).
 
-**Therefore:**
-```
-IF task requires >4 tools:
-    THEN invoke /planning-with-files
-    ELSE proceed directly
+## If Going in Circles
 
-IF going in circles:
-    THEN STOP, invoke /planning-with-files
-    ELSE continue
-```
-
-No exceptions. This is the rule.
+Stop. Invoke `/planning-with-files`. Document what has been tried. Use `mcp__pal__debug` or `mcp__pal__thinkdeep` with full context. Never repeat the same fix twice without logging it first.

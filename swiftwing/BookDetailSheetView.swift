@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "book-detail")
 
 struct ProcessingItemDetailSheet: View {
     let item: ProcessingItem
@@ -157,7 +160,7 @@ struct ProcessingItemDetailSheet: View {
     ProcessingItemDetailSheet(
         item: item,
         onSave: { title, author, isbn in
-            print("Saved: \(title) by \(author), ISBN: \(isbn ?? "none")")
+            logger.debug("Saved: \(title, privacy: .public) by \(author, privacy: .public), ISBN: \(isbn ?? "none", privacy: .public)")
         }
     )
 }

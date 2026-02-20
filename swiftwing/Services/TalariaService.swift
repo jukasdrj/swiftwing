@@ -147,19 +147,11 @@ actor TalariaService {
                 let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: data)
 
                 guard uploadResponse.success else {
-                    print("❌ Upload failed: success=false in response")
+                    e2eLogger.error("Upload failed: success=false in response")
                     throw NetworkError.invalidResponse
                 }
 
-                print("✅ Upload response received:")
-                print("   JobID: \(uploadResponse.data.jobId)")
-                print("   SSE URL: \(uploadResponse.data.sseUrl)")
-                #if DEBUG
-                print("   Auth Token: \(uploadResponse.data.authToken ?? "none")")
-                #else
-                print("   Auth Token: \(uploadResponse.data.authToken != nil ? "[REDACTED]" : "none")")
-                #endif
-                print("   Status URL: \(uploadResponse.data.statusUrl?.absoluteString ?? "none")")
+                e2eLogger.info("Upload response received: JobID=\(uploadResponse.data.jobId, privacy: .public) SSE URL=\(uploadResponse.data.sseUrl, privacy: .public) Status URL=\(uploadResponse.data.statusUrl?.absoluteString ?? "none", privacy: .public)")
 
                 return (jobId: uploadResponse.data.jobId, streamUrl: uploadResponse.data.sseUrl, authToken: uploadResponse.data.authToken)
 
@@ -242,26 +234,18 @@ actor TalariaService {
 
                         // Validate response with comprehensive diagnostics
                         guard let httpResponse = response as? HTTPURLResponse else {
-                            print("❌ SSE: Response is not HTTPURLResponse - \(type(of: response))")
+                            e2eLogger.error("SSE: Response is not HTTPURLResponse - \(String(describing: type(of: response)), privacy: .public)")
                             throw SSEError.connectionFailed
                         }
 
-                        print("🔍 SSE Connection attempt \(attempt + 1):")
-                        print("   Status: \(httpResponse.statusCode)")
-                        print("   URL: \(streamUrl)")
-                        #if DEBUG
-                        print("   Headers: \(httpResponse.allHeaderFields)")
-                        #else
-                        print("   Headers: [redacted in production]")
-                        #endif
+                        e2eLogger.debug("SSE Connection attempt \(attempt + 1, privacy: .public): Status=\(httpResponse.statusCode, privacy: .public) URL=\(streamUrl, privacy: .public)")
 
                         guard httpResponse.statusCode == 200 else {
-                            print("❌ SSE: Expected 200, got \(httpResponse.statusCode)")
+                            e2eLogger.error("SSE: Expected 200, got \(httpResponse.statusCode, privacy: .public)")
                             throw SSEError.connectionFailed
                         }
 
-                        e2eLogger.info("✅ SSE: Connection established, status 200")
-                        print("✅ SSE: Connection established successfully")
+                        e2eLogger.info("SSE: Connection established, status 200")
                         #if DEBUG
                         sseLog("Connection established, status=200, content-type=\(httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "nil")")
                         #endif
@@ -298,28 +282,27 @@ actor TalariaService {
                             #if DEBUG
                             sseLog("LINE[\(byteCount)]: '\(line.isEmpty ? "<BLANK>" : String(line.prefix(120)))'")
                             #endif
-                            print("🔍 SSE Line received: '\(line.isEmpty ? "<BLANK>" : String(line.prefix(80)))'")
+                            e2eLogger.debug("SSE Line received: '\(line.isEmpty ? "<BLANK>" : String(line.prefix(80)), privacy: .public)'")
                             if line.hasPrefix("event:") {
                                 currentEvent = String(line.dropFirst(6).trimmingCharacters(in: .whitespaces))
-                                print("📨 SSE: Received event type: \(currentEvent ?? "nil")")
+                                e2eLogger.debug("SSE: Received event type: \(currentEvent ?? "nil", privacy: .public)")
                             } else if line.hasPrefix("data:") {
                                 currentData = String(line.dropFirst(5).trimmingCharacters(in: .whitespaces))
-                                print("📦 SSE: Received data: \(currentData?.prefix(100) ?? "nil")...")
+                                e2eLogger.debug("SSE: Received data: \(currentData?.prefix(100) ?? "nil", privacy: .public)")
                             } else if line.hasPrefix("id:") {
                                 currentId = String(line.dropFirst(3).trimmingCharacters(in: .whitespaces))
-                                print("🆔 SSE: Received event ID: \(currentId ?? "nil")")
+                                e2eLogger.debug("SSE: Received event ID: \(currentId ?? "nil", privacy: .public)")
                             } else if line.isEmpty {
-                                print("⚪ SSE: Blank line detected. Event: \(currentEvent ?? "nil"), Data: \(currentData?.prefix(50) ?? "nil")")
+                                e2eLogger.debug("SSE: Blank line detected. Event: \(currentEvent ?? "nil", privacy: .public), Data: \(currentData?.prefix(50) ?? "nil", privacy: .public)")
                                 // Parse event
                                 if let event = currentEvent, let data = currentData {
-                                    print("🔄 SSE: Processing event '\(event)' with data")
+                                    e2eLogger.debug("SSE: Processing event '\(event, privacy: .public)' with data")
 
                                     // Parse all events uniformly through SSEEventParser
                                     do {
                                         let parser = SSEEventParser()
                                         let sseEvent = try parser.parse(event: event, data: data)
-                                        e2eLogger.info("✅ SSE parsed: \(String(describing: sseEvent))")
-                                        print("✅ SSE: Parsed event successfully: \(sseEvent)")
+                                        e2eLogger.info("SSE parsed: \(String(describing: sseEvent), privacy: .public)")
                                         #if DEBUG
                                         sseLog("YIELDING event to continuation: \(event)")
                                         #endif
@@ -333,15 +316,15 @@ actor TalariaService {
                                         // Finish stream on terminal events
                                         switch sseEvent {
                                         case .complete:
-                                            print("✅ SSE: Complete event received - finishing stream")
+                                            e2eLogger.info("SSE: Complete event received - finishing stream")
                                             continuation.finish()
                                             return
                                         case .error(let errorInfo):
-                                            print("❌ SSE: Error event received: \(errorInfo.message)")
+                                            e2eLogger.error("SSE: Error event received: \(errorInfo.message, privacy: .public)")
                                             continuation.finish()
                                             return
                                         case .canceled:
-                                            print("🛑 SSE: Canceled event received")
+                                            e2eLogger.info("SSE: Canceled event received")
                                             continuation.finish()
                                             return
                                         case .progress, .result, .segmented, .bookProgress, .ping, .enrichmentDegraded:
@@ -351,13 +334,12 @@ actor TalariaService {
                                     } catch SSEError.unknownEvent(let name) {
                                         // Silently skip unknown events — forward compatibility.
                                         // New server event types must not crash older app builds.
-                                        print("ℹ️ SSE: Skipping unknown event type '\(name)'")
+                                        e2eLogger.debug("SSE: Skipping unknown event type '\(name, privacy: .public)'")
                                     } catch {
                                         // Log parse failure but don't kill the stream —
                                         // a single malformed event shouldn't abort the whole scan.
                                         // The complete event with resultsUrl is the primary delivery mechanism.
-                                        print("⚠️ SSE: Failed to parse event '\(event)': \(error) — skipping")
-                                        print("   Raw data: \(data.prefix(200))")
+                                        e2eLogger.debug("SSE: Failed to parse event '\(event, privacy: .public)': \(error, privacy: .public) — skipping. Raw data: \(data.prefix(200), privacy: .public)")
                                     }
                                 }
 
@@ -375,7 +357,7 @@ actor TalariaService {
                         #if DEBUG
                         sseLog("Byte loop exited normally after \(byteCount) bytes, Task.isCancelled=\(Task.isCancelled)")
                         #endif
-                        print("✅ SSE: Stream completed normally")
+                        e2eLogger.info("SSE: Stream completed normally")
                         continuation.finish()
                         return // Success - exit retry loop
 
@@ -386,10 +368,10 @@ actor TalariaService {
                         attempt += 1
                         if attempt < maxAttempts {
                             let delay = pow(2.0, Double(attempt))
-                            print("🔄 SSE retry \(attempt)/\(maxAttempts - 1) in \(delay)s")
+                            e2eLogger.debug("SSE retry \(attempt, privacy: .public)/\(maxAttempts - 1, privacy: .public) in \(delay, privacy: .public)s")
                             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                         } else {
-                            print("❌ SSE: Max retries exceeded after \(maxAttempts) attempts")
+                            e2eLogger.error("SSE: Max retries exceeded after \(maxAttempts, privacy: .public) attempts")
                             continuation.finish(throwing: SSEError.maxRetriesExceeded)
                             return
                         }
@@ -398,10 +380,7 @@ actor TalariaService {
                         sseLog("CATCH generic error: \(error) - type=\(type(of: error)) - cancelled=\(Task.isCancelled)")
                         #endif
                         // Don't retry non-connection errors
-                        e2eLogger.error("❌ SSE stream error: \(error.localizedDescription)")
-                        print("❌ SSE: Stream error (non-retryable): \(error)")
-                        print("   Error type: \(type(of: error))")
-                        print("   Error description: \(error.localizedDescription)")
+                        e2eLogger.error("SSE stream error: \(error.localizedDescription, privacy: .public) type=\(String(describing: type(of: error)), privacy: .public)")
                         continuation.finish(throwing: error)
                         return
                     }
@@ -422,12 +401,11 @@ actor TalariaService {
     func cleanup(jobId: String, authToken: String? = nil) async throws {
         // Construct cleanup endpoint
         guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)/cleanup") else {
-            print("❌ Cleanup: Invalid URL for jobId: \(jobId)")
+            e2eLogger.error("Cleanup: Invalid URL for jobId: \(jobId, privacy: .public)")
             throw NetworkError.invalidResponse
         }
 
-        print("🗑️ Cleanup initiated: \(jobId)")
-        print("   URL: \(url)")
+        e2eLogger.info("Cleanup initiated: \(jobId, privacy: .public) URL: \(url, privacy: .public)")
 
         // Create DELETE request
         var request = URLRequest(url: url)
@@ -442,27 +420,27 @@ actor TalariaService {
 
             // Validate HTTP response
             guard let httpResponse = response as? HTTPURLResponse else {
-                print("❌ Cleanup: Invalid response type")
+                e2eLogger.error("Cleanup: Invalid response type")
                 throw NetworkError.invalidResponse
             }
 
-            print("🗑️ Cleanup response: HTTP \(httpResponse.statusCode)")
+            e2eLogger.info("Cleanup response: HTTP \(httpResponse.statusCode, privacy: .public)")
 
             // Check status code
             switch httpResponse.statusCode {
             case 200, 204:
                 // Success
-                print("✅ Cleanup successful for job: \(jobId)")
+                e2eLogger.info("Cleanup successful for job: \(jobId, privacy: .public)")
                 return
 
             case 401:
                 // Auth token expired or invalid — job likely already cleaned up server-side
-                print("ℹ️ Cleanup auth expired (401) for job: \(jobId) — treating as success")
+                e2eLogger.debug("Cleanup auth expired (401) for job: \(jobId, privacy: .public) — treating as success")
                 return
 
             case 404:
                 // Job not found (already cleaned up)
-                print("ℹ️ Job not found (already cleaned): \(jobId)")
+                e2eLogger.debug("Cleanup: Job not found (already cleaned): \(jobId, privacy: .public)")
                 return
 
             case 400, 413, 429, 500...599:
@@ -470,20 +448,20 @@ actor TalariaService {
                 if let problemDetails = try? JSONDecoder().decode(ProblemDetails.self, from: data) {
                     throw NetworkError.apiError(problemDetails)
                 } else {
-                    print("❌ Cleanup failed: HTTP \(httpResponse.statusCode)")
+                    e2eLogger.error("Cleanup failed: HTTP \(httpResponse.statusCode, privacy: .public)")
                     throw NetworkError.serverError(httpResponse.statusCode)
                 }
 
             default:
-                print("❌ Cleanup failed: HTTP \(httpResponse.statusCode)")
+                e2eLogger.error("Cleanup failed: HTTP \(httpResponse.statusCode, privacy: .public)")
                 throw NetworkError.serverError(httpResponse.statusCode)
             }
 
         } catch let error as NetworkError {
-            print("❌ Cleanup NetworkError: \(error.localizedDescription)")
+            e2eLogger.error("Cleanup NetworkError: \(error.localizedDescription, privacy: .public)")
             throw error
         } catch let urlError as URLError {
-            print("❌ Cleanup URLError: \(urlError.localizedDescription)")
+            e2eLogger.error("Cleanup URLError: \(urlError.localizedDescription, privacy: .public)")
             switch urlError.code {
             case .notConnectedToInternet, .networkConnectionLost:
                 throw NetworkError.noConnection
@@ -493,7 +471,7 @@ actor TalariaService {
                 throw NetworkError.invalidResponse
             }
         } catch {
-            print("❌ Cleanup error: \(error.localizedDescription)")
+            e2eLogger.error("Cleanup error: \(error.localizedDescription, privacy: .public)")
             throw NetworkError.invalidResponse
         }
     }
@@ -517,11 +495,11 @@ actor TalariaService {
 
         guard let baseUrl = URL(string: baseURL),
               let url = URL(string: resultsUrlWithFormat, relativeTo: baseUrl)?.absoluteURL else {
-            print("❌ Results fetch: Invalid URL - base: \(baseURL), path: \(resultsUrlWithFormat)")
+            e2eLogger.error("Results fetch: Invalid URL - base: \(self.baseURL, privacy: .public), path: \(resultsUrlWithFormat, privacy: .public)")
             throw NetworkError.invalidResponse
         }
 
-        print("🔍 Fetching results from: \(url.absoluteString)")
+        e2eLogger.debug("Fetching results from: \(url.absoluteString, privacy: .public)")
 
         // Create request with auth and device ID
         var request = URLRequest(url: url)
@@ -534,7 +512,7 @@ actor TalariaService {
 
         // Check HTTP status
         guard let httpResponse = response as? HTTPURLResponse else {
-            print("❌ Results fetch: Invalid response type")
+            e2eLogger.error("Results fetch: Invalid response type")
             throw NetworkError.invalidResponse
         }
 
@@ -549,12 +527,12 @@ actor TalariaService {
             if let problemDetails = try? JSONDecoder().decode(ProblemDetails.self, from: data) {
                 throw NetworkError.apiError(problemDetails)
             } else {
-                print("❌ Results fetch failed: HTTP \(httpResponse.statusCode)")
+                e2eLogger.error("Results fetch failed: HTTP \(httpResponse.statusCode, privacy: .public)")
                 throw NetworkError.serverError(httpResponse.statusCode)
             }
 
         default:
-            print("❌ Results fetch failed: HTTP \(httpResponse.statusCode)")
+            e2eLogger.error("Results fetch failed: HTTP \(httpResponse.statusCode, privacy: .public)")
             throw NetworkError.serverError(httpResponse.statusCode)
         }
 
@@ -567,7 +545,7 @@ actor TalariaService {
         do {
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let dataObj = json["data"] as? [String: Any] else {
-                print("❌ Results fetch: Missing top-level data object")
+                e2eLogger.error("Results fetch: Missing top-level data object")
                 throw NetworkError.invalidResponse
             }
 
@@ -578,16 +556,16 @@ actor TalariaService {
             } else if let books = dataObj["books"] as? [[String: Any]] {
                 booksArray = books
             } else {
-                print("❌ Results fetch: No 'results' or 'books' key in data")
+                e2eLogger.error("Results fetch: No 'results' or 'books' key in data")
                 throw NetworkError.invalidResponse
             }
 
             let booksData = try JSONSerialization.data(withJSONObject: booksArray)
             let books = try decoder.decode([BookMetadata].self, from: booksData)
-            print("✅ Fetched \(books.count) books from results URL")
+            e2eLogger.info("Fetched \(books.count, privacy: .public) books from results URL")
 
             for (index, book) in books.enumerated() {
-                print("  ✅ Book \(index + 1): \(book.resolvedTitle) by \(book.resolvedAuthor)")
+                e2eLogger.debug("Book \(index + 1, privacy: .public): \(book.resolvedTitle, privacy: .public) by \(book.resolvedAuthor, privacy: .public)")
             }
 
             return books
@@ -595,7 +573,7 @@ actor TalariaService {
         } catch let error as NetworkError {
             throw error
         } catch {
-            print("❌ Results fetch: Failed to decode response - \(error)")
+            e2eLogger.error("Results fetch: Failed to decode response - \(error, privacy: .public)")
             throw NetworkError.invalidResponse
         }
     }

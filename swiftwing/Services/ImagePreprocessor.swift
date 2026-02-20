@@ -10,6 +10,9 @@ import CoreImage.CIFilterBuiltins
 import ImageIO
 import UIKit
 import UniformTypeIdentifiers
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "image-preprocessor")
 
 /// Actor-isolated image preprocessing pipeline for book spine recognition
 /// Applies contrast enhancement, brightness adjustment, denoising, and rotation correction
@@ -105,7 +108,7 @@ actor ImagePreprocessor {
     /// Apply contrast enhancement using CIColorControls filter
     private func applyContrastEnhancement(_ image: inout CIImage, factor: Float) {
         guard let filter = CIFilter(name: "CIColorControls") else {
-            print("ImagePreprocessor: CIColorControls filter unavailable")
+            logger.error("CIColorControls filter unavailable")
             return
         }
 
@@ -113,7 +116,7 @@ actor ImagePreprocessor {
         filter.setValue(factor, forKey: kCIInputContrastKey)
 
         guard let outputImage = filter.outputImage else {
-            print("ImagePreprocessor: Contrast filter failed to produce output")
+            logger.error("Contrast filter failed to produce output")
             return
         }
 
@@ -142,7 +145,7 @@ actor ImagePreprocessor {
         // Apply brightness adjustment if needed
         if brightnessAdjustment != 0.0 {
             guard let filter = CIFilter(name: "CIColorControls") else {
-                print("ImagePreprocessor: CIColorControls filter unavailable for brightness")
+                logger.error("CIColorControls filter unavailable for brightness")
                 return 0.0
             }
 
@@ -150,7 +153,7 @@ actor ImagePreprocessor {
             filter.setValue(brightnessAdjustment, forKey: kCIInputBrightnessKey)
 
             guard let outputImage = filter.outputImage else {
-                print("ImagePreprocessor: Brightness filter failed to produce output")
+                logger.error("Brightness filter failed to produce output")
                 return 0.0
             }
 
@@ -173,7 +176,7 @@ actor ImagePreprocessor {
 
         // Use CIAreaAverage to get average color
         guard let filter = CIFilter(name: "CIAreaAverage") else {
-            print("ImagePreprocessor: CIAreaAverage filter unavailable")
+            logger.error("CIAreaAverage filter unavailable")
             return 128.0 // Default to mid-gray
         }
 
@@ -181,7 +184,7 @@ actor ImagePreprocessor {
         filter.setValue(CIVector(cgRect: scaledImage.extent), forKey: kCIInputExtentKey)
 
         guard let outputImage = filter.outputImage else {
-            print("ImagePreprocessor: Average luminance calculation failed")
+            logger.error("Average luminance calculation failed")
             return 128.0
         }
 
@@ -206,7 +209,7 @@ actor ImagePreprocessor {
     /// Apply light noise reduction while preserving text detail
     private func applyNoiseReduction(_ image: inout CIImage) {
         guard let filter = CIFilter(name: "CINoiseReduction") else {
-            print("ImagePreprocessor: CINoiseReduction filter unavailable")
+            logger.error("CINoiseReduction filter unavailable")
             return
         }
 
@@ -215,7 +218,7 @@ actor ImagePreprocessor {
         filter.setValue(0.4, forKey: "inputSharpness")
 
         guard let outputImage = filter.outputImage else {
-            print("ImagePreprocessor: Noise reduction failed to produce output")
+            logger.error("Noise reduction failed to produce output")
             return
         }
 
@@ -310,10 +313,10 @@ actor ImagePreprocessor {
             try? await Task.sleep(for: .seconds(1800))
             do {
                 try FileManager.default.removeItem(at: fileURL)
-                print("🗑️ Fallback cleanup for temp file: \(filename)")
+                logger.debug("Fallback cleanup for temp file: \(filename, privacy: .public)")
             } catch CocoaError.fileNoSuchFile {
             } catch {
-                print("⚠️ Fallback cleanup failed for \(filename): \(error.localizedDescription)")
+                logger.warning("Fallback cleanup failed for \(filename, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
         }
 
@@ -334,7 +337,7 @@ actor ImagePreprocessor {
 
         // Fallback: Render to CGImage then UIImage JPEG
         guard let cgImage = ciContext.createCGImage(image, from: image.extent) else {
-            print("ImagePreprocessor: Failed to create CGImage from CIImage")
+            logger.error("Failed to create CGImage from CIImage")
             return nil
         }
 

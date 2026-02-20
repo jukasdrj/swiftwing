@@ -1,5 +1,8 @@
 import Foundation
 import SwiftData
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "data-seeder")
 
 #if DEBUG
 /// Development-only data seeding utility for testing and development
@@ -22,7 +25,7 @@ struct DataSeeder {
         let existingCount = (try? context.fetchCount(descriptor)) ?? 0
 
         if existingCount > 0 {
-            print("📚 Library already has \(existingCount) books. Skipping seed.")
+            logger.info("Library already has \(existingCount, privacy: .public) books. Skipping seed.")
             return
         }
 
@@ -214,9 +217,9 @@ struct DataSeeder {
         // Persist to store
         do {
             try context.save()
-            print("📚 Successfully seeded library with \(books.count) books")
+            logger.info("Successfully seeded library with \(books.count, privacy: .public) books")
         } catch {
-            print("❌ Failed to seed library: \(error)")
+            logger.error("Failed to seed library: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

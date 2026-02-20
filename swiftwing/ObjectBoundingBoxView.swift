@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "vision")
 
 /// Displays green bounding boxes for detected rectangle objects (potential book spines).
 /// Uses Swiss Glass design with frosted overlay and confidence-based visual hierarchy.
@@ -15,7 +18,7 @@ struct ObjectBoundingBoxView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let _ = print("🎨 ObjectBoundingBoxView: Rendering \(detectedObjects.count) boxes, viewSize=\(geometry.size)")
+            let _ = { logger.debug("ObjectBoundingBoxView: Rendering \(detectedObjects.count, privacy: .public) boxes, viewSize=\(String(describing: geometry.size), privacy: .public)") }()
 
             ForEach(detectedObjects, id: \.observationUUID) { object in
                 let rect = convertToViewCoordinates(

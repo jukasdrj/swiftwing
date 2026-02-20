@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import UIKit
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "image-cache")
 
 // MARK: - Image Cache Manager
 /// US-321: Aggressive URLCache configuration and image prefetching for library performance
@@ -43,9 +46,7 @@ actor ImageCacheManager {
 
         self._urlSession = URLSession(configuration: config)
 
-        print("📦 US-321: ImageCacheManager initialized")
-        print("  Memory Cache: \(memoryCapacity / 1024 / 1024)MB")
-        print("  Disk Cache: \(diskCapacity / 1024 / 1024)MB")
+        logger.info("US-321: ImageCacheManager initialized - Memory Cache: \(memoryCapacity / 1024 / 1024, privacy: .public)MB, Disk Cache: \(diskCapacity / 1024 / 1024, privacy: .public)MB")
     }
 
     // MARK: - Cache Statistics
@@ -61,9 +62,7 @@ actor ImageCacheManager {
     /// Log cache statistics to console
     func logCacheStatistics() {
         let stats = getCacheStatistics()
-        print("📊 Image Cache Statistics:")
-        print("  Memory: \(stats.memoryUsed / 1024 / 1024)MB / 50MB")
-        print("  Disk: \(stats.diskUsed / 1024 / 1024)MB / 200MB")
+        logger.info("Image Cache Statistics: Memory \(stats.memoryUsed / 1024 / 1024, privacy: .public)MB / 50MB, Disk \(stats.diskUsed / 1024 / 1024, privacy: .public)MB / 200MB")
     }
 
     // MARK: - Prefetching
@@ -143,7 +142,7 @@ actor ImageCacheManager {
     /// Clear all cached images (memory + disk)
     func clearCache() {
         _urlSession.configuration.urlCache?.removeAllCachedResponses()
-        print("🧹 Image cache cleared")
+        logger.info("Image cache cleared")
     }
 
     /// Clear cached image for specific URL
