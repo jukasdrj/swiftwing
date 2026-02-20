@@ -40,11 +40,12 @@ struct ProcessingQueueView: View {
 /// 40x60px with state-based border color
 struct ProcessingThumbnailView: View {
     let item: ProcessingItem
+    @StateObject private var imageLoader = ImageLoader()
 
     var body: some View {
         ZStack {
             // Thumbnail image
-            if let uiImage = UIImage(data: item.imageData) {
+            if let uiImage = imageLoader.image {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -62,6 +63,9 @@ struct ProcessingThumbnailView: View {
             RoundedRectangle(cornerRadius: 4)
                 .strokeBorder(item.state.borderColor, lineWidth: 2)
                 .frame(width: 40, height: 60)
+        }
+        .onAppear {
+            imageLoader.load(from: item.imageData)
         }
         .transition(.scale.combined(with: .opacity))
     }
