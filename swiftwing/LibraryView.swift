@@ -372,8 +372,12 @@ struct LibraryView: View {
         cachedReviewNeededCount = books.lazy.filter { ($0.spineConfidence ?? 1.0) < 0.8 }.count
 
         // 3. Most Common Format (O(n))
-        let formatCounts = Dictionary(grouping: books.compactMap { $0.format }, by: { $0 })
-            .mapValues { $0.count }
+        // Optimized to avoid intermediate array allocation from Dictionary(grouping:by:)
+        let formatCounts = books.reduce(into: [String: Int]()) { counts, book in
+            if let format = book.format {
+                counts[format, default: 0] += 1
+            }
+        }
 
         if let mostCommon = formatCounts.max(by: { $0.value < $1.value }), !books.isEmpty {
             let percentage = Int((Double(mostCommon.value) / Double(books.count)) * 100)
