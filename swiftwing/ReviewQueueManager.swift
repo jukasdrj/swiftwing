@@ -197,7 +197,7 @@ final class ReviewQueueManager {
                 return
             }
         } catch {
-            // Proceed with add on detection failure
+            logger.warning("Duplicate detection failed, proceeding with add: \(error)")
         }
 
         // Use resolved values (prefers user edits over AI results)

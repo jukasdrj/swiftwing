@@ -1,10 +1,13 @@
 import AVFoundation
+import OSLog
 // Import Vision framework types and service
 import Vision
 
 #if canImport(UIKit)
     import UIKit
 #endif
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "camera")
 
 /// Camera session manager for SwiftUI
 /// AVCaptureSession must be managed on main thread per Apple documentation
@@ -265,7 +268,9 @@ class CameraManager: ObservableObject {
                 device.videoZoomFactor = clampedFactor
                 device.unlockForConfiguration()
                 currentZoomFactor = clampedFactor
-            } catch {}
+            } catch {
+                logger.warning("Failed to configure zoom: \(error.localizedDescription)")
+            }
         #endif
     }
 
@@ -284,7 +289,9 @@ class CameraManager: ObservableObject {
                 device.exposureMode = .autoExpose
             }
             device.unlockForConfiguration()
-        } catch {}
+        } catch {
+            logger.warning("Failed to configure focus: \(error.localizedDescription)")
+        }
     }
 
     // Notification logic (unchanged)
