@@ -249,15 +249,16 @@ final class CameraViewModel {
         }
 
         // Fire and forget - process capture in parallel (non-blocking)
+        let currentISBN = detectedISBN // Capture immediately to prevent race conditions (Task 4.4)
         let itemId = UUID()
         let task = Task {
-            await processCapture(itemId: itemId)
+            await processCapture(itemId: itemId, preScannedISBN: currentISBN)
         }
         activeStreamingTasks[itemId] = task
     }
 
     // MARK: - Processing Pipeline
-    private func processCapture(itemId: UUID) async {
+    private func processCapture(itemId: UUID, preScannedISBN: String?) async {
         do {
             // Capture photo from camera (must be on main actor)
             let imageData = try await cameraManager.capturePhoto()
@@ -268,14 +269,14 @@ final class CameraViewModel {
                 fatalError("ModelContext not injected into ViewModel")
             }
 
-            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext, preScannedISBN: preScannedISBN)
         } catch {
             print("❌ Camera capture failed: \(error)")
             await showProcessingErrorOverlay(error.localizedDescription)
         }
     }
 
-    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext) async {
+    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String?) async {
         let startTime = CFAbsoluteTimeGetCurrent()
         var queueItem: ProcessingItem?
         var tempFileURL: URL?
@@ -299,14 +300,13 @@ final class CameraViewModel {
                 print("📴 Offline mode - queueing scan for later upload")
 
                 // Add to processing queue with offline state
-                var item = ProcessingItem(imageData: imageData, state: .offline, progressMessage: "Queued (offline)")
-                item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
+                var item = ProcessingItem(imageData: imageData, state: .offline, progressMessage: "Queued (offline)", preScannedISBN: preScannedISBN)
                 withAnimation(.swissSpring) {
                     processingQueue.append(item)
                 }
 
                 // Queue scan in FileManager for persistent storage
-                let queuedId = try await offlineQueueManager.queueScan(imageData: imageData)
+                let queuedId = try await offlineQueueManager.queueScan(imageData: imageData, preScannedISBN: preScannedISBN)
                 print("💾 Scan queued with ID: \(queuedId)")
 
                 // Update offline queue count
@@ -318,7 +318,7 @@ final class CameraViewModel {
             }
 
             // Add to processing queue immediately with thumbnail (preprocessing state)
-            queueItem = addToQueue(imageData: imageData)
+            queueItem = addToQueue(imageData: imageData, preScannedISBN: preScannedISBN)
 
             guard let item = queueItem else { return }
 
@@ -653,7 +653,7 @@ final class CameraViewModel {
                             // Retry with new item ID
                             let retryItemId = UUID()
                             let retryTask = Task {
-                                await processCaptureWithImageData(itemId: retryItemId, imageData: originalImageData, modelContext: modelContext)
+                                await processCaptureWithImageData(itemId: retryItemId, imageData: originalImageData, modelContext: modelContext, preScannedISBN: item.preScannedISBN)
                             }
                             activeStreamingTasks[retryItemId] = retryTask
                         } else {
@@ -745,7 +745,7 @@ final class CameraViewModel {
                case .rateLimited(let retryAfter) = networkError {
                 print("⏰ Rate limited: retry after \(retryAfter ?? 0)s")
 
-                await rateLimitState.queueScan(imageData)
+                await rateLimitState.queueScan(imageData, isbn: preScannedISBN)
 
                 let retryDuration = retryAfter ?? 60.0
                 await rateLimitState.setRateLimited(retryAfter: retryDuration)
@@ -784,9 +784,8 @@ final class CameraViewModel {
     }
 
     // MARK: - Queue Management
-    private func addToQueue(imageData: Data) -> ProcessingItem {
-        var item = ProcessingItem(imageData: imageData, state: .preprocessing)
-        item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
+    private func addToQueue(imageData: Data, preScannedISBN: String?) -> ProcessingItem {
+        var item = ProcessingItem(imageData: imageData, state: .preprocessing, preScannedISBN: preScannedISBN)
         withAnimation(.swissSpring) {
             processingQueue.append(item)
         }
@@ -874,6 +873,8 @@ final class CameraViewModel {
 
         print("🔄 Retrying failed item: \(item.id)")
 
+        let isbn = item.preScannedISBN
+
         withAnimation(.swissSpring) {
             processingQueue.removeAll { $0.id == item.id }
         }
@@ -887,7 +888,7 @@ final class CameraViewModel {
 
         let itemId = UUID()
         let task = Task {
-            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: isbn)
         }
         activeStreamingTasks[itemId] = task
     }
@@ -912,10 +913,10 @@ final class CameraViewModel {
                     guard let ctx = modelContext else {
                         fatalError("ModelContext not injected into ViewModel")
                     }
-                    for imageData in queuedScans {
+                    for (imageData, isbn) in queuedScans {
                         let itemId = UUID()
                         let task = Task {
-                            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+                            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: isbn)
                         }
                         activeStreamingTasks[itemId] = task
                     }
@@ -1071,7 +1072,7 @@ final class CameraViewModel {
             for (metadata, imageData) in queuedScans {
                 let itemId = UUID()
                 let task = Task {
-                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: metadata.preScannedISBN)
                 }
                 activeStreamingTasks[itemId] = task
 

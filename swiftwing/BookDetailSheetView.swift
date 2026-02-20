@@ -144,7 +144,7 @@ struct ProcessingItemDetailSheet: View {
 #Preview {
     let imageData = Data()
     let item: ProcessingItem = {
-        var i = ProcessingItem(imageData: imageData, state: .done, progressMessage: "Ready for review")
+        var i = ProcessingItem(imageData: imageData, state: .done, progressMessage: "Ready for review", preScannedISBN: "9781234567890")
         i.bookMetadata = BookMetadata(
             title: "The Swift Programming Language",
             author: "Apple Inc.",

@@ -14,7 +14,7 @@ struct ProcessingItem: Identifiable, Equatable {
     var originalImageData: Data?  // Original full-size image for retry (US-407)
     var tempFileURL: URL?  // Temporary JPEG file URL for cleanup (US-406)
     var jobId: String?     // Talaria job ID for server cleanup (US-406)
-    var preScannedISBN: String? = nil  // Vision-detected ISBN from barcode scanner (TODO 4.4)
+    var preScannedISBN: String? = nil  // Vision-detected ISBN from barcode scanner
     var segmentedPreview: Data?  // Segmented image preview with bounding boxes (Task 5)
     var detectedBookCount: Int?  // Number of books detected in segmented preview (Task 5)
     var currentBookIndex: Int?   // Current book being processed in multi-book scan (Task 5)
@@ -27,7 +27,7 @@ struct ProcessingItem: Identifiable, Equatable {
 
     // MARK: - Retry Context for Failed Result Fetches (Fix #2)
 
-    init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil) {
+    init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil, preScannedISBN: String? = nil) {
         self.id = UUID()
         self.thumbnailData = Self.generateThumbnail(from: imageData)
         self.captureDate = Date()
@@ -37,6 +37,7 @@ struct ProcessingItem: Identifiable, Equatable {
         self.originalImageData = imageData  // Store for retry (US-407)
         self.tempFileURL = nil
         self.jobId = nil
+        self.preScannedISBN = preScannedISBN
     }
 
     /// Generates optimized 60x90px thumbnail from full image data

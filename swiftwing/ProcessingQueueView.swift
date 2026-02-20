@@ -133,13 +133,13 @@ struct ProcessingThumbnailView: View {
     let sampleData = UIImage(systemName: "book")!
         .pngData() ?? Data()
 
-    var errorItem = ProcessingItem(imageData: sampleData, state: .error)
+    var errorItem = ProcessingItem(imageData: sampleData, state: .error, preScannedISBN: nil)
     errorItem.errorMessage = "No text found"
 
     let items = [
-        ProcessingItem(imageData: sampleData, state: .uploading, progressMessage: "Uploading..."),
-        ProcessingItem(imageData: sampleData, state: .analyzing, progressMessage: "Looking..."),
-        ProcessingItem(imageData: sampleData, state: .done),
+        ProcessingItem(imageData: sampleData, state: .uploading, progressMessage: "Uploading...", preScannedISBN: nil),
+        ProcessingItem(imageData: sampleData, state: .analyzing, progressMessage: "Looking...", preScannedISBN: "9781234567890"),
+        ProcessingItem(imageData: sampleData, state: .done, preScannedISBN: "9780987654321"),
         errorItem
     ]
 

@@ -323,7 +323,8 @@ struct CameraView: View {
                         await viewModel.processCaptureWithImageData(
                             itemId: itemId,
                             imageData: imageData,
-                            modelContext: modelContext
+                            modelContext: modelContext,
+                            preScannedISBN: nil
                         )
                         debugLog("INJECT_TEST_IMAGE: processCaptureWithImageData completed")
                         debugLog("INJECT_TEST_IMAGE: pendingReviewBooks.count = \(viewModel.pendingReviewBooks.count)")
