@@ -60,6 +60,11 @@ struct LibraryView: View {
     // Cached filtered books to avoid recomputation on every View render
     @State private var cachedFilteredBooks: [Book] = []
 
+    // US-321: Cached stats to avoid O(n) recomputation on every render
+    @State private var cachedUniqueAuthorsCount: Int = 0
+    @State private var cachedReviewNeededCount: Int = 0
+    @State private var cachedMostCommonFormat: String = "N/A"
+
     private var sortOption: LibrarySortOption {
         LibrarySortOption(rawValue: sortOptionRaw) ?? .newestFirst
     }
@@ -89,7 +94,7 @@ struct LibraryView: View {
 
     // Count of books that need review (for badge)
     private var reviewNeededCount: Int {
-        books.filter { ($0.spineConfidence ?? 1.0) < 0.8 }.count
+        cachedReviewNeededCount
     }
 
     // Keep original query for reactive updates
@@ -128,8 +133,14 @@ struct LibraryView: View {
             .onChange(of: searchText) { updateFilteredBooks() }
             .onChange(of: showReviewNeeded) { updateFilteredBooks() }
             .onChange(of: sortOptionRaw) { updateFilteredBooks() }
-            .onChange(of: books) { updateFilteredBooks() }
-            .onAppear { updateFilteredBooks() }
+            .onChange(of: books) {
+                updateFilteredBooks()
+                updateLibraryStats()
+            }
+            .onAppear {
+                updateFilteredBooks()
+                updateLibraryStats()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if isSelectionMode {
@@ -345,21 +356,31 @@ struct LibraryView: View {
 
     // MARK: - Stats Computed Properties
     private var uniqueAuthorsCount: Int {
-        Set(books.map { $0.author }).count
+        cachedUniqueAuthorsCount
     }
 
     private var mostCommonFormatText: String {
-        // Count formats, excluding nil values
+        cachedMostCommonFormat
+    }
+
+    /// US-321: Update cached library statistics
+    private func updateLibraryStats() {
+        // 1. Unique Authors Count (O(n))
+        cachedUniqueAuthorsCount = Set(books.map { $0.author }).count
+
+        // 2. Review Needed Count (O(n))
+        cachedReviewNeededCount = books.filter { ($0.spineConfidence ?? 1.0) < 0.8 }.count
+
+        // 3. Most Common Format (O(n))
         let formatCounts = Dictionary(grouping: books.compactMap { $0.format }, by: { $0 })
             .mapValues { $0.count }
 
-        guard let mostCommon = formatCounts.max(by: { $0.value < $1.value }),
-              !books.isEmpty else {
-            return "N/A"
+        if let mostCommon = formatCounts.max(by: { $0.value < $1.value }), !books.isEmpty {
+            let percentage = Int((Double(mostCommon.value) / Double(books.count)) * 100)
+            cachedMostCommonFormat = "\(mostCommon.key): \(percentage)%"
+        } else {
+            cachedMostCommonFormat = "N/A"
         }
-
-        let percentage = Int((Double(mostCommon.value) / Double(books.count)) * 100)
-        return "\(mostCommon.key): \(percentage)%"
     }
 
     // MARK: - Empty State
