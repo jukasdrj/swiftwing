@@ -38,13 +38,17 @@ struct CameraView: View {
 
             // Vision Framework Overlays (conditionally shown)
             if viewModel.isVisionEnabled {
-                VisionOverlayView(textRegions: viewModel.detectedText)
-                    .allowsHitTesting(false)
+                VisionOverlayView(
+                    textRegions: viewModel.detectedText,
+                    convertRect: viewModel.cameraManager.convertVisionRect
+                )
+                .allowsHitTesting(false)
 
                 // Object detection overlay (rectangle bounding boxes)
                 ObjectBoundingBoxView(
                     detectedObjects: viewModel.detectedObjects,
-                    imageSize: viewModel.cameraManager.resolution
+                    imageSize: viewModel.cameraManager.resolution,
+                    convertRect: viewModel.cameraManager.convertVisionRect
                 )
                 .allowsHitTesting(false)
 
@@ -125,6 +129,34 @@ struct CameraView: View {
                 .swissGlassCard()
                 .padding(.horizontal, 32)
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+
+            // Truncation warning banner (large bookshelf may have missed books)
+            if viewModel.showTruncationBanner {
+                VStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                        Text("Some books may not have been detected")
+                            .font(.subheadline)
+                            .foregroundColor(.swissText)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                }
+                .padding(.top, 60)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .onAppear {
+                    Task {
+                        try? await Task.sleep(for: .seconds(6))
+                        withAnimation(.swissSpring) {
+                            viewModel.showTruncationBanner = false
+                        }
+                    }
+                }
             }
 
             // Segmented preview overlay (shows when processing item has preview data)

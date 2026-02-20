@@ -64,6 +64,9 @@ struct ScanJobCallbacks: Sendable {
 
     /// Called when results fetch fails (for retry context)
     let onResultsFetchFailed: @MainActor @Sendable (_ url: String, _ authToken: String, _ jobId: String) -> Void
+
+    /// Called when truncation is suspected in scan results
+    let onTruncationSuspected: @MainActor @Sendable () -> Void
 }
 
 /// Result of a successful scan upload
@@ -189,11 +192,15 @@ actor ScanJobCoordinator {
 
                 await callbacks.onBookResult(bookMetadata, rawJSON, nil)
 
-            case .complete(let resultsUrl, let inlineBooks, let summary, let duration):
+            case .complete(let resultsUrl, let inlineBooks, let summary, let duration, let truncation):
                 let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
                 e2eLogger.info("SSE complete! duration=\(String(format: "%.1f", streamDuration))s, hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
                 if let summary { e2eLogger.info("Scan summary: \(summary.totalDetected) detected, \(summary.totalUnique) unique") }
                 if let duration, let totalMs = duration.totalMs { e2eLogger.info("Scan duration: \(totalMs)ms") }
+                if let truncation, truncation.truncationSuspected {
+                    e2eLogger.warning("Truncation suspected in scan results")
+                    await callbacks.onTruncationSuspected()
+                }
                 #if DEBUG
                 integrationLog("SSE: COMPLETE event! hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
                 #endif

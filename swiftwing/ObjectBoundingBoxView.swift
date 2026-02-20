@@ -15,17 +15,24 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "vi
 struct ObjectBoundingBoxView: View {
     let detectedObjects: [DetectedObject]
     let imageSize: CGSize
+    /// Optional native conversion function. When provided, replaces manual aspect-fill math.
+    var convertRect: ((CGRect) -> CGRect?)? = nil
 
     var body: some View {
         GeometryReader { geometry in
             let _ = { logger.debug("ObjectBoundingBoxView: Rendering \(detectedObjects.count, privacy: .public) boxes, viewSize=\(String(describing: geometry.size), privacy: .public)") }()
 
             ForEach(detectedObjects, id: \.observationUUID) { object in
-                let rect = convertToViewCoordinates(
-                    visionRect: object.boundingBox,
-                    imageSize: imageSize,
-                    viewSize: geometry.size
-                )
+                let rect: CGRect = {
+                    if let convertRect, let converted = convertRect(object.boundingBox) {
+                        return converted
+                    }
+                    return convertToViewCoordinates(
+                        visionRect: object.boundingBox,
+                        imageSize: imageSize,
+                        viewSize: geometry.size
+                    )
+                }()
 
                 Rectangle()
                     .stroke(

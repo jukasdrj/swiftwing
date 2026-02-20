@@ -54,6 +54,15 @@ struct CameraPreviewView: UIViewRepresentable {
         var previewLayer: AVCaptureVideoPreviewLayer {
             layer as! AVCaptureVideoPreviewLayer
         }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            // Ensure preview layer frame matches view bounds during rotation
+            // The backing layer pattern means layer IS the view's layer,
+            // so this is technically automatic, but explicit override
+            // ensures frame is correct during animated transitions
+            layer.frame = bounds
+        }
     }
 
     func makeCoordinator() -> Coordinator {

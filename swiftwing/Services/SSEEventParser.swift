@@ -92,7 +92,7 @@ public struct SSEEventParser: Sendable {
         case "complete", "completed":
             // Extract resultsUrl, optional books, summary stats, and duration from completion event
             guard let jsonData = data.data(using: .utf8) else {
-                return .complete(resultsUrl: nil, books: nil, summary: nil, duration: nil)
+                return .complete(resultsUrl: nil, books: nil, summary: nil, duration: nil, truncation: nil)
             }
 
             if let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
@@ -108,15 +108,18 @@ public struct SSEEventParser: Sendable {
                     }
                 }
 
-                // Extract summary stats
+                // Extract summary stats (top-level fields + nested summary dict)
                 var summary: ScanSummary?
                 if let totalDetected = json["totalDetected"] as? Int,
                    let totalUnique = json["totalUnique"] as? Int {
+                    let nestedSummary = json["summary"] as? [String: Any]
                     summary = ScanSummary(
                         totalDetected: totalDetected,
                         totalUnique: totalUnique,
                         approved: json["approved"] as? Int ?? 0,
-                        needsReview: json["needsReview"] as? Int ?? 0
+                        needsReview: json["needsReview"] as? Int ?? 0,
+                        reviewNeeded: nestedSummary?["review_needed"] as? Int,
+                        degradedCount: nestedSummary?["degraded_count"] as? Int
                     )
                 }
 
@@ -132,13 +135,26 @@ public struct SSEEventParser: Sendable {
                     )
                 }
 
+                // Extract truncation metadata
+                var truncation: TruncationMetadata?
+                if let metadataDict = json["metadata"] as? [String: Any] {
+                    let truncationSuspected = metadataDict["truncation_suspected"] as? Bool ?? false
+                    let outputTruncated = metadataDict["output_truncated"] as? Bool ?? false
+                    if truncationSuspected || outputTruncated {
+                        truncation = TruncationMetadata(
+                            truncationSuspected: truncationSuspected,
+                            outputTruncated: outputTruncated
+                        )
+                    }
+                }
+
                 if let resultsUrl = resultsUrl {
                     logger.info("SSE: Completed with results at: \(resultsUrl, privacy: .public)")
                 }
-                return .complete(resultsUrl: resultsUrl, books: books, summary: summary, duration: duration)
+                return .complete(resultsUrl: resultsUrl, books: books, summary: summary, duration: duration, truncation: truncation)
             } else {
                 logger.debug("SSE: Completed without resultsUrl or books")
-                return .complete(resultsUrl: nil, books: nil, summary: nil, duration: nil)
+                return .complete(resultsUrl: nil, books: nil, summary: nil, duration: nil, truncation: nil)
             }
 
         case "error", "failed":

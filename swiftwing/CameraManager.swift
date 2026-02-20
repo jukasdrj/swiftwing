@@ -1,5 +1,6 @@
 import AVFoundation
 import OSLog
+import QuartzCore
 // Import Vision framework types and service
 import Vision
 
@@ -27,6 +28,7 @@ class CameraManager: ObservableObject {
     // Orientation handling (iOS 17+: Use RotationCoordinator)
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private var rotationObservers = [AnyObject]()
+    private weak var previewLayer: AVCaptureVideoPreviewLayer?
 
     // Interruption handling
     @Published var isInterrupted = false
@@ -195,6 +197,7 @@ class CameraManager: ObservableObject {
     func configureRotation(previewLayer: AVCaptureVideoPreviewLayer) {
         // Implementation remains same (RotationCoordinator pattern)
         guard let device = videoDevice else { return }
+        self.previewLayer = previewLayer
         rotationCoordinator = AVCaptureDevice.RotationCoordinator(
             device: device, previewLayer: previewLayer)
         guard let coordinator = rotationCoordinator else { return }
@@ -219,7 +222,10 @@ class CameraManager: ObservableObject {
         ) { _, change in
             guard let newAngle = change.newValue else { return }
             Task { @MainActor in
+                CATransaction.begin()
+                CATransaction.setAnimationDuration(0.3)
                 unsafePreviewLayer.connection?.videoRotationAngle = newAngle
+                CATransaction.commit()
             }
         }
         rotationObservers.append(previewObserver)
@@ -238,6 +244,41 @@ class CameraManager: ObservableObject {
             }
         }
         rotationObservers.append(captureObserver)
+    }
+
+    /// Convert Vision normalized rect to preview layer view coordinates.
+    /// Uses AVCaptureVideoPreviewLayer's native conversion which handles
+    /// aspect-fill, rotation, and coordinate system differences automatically.
+    ///
+    /// - Parameter visionRect: Normalized CGRect from Vision (0-1, bottom-left origin)
+    /// - Returns: CGRect in preview layer view coordinates, or nil if previewLayer unavailable
+    func convertVisionRect(_ visionRect: CGRect) -> CGRect? {
+        guard let previewLayer else { return nil }
+
+        // Vision uses bottom-left origin, AVFoundation uses top-left
+        // Flip Y: convert from bottom-left to top-left normalized space
+        let flippedRect = CGRect(
+            x: visionRect.origin.x,
+            y: 1.0 - visionRect.origin.y - visionRect.height,
+            width: visionRect.width,
+            height: visionRect.height
+        )
+
+        // Use native conversion for each corner point
+        // layerPointConverted handles aspect-fill scaling and rotation automatically
+        let topLeft = previewLayer.layerPointConverted(
+            fromCaptureDevicePoint: CGPoint(x: flippedRect.minX, y: flippedRect.minY)
+        )
+        let bottomRight = previewLayer.layerPointConverted(
+            fromCaptureDevicePoint: CGPoint(x: flippedRect.maxX, y: flippedRect.maxY)
+        )
+
+        return CGRect(
+            x: topLeft.x,
+            y: topLeft.y,
+            width: bottomRight.x - topLeft.x,
+            height: bottomRight.y - topLeft.y
+        )
     }
 
     func capturePhoto() async throws -> Data {

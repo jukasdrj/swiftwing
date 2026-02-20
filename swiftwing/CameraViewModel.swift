@@ -48,6 +48,7 @@ final class CameraViewModel {
     var showProcessingError = false
     var enrichmentDegradedMessage: String?
     var showEnrichmentDegradedBanner = false
+    var showTruncationBanner = false
 
     // MARK: - Review Queue Manager (extracted Phase 1A)
     let reviewQueueManager = ReviewQueueManager()
@@ -573,6 +574,11 @@ final class CameraViewModel {
                     )
                 }
                 e2eLogger.info("Item kept in queue for manual retry")
+            },
+            onTruncationSuspected: { [weak self] in
+                guard let self else { return }
+                e2eLogger.warning("Scan results may be truncated (large bookshelf)")
+                self.showTruncationBanner = true
             }
         )
     }

@@ -32,6 +32,9 @@ import SwiftUI
 struct VisionOverlayView: View {
     /// Array of detected text regions from Vision framework
     let textRegions: [TextRegion]
+    /// Optional conversion function from Vision normalized rect to view coordinates.
+    /// When nil, falls back to simple scaling (no aspect-fill correction).
+    var convertRect: ((CGRect) -> CGRect?)? = nil
 
     var body: some View {
         GeometryReader { geometry in
@@ -40,7 +43,8 @@ struct VisionOverlayView: View {
                 ForEach(Array(textRegions.enumerated()), id: \.offset) { _, region in
                     TextRegionOverlay(
                         region: region,
-                        viewSize: geometry.size
+                        viewSize: geometry.size,
+                        convertRect: convertRect
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     .animation(.swissSpring, value: textRegions.count)
@@ -57,6 +61,7 @@ struct VisionOverlayView: View {
 private struct TextRegionOverlay: View {
     let region: TextRegion
     let viewSize: CGSize
+    var convertRect: ((CGRect) -> CGRect?)? = nil
 
     /// Opacity based on confidence level
     /// - High confidence (>0.8): 100% opaque
@@ -122,16 +127,17 @@ private struct TextRegionOverlay: View {
     /// - Range: 0 to viewSize (pixels)
     /// - Y-axis: Increases downward
     private var convertedRect: CGRect {
-        let visionRect = region.boundingBox
+        // Use native conversion if available
+        if let convertRect, let converted = convertRect(region.boundingBox) {
+            return converted
+        }
 
-        // Convert normalized coordinates to pixel coordinates
+        // Fallback: simple scaling (no aspect-fill correction)
+        let visionRect = region.boundingBox
         let x = visionRect.origin.x * viewSize.width
         let width = visionRect.width * viewSize.width
         let height = visionRect.height * viewSize.height
-
-        // Flip Y-axis: Vision's bottom-left origin → SwiftUI's top-left origin
         let y = viewSize.height - (visionRect.origin.y * viewSize.height) - height
-
         return CGRect(x: x, y: y, width: width, height: height)
     }
 

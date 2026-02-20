@@ -373,6 +373,16 @@ public struct ScanSummary: Sendable, Equatable {
     let totalUnique: Int
     let approved: Int
     let needsReview: Int
+    /// From nested summary.review_needed (optional — older API versions may not send)
+    let reviewNeeded: Int?
+    /// From nested summary.degraded_count (optional — older API versions may not send)
+    let degradedCount: Int?
+}
+
+/// Truncation metadata from scan results (large bookshelves may be truncated)
+public struct TruncationMetadata: Sendable, Equatable {
+    let truncationSuspected: Bool
+    let outputTruncated: Bool
 }
 
 /// Timing breakdown for a completed scan
@@ -406,7 +416,7 @@ public struct SSEErrorInfo: Codable, Sendable {
 public enum SSEEvent: Sendable {
     case progress(ProgressInfo)     // Real-time status with optional progress fraction and counts
     case result(BookMetadata)       // Book metadata from AI (legacy - some API versions send in stream)
-    case complete(resultsUrl: String?, books: [BookMetadata]?, summary: ScanSummary?, duration: ScanDuration?)  // Job finished successfully
+    case complete(resultsUrl: String?, books: [BookMetadata]?, summary: ScanSummary?, duration: ScanDuration?, truncation: TruncationMetadata?)  // Job finished successfully
     case error(SSEErrorInfo)        // Job failed with error information
     case canceled                   // Job was canceled by user or system
     case segmented(SegmentedPreview)    // Segmented image with detected regions
