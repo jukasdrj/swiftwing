@@ -27,7 +27,7 @@ struct ProcessingItem: Identifiable, Equatable {
 
     // MARK: - Retry Context for Failed Result Fetches (Fix #2)
 
-    init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil) {
+    init(imageData: Data, state: ProcessingState = .uploading, progressMessage: String? = nil, preScannedISBN: String? = nil) {
         self.id = UUID()
         self.thumbnailData = Self.generateThumbnail(from: imageData)
         self.captureDate = Date()
@@ -37,6 +37,7 @@ struct ProcessingItem: Identifiable, Equatable {
         self.originalImageData = imageData  // Store for retry (US-407)
         self.tempFileURL = nil
         self.jobId = nil
+        self.preScannedISBN = preScannedISBN
     }
 
     /// Generates optimized 60x90px thumbnail from full image data

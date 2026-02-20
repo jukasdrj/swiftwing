@@ -13,7 +13,7 @@ actor RateLimitState {
     private(set) var retryAfterDate: Date?
 
     /// Queued image scans during rate limit (preserved to retry after cooldown)
-    private var queuedScans: [Data] = []
+    private var queuedScans: [(imageData: Data, isbn: String?)] = []
 
     // MARK: - Public API
 
@@ -45,14 +45,14 @@ actor RateLimitState {
 
     /// Queue an image scan during rate limit
     /// - Parameter imageData: JPEG image data to queue
-    func queueScan(_ imageData: Data) {
-        queuedScans.append(imageData)
+    func queueScan(_ imageData: Data, isbn: String? = nil) {
+        queuedScans.append((imageData: imageData, isbn: isbn))
         print("📥 Queued scan (\(queuedScans.count) total in queue)")
     }
 
     /// Get all queued scans and clear the queue
-    /// - Returns: Array of queued image data
-    func dequeueAllScans() -> [Data] {
+    /// - Returns: Array of queued image data and optional ISBN
+    func dequeueAllScans() -> [(imageData: Data, isbn: String?)] {
         let scans = queuedScans
         queuedScans.removeAll()
         print("📤 Dequeued \(scans.count) scans")
