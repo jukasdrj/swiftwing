@@ -10,6 +10,7 @@ struct PendingBookResult: Identifiable, Equatable {
     let thumbnailData: Data?        // From ProcessingItem for visual reference
     let scannedDate: Date
     let confidence: Double?
+    let preScannedISBN: String?     // Vision-detected ISBN fallback
 
     // Editable overrides (nil = use metadata value)
     var editedTitle: String?         // NEW
@@ -19,13 +20,19 @@ struct PendingBookResult: Identifiable, Equatable {
     var resolvedTitle: String { editedTitle ?? metadata.resolvedTitle }
     var resolvedAuthor: String { editedAuthor ?? metadata.resolvedAuthor }
 
-    init(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil) {
+    /// ISBN from metadata or pre-scanned barcode fallback
+    var resolvedISBN: String? {
+        metadata.isbn ?? preScannedISBN
+    }
+
+    init(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil) {
         self.id = UUID()
         self.metadata = metadata
         self.rawJSON = rawJSON
         self.thumbnailData = thumbnailData
         self.scannedDate = Date()
         self.confidence = metadata.confidence
+        self.preScannedISBN = preScannedISBN
         self.editedTitle = nil
         self.editedAuthor = nil
     }

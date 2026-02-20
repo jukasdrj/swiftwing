@@ -466,7 +466,7 @@ struct ReviewCardView: View {
                 }
 
                 // ISBN (JetBrains Mono for data)
-                if let isbn = book.metadata.isbn {
+                if let isbn = book.resolvedISBN {
                     Text("ISBN: \(isbn)")
                         .font(.custom("JetBrainsMono-Regular", size: 12))
                         .foregroundColor(.swissText.opacity(0.6))
@@ -549,7 +549,8 @@ struct ReviewCardView: View {
                     confidence: 0.95,
                     enrichmentStatus: nil
                 ),
-                rawJSON: nil
+                rawJSON: nil,
+                preScannedISBN: nil
             ),
             PendingBookResult(
                 metadata: BookMetadata(
@@ -564,7 +565,8 @@ struct ReviewCardView: View {
                     confidence: 0.35,
                     enrichmentStatus: nil
                 ),
-                rawJSON: nil
+                rawJSON: nil,
+                preScannedISBN: nil
             ),
             PendingBookResult(
                 metadata: BookMetadata(
@@ -579,7 +581,8 @@ struct ReviewCardView: View {
                     confidence: 0.65,
                     enrichmentStatus: nil
                 ),
-                rawJSON: nil
+                rawJSON: nil,
+                preScannedISBN: nil
             ),
         ]
         return vm

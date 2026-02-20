@@ -31,6 +31,7 @@ final class CameraViewModel {
     var showDuplicateAlert = false
     var pendingBookMetadata: BookMetadata?
     var pendingRawJSON: String?
+    var pendingPreScannedISBN: String?
 
     // MARK: - Review Queue State
     var pendingReviewBooks: [PendingBookResult] = []
@@ -185,6 +186,8 @@ final class CameraViewModel {
 
     // MARK: - Image Capture
     func captureImage() {
+        let currentDetectedISBN = detectedISBN
+
         // US-408: Safety check - should not be called when rate limited (button is disabled)
         guard !isRateLimited else {
             print("⚠️ Capture blocked: rate limited")
@@ -207,13 +210,13 @@ final class CameraViewModel {
         // Fire and forget - process capture in parallel (non-blocking)
         let itemId = UUID()
         let task = Task {
-            await processCapture(itemId: itemId)
+            await processCapture(itemId: itemId, preScannedISBN: currentDetectedISBN)
         }
         activeStreamingTasks[itemId] = task
     }
 
     // MARK: - Processing Pipeline
-    private func processCapture(itemId: UUID) async {
+    private func processCapture(itemId: UUID, preScannedISBN: String?) async {
         do {
             // Capture photo from camera (must be on main actor)
             let imageData = try await cameraManager.capturePhoto()
@@ -224,14 +227,14 @@ final class CameraViewModel {
                 fatalError("ModelContext not injected into ViewModel")
             }
 
-            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext, preScannedISBN: preScannedISBN)
         } catch {
             print("❌ Camera capture failed: \(error)")
             await showProcessingErrorOverlay(error.localizedDescription)
         }
     }
 
-    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext) async {
+    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String? = nil) async {
         let startTime = CFAbsoluteTimeGetCurrent()
         var queueItem: ProcessingItem?
         var tempFileURL: URL?
@@ -253,13 +256,13 @@ final class CameraViewModel {
 
                 // Add to processing queue with offline state
                 var item = ProcessingItem(imageData: imageData, state: .offline, progressMessage: "Queued (offline)")
-                item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
+                item.preScannedISBN = preScannedISBN
                 withAnimation(.swissSpring) {
                     processingQueue.append(item)
                 }
 
                 // Queue scan in FileManager for persistent storage
-                let queuedId = try await offlineQueueManager.queueScan(imageData: imageData)
+                let queuedId = try await offlineQueueManager.queueScan(imageData: imageData, preScannedISBN: preScannedISBN)
                 print("💾 Scan queued with ID: \(queuedId)")
 
                 // Update offline queue count
@@ -271,7 +274,7 @@ final class CameraViewModel {
             }
 
             // Add to processing queue immediately with thumbnail (preprocessing state)
-            queueItem = addToQueue(imageData: imageData)
+            queueItem = addToQueue(imageData: imageData, preScannedISBN: preScannedISBN)
 
             guard let item = queueItem else { return }
 
@@ -366,7 +369,7 @@ final class CameraViewModel {
                         rawJSON = nil
                     }
 
-                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext)
+                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext, preScannedISBN: item.preScannedISBN)
 
                 case .complete(let resultsUrl, let inlineBooks):
                     let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
@@ -435,7 +438,7 @@ final class CameraViewModel {
                             rawJSON = nil
                         }
 
-                        handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext)
+                        handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext, preScannedISBN: item.preScannedISBN)
                     }
 
                     // Success - mark as done
@@ -564,7 +567,7 @@ final class CameraViewModel {
                case .rateLimited(let retryAfter) = networkError {
                 print("⏰ Rate limited: retry after \(retryAfter ?? 0)s")
 
-                await rateLimitState.queueScan(imageData)
+                await rateLimitState.queueScan(imageData, isbn: preScannedISBN)
 
                 let retryDuration = retryAfter ?? 60.0
                 await rateLimitState.setRateLimited(retryAfter: retryDuration)
@@ -603,9 +606,9 @@ final class CameraViewModel {
     }
 
     // MARK: - Queue Management
-    private func addToQueue(imageData: Data) -> ProcessingItem {
+    private func addToQueue(imageData: Data, preScannedISBN: String?) -> ProcessingItem {
         var item = ProcessingItem(imageData: imageData, state: .preprocessing)
-        item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
+        item.preScannedISBN = preScannedISBN
         withAnimation(.swissSpring) {
             processingQueue.append(item)
         }
@@ -705,8 +708,9 @@ final class CameraViewModel {
         }
 
         let itemId = UUID()
+        let preScannedISBN = item.preScannedISBN
         let task = Task {
-            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: preScannedISBN)
         }
         activeStreamingTasks[itemId] = task
     }
@@ -731,10 +735,10 @@ final class CameraViewModel {
                     guard let ctx = modelContext else {
                         fatalError("ModelContext not injected into ViewModel")
                     }
-                    for imageData in queuedScans {
+                    for (imageData, isbn) in queuedScans {
                         let itemId = UUID()
                         let task = Task {
-                            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+                            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: isbn)
                         }
                         activeStreamingTasks[itemId] = task
                     }
@@ -889,8 +893,9 @@ final class CameraViewModel {
 
             for (metadata, imageData) in queuedScans {
                 let itemId = UUID()
+                let preScannedISBN = metadata.preScannedISBN
                 let task = Task {
-                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: preScannedISBN)
                 }
                 activeStreamingTasks[itemId] = task
 
@@ -954,7 +959,7 @@ final class CameraViewModel {
                         rawJSON = nil
                     }
 
-                    handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: ctx)
+                    handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: ctx, preScannedISBN: item.preScannedISBN)
                 }
 
                 // Success - mark as done
@@ -969,7 +974,7 @@ final class CameraViewModel {
     }
 
     // MARK: - US-405: Book Result Handling
-    func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, modelContext: ModelContext) {
+    func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, modelContext: ModelContext, preScannedISBN: String? = nil) {
         print("🔍 DEBUG: handleBookResult called for: \(metadata.resolvedTitle)")
 
         // FIX #3: Validate metadata quality before processing
@@ -1018,7 +1023,8 @@ final class CameraViewModel {
         let pendingBook = PendingBookResult(
             metadata: metadata,
             rawJSON: rawJSON,
-            thumbnailData: thumbnailData
+            thumbnailData: thumbnailData,
+            preScannedISBN: preScannedISBN
         )
 
         print("🔍 DEBUG: PendingBookResult created successfully, id: \(pendingBook.id)")
@@ -1038,7 +1044,7 @@ final class CameraViewModel {
 
     // MARK: - Review Queue Actions
     func approveBook(_ pendingBook: PendingBookResult, modelContext: ModelContext) {
-        let isbn = pendingBook.metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)"
+        let isbn = pendingBook.resolvedISBN ?? "UNKNOWN-\(UUID().uuidString)"
 
         // Duplicate detection at approve time
         do {
@@ -1046,6 +1052,7 @@ final class CameraViewModel {
                 pendingBookBeingApproved = pendingBook
                 pendingBookMetadata = pendingBook.metadata
                 pendingRawJSON = pendingBook.rawJSON
+                pendingPreScannedISBN = pendingBook.preScannedISBN
                 duplicateBook = duplicate
                 withAnimation(.swissSpring) {
                     showDuplicateAlert = true
@@ -1062,7 +1069,8 @@ final class CameraViewModel {
             author: pendingBook.resolvedAuthor,
             metadata: pendingBook.metadata,
             rawJSON: pendingBook.rawJSON,
-            modelContext: modelContext
+            modelContext: modelContext,
+            preScannedISBN: pendingBook.preScannedISBN
         )
 
         withAnimation(.swissSpring) {
@@ -1088,7 +1096,8 @@ final class CameraViewModel {
                 author: book.resolvedAuthor,
                 metadata: book.metadata,
                 rawJSON: book.rawJSON,
-                modelContext: modelContext
+                modelContext: modelContext,
+                preScannedISBN: book.preScannedISBN
             )
         }
 
@@ -1110,7 +1119,8 @@ final class CameraViewModel {
                 author: book.resolvedAuthor,
                 metadata: book.metadata,
                 rawJSON: book.rawJSON,
-                modelContext: modelContext
+                modelContext: modelContext,
+                preScannedISBN: book.preScannedISBN
             )
         }
 
@@ -1122,7 +1132,7 @@ final class CameraViewModel {
         print("✅ \(count) high-confidence books approved and added to library")
     }
 
-    func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
+    func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext, preScannedISBN: String? = nil) {
         let publishedDate: Date?
         if let dateString = metadata.publishedDate {
             let formatter = ISO8601DateFormatter()
@@ -1134,7 +1144,7 @@ final class CameraViewModel {
         let newBook = Book(
             title: title ?? metadata.resolvedTitle,        // Use override if provided
             author: author ?? metadata.resolvedAuthor,      // Use override if provided
-            isbn: metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)",
+            isbn: metadata.isbn ?? preScannedISBN ?? "UNKNOWN-\(UUID().uuidString)",
             coverUrl: metadata.coverUrl,
             format: metadata.format,
             publisher: metadata.publisher,
@@ -1185,6 +1195,7 @@ final class CameraViewModel {
             duplicateBook = nil
             pendingBookMetadata = nil
             pendingRawJSON = nil
+            pendingPreScannedISBN = nil
             pendingBookBeingApproved = nil
         }
     }
@@ -1193,7 +1204,7 @@ final class CameraViewModel {
         withAnimation(.swissSpring) {
             showDuplicateAlert = false
             if let metadata = pendingBookMetadata {
-                addBookToLibrary(metadata: metadata, rawJSON: pendingRawJSON, modelContext: modelContext)
+                addBookToLibrary(metadata: metadata, rawJSON: pendingRawJSON, modelContext: modelContext, preScannedISBN: pendingPreScannedISBN)
             }
             // Remove from review queue if it was an approve-time duplicate
             if let pending = pendingBookBeingApproved {
@@ -1202,6 +1213,7 @@ final class CameraViewModel {
             duplicateBook = nil
             pendingBookMetadata = nil
             pendingRawJSON = nil
+            pendingPreScannedISBN = nil
             pendingBookBeingApproved = nil
         }
     }

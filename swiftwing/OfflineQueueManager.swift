@@ -14,6 +14,7 @@ actor OfflineQueueManager {
         let id: UUID
         let captureDate: Date
         let imageFileName: String
+        let preScannedISBN: String?
     }
 
     // MARK: - Initialization
@@ -32,9 +33,11 @@ actor OfflineQueueManager {
     // MARK: - Public API
 
     /// Queue a scan for offline upload later
-    /// - Parameter imageData: Full-size JPEG image data to queue
+    /// - Parameters:
+    ///   - imageData: Full-size JPEG image data to queue
+    ///   - preScannedISBN: Vision-detected ISBN at time of capture
     /// - Returns: UUID of the queued item
-    func queueScan(imageData: Data) async throws -> UUID {
+    func queueScan(imageData: Data, preScannedISBN: String? = nil) async throws -> UUID {
         // Create queue directory if needed
         try await createQueueDirectoryIfNeeded()
 
@@ -50,7 +53,8 @@ actor OfflineQueueManager {
         let metadata = QueuedScanMetadata(
             id: scanId,
             captureDate: Date(),
-            imageFileName: imageFileName
+            imageFileName: imageFileName,
+            preScannedISBN: preScannedISBN
         )
         let metadataFileName = "\(scanId.uuidString).json"
         let metadataURL = queueDirectory.appendingPathComponent(metadataFileName)
