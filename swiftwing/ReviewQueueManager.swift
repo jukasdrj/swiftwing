@@ -371,8 +371,8 @@ final class ReviewQueueManager {
 
         // Update scan batch summary header
         let booksFromScan = pendingReviewBooks.suffix(booksAdded)
-        let high = booksFromScan.filter { ($0.confidence ?? 1.0) >= 0.8 }.count
-        let low = booksFromScan.filter { ($0.confidence ?? 1.0) < 0.5 }.count
+        let high = booksFromScan.lazy.filter { ($0.confidence ?? 1.0) >= 0.8 }.count
+        let low = booksFromScan.lazy.filter { ($0.confidence ?? 1.0) < 0.5 }.count
         lastScanBatch = ScanBatch(
             timestamp: Date(),
             totalBooks: booksAdded,
