@@ -1,10 +1,13 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import os
 
 #if canImport(UIKit)
 import UIKit
 #endif
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "review-queue")
 
 /// Manages the review queue for scanned book results awaiting user approval.
 /// Extracted from CameraViewModel (Phase 1A refactoring) to separate review queue
@@ -44,14 +47,15 @@ final class ReviewQueueManager {
     var showDuplicateAlert = false
     var pendingBookMetadata: BookMetadata?
     var pendingRawJSON: String?
+    var pendingPreScannedISBN: String?
 
     // MARK: - Error Display (for handleBookResult validation errors)
     var processingErrorMessage: String?
     var showProcessingError = false
 
     // MARK: - US-405: Book Result Handling
-    func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, modelContext: ModelContext) {
-        print("🔍 DEBUG: handleBookResult called for: \(metadata.resolvedTitle)")
+    func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil, modelContext: ModelContext) {
+        logger.debug("handleBookResult called for: \(metadata.resolvedTitle)")
 
         // Debug logging for integration test
         if ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") {
@@ -67,45 +71,10 @@ final class ReviewQueueManager {
             }
         }
 
-        // FIX #3: Validate metadata quality before processing
-        let title = (metadata.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let author = (metadata.author ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard validateBookMetadata(metadata) else { return }
 
-        guard !title.isEmpty else {
-            print("❌ Rejected book result: empty title")
-            Task {
-                await showProcessingErrorOverlay("Book title is empty - unable to add to review queue")
-            }
-            return
-        }
-
-        guard !author.isEmpty else {
-            print("❌ Rejected book result: empty author")
-            Task {
-                await showProcessingErrorOverlay("Book author is empty - unable to add to review queue")
-            }
-            return
-        }
-
-        // Warn on low confidence (but don't reject)
-        if let confidence = metadata.confidence, confidence < 0.3 {
-            print("⚠️ Low confidence result: \(Int(confidence * 100))% for '\(title)'")
-        }
-
-        // FIX #1: Deduplication guard to prevent .result + .complete duplicates
-        let isbn = metadata.isbn ?? ""
-        let isDuplicate = pendingReviewBooks.contains { pending in
-            // Match on ISBN OR (title + author) within last 60 seconds
-            let matchesISBN = !isbn.isEmpty && pending.metadata.isbn == isbn
-            let matchesTitleAuthor = pending.metadata.title == metadata.title &&
-                                     pending.metadata.author == metadata.author
-            let isRecent = pending.scannedDate.timeIntervalSinceNow > -60
-
-            return (matchesISBN || matchesTitleAuthor) && isRecent
-        }
-
-        if isDuplicate {
-            print("⚠️ Duplicate book result suppressed: \(metadata.resolvedTitle) (ISBN: \(isbn))")
+        if isDuplicateResult(metadata) {
+            logger.warning("Duplicate book result suppressed: \(metadata.resolvedTitle) (ISBN: \(metadata.isbn ?? ""))")
             return
         }
 
@@ -113,7 +82,7 @@ final class ReviewQueueManager {
         if autoApproveSettings.isEnabled,
            let confidence = metadata.confidence,
            confidence >= autoApproveSettings.confidenceThreshold {
-            autoApproveBook(metadata: metadata, rawJSON: rawJSON, thumbnailData: thumbnailData, modelContext: modelContext)
+            autoApproveBook(metadata: metadata, rawJSON: rawJSON, thumbnailData: thumbnailData, preScannedISBN: preScannedISBN, modelContext: modelContext)
             return
         }
 
@@ -121,29 +90,72 @@ final class ReviewQueueManager {
         let pendingBook = PendingBookResult(
             metadata: metadata,
             rawJSON: rawJSON,
-            thumbnailData: thumbnailData
+            thumbnailData: thumbnailData,
+            preScannedISBN: preScannedISBN
         )
 
         withAnimation(.swissSpring) {
             pendingReviewBooks.append(pendingBook)
         }
 
-        print("📋 Book added to review queue: \(metadata.resolvedTitle) (pending: \(pendingReviewBooks.count))")
+        let pendingCount = pendingReviewBooks.count
+        logger.info("Book added to review queue: \(metadata.resolvedTitle) (pending: \(pendingCount))")
 
         // Haptic feedback for new review item
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
     }
 
+    /// Validate title and author are non-empty. Shows error overlay and returns false if invalid.
+    private func validateBookMetadata(_ metadata: BookMetadata) -> Bool {
+        let title = (metadata.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let author = (metadata.author ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !title.isEmpty else {
+            logger.error("Rejected book result: empty title")
+            Task { await showProcessingErrorOverlay("Book title is empty - unable to add to review queue") }
+            return false
+        }
+
+        guard !author.isEmpty else {
+            logger.error("Rejected book result: empty author")
+            Task { await showProcessingErrorOverlay("Book author is empty - unable to add to review queue") }
+            return false
+        }
+
+        // Warn on low confidence (but don't reject)
+        if let confidence = metadata.confidence, confidence < 0.3 {
+            let pct = Int(confidence * 100)
+            logger.warning("Low confidence result: \(pct)% for '\(title)'")
+        }
+
+        return true
+    }
+
+    /// Returns true if a matching book is already in the pending review queue (dedup guard).
+    private func isDuplicateResult(_ metadata: BookMetadata) -> Bool {
+        let isbn = metadata.isbn ?? ""
+        return pendingReviewBooks.contains { pending in
+            // Match on ISBN OR (title + author) within last 60 seconds
+            let matchesISBN = !isbn.isEmpty && pending.metadata.isbn == isbn
+            let matchesTitleAuthor = pending.metadata.title == metadata.title &&
+                                     pending.metadata.author == metadata.author
+            let isRecent = pending.scannedDate.timeIntervalSinceNow > -60
+            return (matchesISBN || matchesTitleAuthor) && isRecent
+        }
+    }
+
     // MARK: - Auto-Approve
-    private func autoApproveBook(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data?, modelContext: ModelContext) {
-        print("Auto-approving high-confidence book: \(metadata.resolvedTitle) (confidence: \(metadata.confidence ?? 0))")
+    private func autoApproveBook(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data?, preScannedISBN: String? = nil, modelContext: ModelContext) {
+        let confidence = metadata.confidence ?? 0
+        logger.info("Auto-approving high-confidence book: \(metadata.resolvedTitle) (confidence: \(confidence))")
 
         addBookToLibrary(
             title: metadata.resolvedTitle,
             author: metadata.resolvedAuthor,
             metadata: metadata,
             rawJSON: rawJSON,
+            preScannedISBN: preScannedISBN,
             modelContext: modelContext
         )
 
@@ -169,7 +181,7 @@ final class ReviewQueueManager {
 
     // MARK: - Review Queue Actions
     func approveBook(_ pendingBook: PendingBookResult, modelContext: ModelContext) {
-        let isbn = pendingBook.metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)"
+        let isbn = pendingBook.resolvedISBN
 
         // Duplicate detection at approve time
         do {
@@ -177,6 +189,7 @@ final class ReviewQueueManager {
                 pendingBookBeingApproved = pendingBook
                 pendingBookMetadata = pendingBook.metadata
                 pendingRawJSON = pendingBook.rawJSON
+                pendingPreScannedISBN = pendingBook.preScannedISBN
                 duplicateBook = duplicate
                 withAnimation(.swissSpring) {
                     showDuplicateAlert = true
@@ -193,6 +206,7 @@ final class ReviewQueueManager {
             author: pendingBook.resolvedAuthor,
             metadata: pendingBook.metadata,
             rawJSON: pendingBook.rawJSON,
+            preScannedISBN: pendingBook.preScannedISBN,
             modelContext: modelContext
         )
 
@@ -200,7 +214,7 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll { $0.id == pendingBook.id }
         }
 
-        print("✅ Book approved and added to library: \(pendingBook.resolvedTitle)")
+        logger.info("Book approved and added to library: \(pendingBook.resolvedTitle)")
     }
 
     func rejectBook(_ pendingBook: PendingBookResult) {
@@ -208,7 +222,7 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll { $0.id == pendingBook.id }
         }
 
-        print("❌ Book rejected from review queue: \(pendingBook.metadata.resolvedTitle)")
+        logger.info("Book rejected from review queue: \(pendingBook.metadata.resolvedTitle)")
     }
 
     func approveAllBooks(modelContext: ModelContext) {
@@ -219,6 +233,7 @@ final class ReviewQueueManager {
                 author: book.resolvedAuthor,
                 metadata: book.metadata,
                 rawJSON: book.rawJSON,
+                preScannedISBN: book.preScannedISBN,
                 modelContext: modelContext
             )
         }
@@ -227,7 +242,7 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll()
         }
 
-        print("✅ All \(count) books approved and added to library")
+        logger.info("All \(count) books approved and added to library")
     }
 
     func approveHighConfidenceBooks(modelContext: ModelContext) {
@@ -241,6 +256,7 @@ final class ReviewQueueManager {
                 author: book.resolvedAuthor,
                 metadata: book.metadata,
                 rawJSON: book.rawJSON,
+                preScannedISBN: book.preScannedISBN,
                 modelContext: modelContext
             )
         }
@@ -250,15 +266,15 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll { approvedIds.contains($0.id) }
         }
 
-        print("✅ \(count) high-confidence books approved and added to library")
+        logger.info("\(count) high-confidence books approved and added to library")
     }
 
-    func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
+    func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, preScannedISBN: String? = nil, modelContext: ModelContext) {
         let resolvedTitle = (title ?? metadata.resolvedTitle).trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedAuthor = (author ?? metadata.resolvedAuthor).trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !resolvedTitle.isEmpty, !resolvedAuthor.isEmpty else {
-            print("❌ Rejected addBookToLibrary: empty title or author")
+            logger.error("Rejected addBookToLibrary: empty title or author")
             return
         }
 
@@ -273,7 +289,7 @@ final class ReviewQueueManager {
         let newBook = Book(
             title: resolvedTitle,
             author: resolvedAuthor,
-            isbn: metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)",
+            isbn: metadata.isbn ?? preScannedISBN ?? "UNKNOWN-\(UUID().uuidString)",
             coverUrl: metadata.coverUrl,
             format: metadata.format,
             publisher: metadata.publisher,
@@ -289,13 +305,13 @@ final class ReviewQueueManager {
 
         do {
             try modelContext.save()
-            print("✅ Book added to library: \(resolvedTitle)")
+            logger.info("Book added to library: \(resolvedTitle)")
 
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
 
         } catch {
-            print("❌ Failed to save book: \(error)")
+            logger.error("Failed to save book: \(error)")
         }
     }
 
@@ -314,6 +330,7 @@ final class ReviewQueueManager {
             duplicateBook = nil
             pendingBookMetadata = nil
             pendingRawJSON = nil
+            pendingPreScannedISBN = nil
             pendingBookBeingApproved = nil
         }
     }
@@ -327,6 +344,7 @@ final class ReviewQueueManager {
                     author: pendingBookBeingApproved?.resolvedAuthor,
                     metadata: metadata,
                     rawJSON: pendingRawJSON,
+                    preScannedISBN: pendingPreScannedISBN,
                     modelContext: modelContext
                 )
             }
@@ -337,6 +355,7 @@ final class ReviewQueueManager {
             duplicateBook = nil
             pendingBookMetadata = nil
             pendingRawJSON = nil
+            pendingPreScannedISBN = nil
             pendingBookBeingApproved = nil
         }
     }
@@ -352,12 +371,13 @@ final class ReviewQueueManager {
     func showScanComplete(booksAdded: Int, thumbnailData: Data?) {
         guard booksAdded > 0 else { return }
 
-        let bannerId = UUID()
+        let banner = ScanCompleteBanner(
+            bookCount: booksAdded,
+            thumbnailData: thumbnailData
+        )
+        let bannerId = banner.id
         withAnimation(.swissSpring) {
-            scanCompleteBanner = ScanCompleteBanner(
-                bookCount: booksAdded,
-                thumbnailData: thumbnailData
-            )
+            scanCompleteBanner = banner
         }
         // Auto-dismiss after 5 seconds (only if banner still matches)
         Task {

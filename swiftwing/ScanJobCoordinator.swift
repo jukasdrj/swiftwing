@@ -33,7 +33,7 @@ struct ScanJobCallbacks: Sendable {
     let onProgress: @MainActor @Sendable (_ message: String) -> Void
 
     /// Called when a book result arrives (individual SSE result event)
-    let onBookResult: @MainActor @Sendable (_ metadata: BookMetadata, _ rawJSON: String?) -> Void
+    let onBookResult: @MainActor @Sendable (_ metadata: BookMetadata, _ rawJSON: String?, _ preScannedISBN: String?) -> Void
 
     /// Called when SSE stream completes with books (booksAdded count, thumbnail, inline books processed)
     let onScanComplete: @MainActor @Sendable (_ booksAdded: Int, _ thumbnailData: Data?) -> Void
@@ -80,6 +80,7 @@ actor ScanJobCoordinator {
     private let talariaService: TalariaService
     private var activeJobs: [UUID: Task<Void, Never>] = [:]
     private var jobAuthTokens: [String: String] = [:]
+    private var cleanupTasks: [Task<Void, Never>] = []
 
     init(talariaService: TalariaService) {
         self.talariaService = talariaService
@@ -157,23 +158,20 @@ actor ScanJobCoordinator {
         for try await event in eventStream {
             // Check for task cancellation (app backgrounding)
             if Task.isCancelled {
-                e2eLogger.warning("🛑 SSE stream cancelled (app backgrounding)")
-                print("🛑 SSE stream cancelled (app backgrounding)")
+                e2eLogger.warning("SSE stream cancelled (app backgrounding)")
                 return 0
             }
 
             switch event {
             case .progress(let info):
-                e2eLogger.info("📡 SSE progress: \(info.message)")
-                print("📡 SSE progress: \(info.message)")
+                e2eLogger.info("SSE progress: \(info.message)")
                 #if DEBUG
                 integrationLog("SSE: progress event: \(info.message)")
                 #endif
                 await callbacks.onProgress(info.message)
 
             case .result(let bookMetadata):
-                e2eLogger.info("📚 Book result: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
-                print("📚 Book identified: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
+                e2eLogger.info("Book result: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
                 #if DEBUG
                 integrationLog("SSE: result event: '\(bookMetadata.resolvedTitle)' by '\(bookMetadata.resolvedAuthor)'")
                 #endif
@@ -189,14 +187,13 @@ actor ScanJobCoordinator {
                     rawJSON = nil
                 }
 
-                await callbacks.onBookResult(bookMetadata, rawJSON)
+                await callbacks.onBookResult(bookMetadata, rawJSON, nil)
 
             case .complete(let resultsUrl, let inlineBooks, let summary, let duration):
                 let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
-                e2eLogger.info("✅ SSE complete! duration=\(String(format: "%.1f", streamDuration))s, hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
-                print("✅ SSE stream lasted \(String(format: "%.1f", streamDuration))s")
-                if let summary { print("📊 Scan summary: \(summary.totalDetected) detected, \(summary.totalUnique) unique") }
-                if let duration, let totalMs = duration.totalMs { print("⏱️ Scan duration: \(totalMs)ms") }
+                e2eLogger.info("SSE complete! duration=\(String(format: "%.1f", streamDuration))s, hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
+                if let summary { e2eLogger.info("Scan summary: \(summary.totalDetected) detected, \(summary.totalUnique) unique") }
+                if let duration, let totalMs = duration.totalMs { e2eLogger.info("Scan duration: \(totalMs)ms") }
                 #if DEBUG
                 integrationLog("SSE: COMPLETE event! hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
                 #endif
@@ -205,28 +202,28 @@ actor ScanJobCoordinator {
 
                 // First, check for inline books (modern API)
                 if let inlineBooks = inlineBooks, !inlineBooks.isEmpty {
-                    print("📚 Using inline books from completion event (\(inlineBooks.count) books)")
+                    e2eLogger.info("Using inline books from completion event (\(inlineBooks.count) books)")
                     books = inlineBooks
                 }
                 // Fallback to fetching from resultsUrl (legacy API)
                 else if let url = resultsUrl,
                         let storedAuthToken = jobAuthTokens[jobId] {
-                    print("📥 Fetching book results from: \(url)")
+                    e2eLogger.info("Fetching book results from: \(url)")
 
                     do {
                         books = try await talariaService.fetchResults(
                             resultsUrl: url,
                             authToken: storedAuthToken
                         )
-                        print("📚 Received \(books.count) books from results API")
+                        e2eLogger.info("Received \(books.count) books from results API")
                     } catch {
-                        print("❌ Failed to fetch results from \(url): \(error)")
+                        e2eLogger.error("Failed to fetch results from \(url): \(error.localizedDescription)")
                         await callbacks.onResultsFetchFailed(url, storedAuthToken, jobId)
                         return 0
                     }
                 } else {
                     // Missing both inline books and resultsUrl
-                    print("⚠️ No results available in completion event")
+                    e2eLogger.warning("No results available in completion event")
                     #if DEBUG
                     integrationLog("SSE: COMPLETE but NO RESULTS - no inline books and no resultsUrl")
                     #endif
@@ -235,7 +232,7 @@ actor ScanJobCoordinator {
                     let currentReviewCount = await getReviewCount()
                     let booksFromResultEvents = currentReviewCount - reviewCountBefore
                     if booksFromResultEvents > 0 {
-                        print("✅ \(booksFromResultEvents) book(s) already delivered via result events, treating complete as success")
+                        e2eLogger.info("\(booksFromResultEvents) book(s) already delivered via result events, treating complete as success")
                         #if DEBUG
                         integrationLog("SSE: COMPLETE with books from result events (\(booksFromResultEvents) books), treating as success")
                         #endif
@@ -265,7 +262,7 @@ actor ScanJobCoordinator {
                     } else {
                         rawJSON = nil
                     }
-                    await callbacks.onBookResult(book, rawJSON)
+                    await callbacks.onBookResult(book, rawJSON, nil)
                 }
 
                 let booksAdded = await getReviewCount() - countBefore
@@ -274,45 +271,45 @@ actor ScanJobCoordinator {
                 return booksAdded
 
             case .error(let errorInfo):
-                print("❌ SSE error (jobId: \(jobId)): \(errorInfo.message), retryable: \(errorInfo.retryable ?? false)")
+                e2eLogger.error("SSE error (jobId: \(jobId)): \(errorInfo.message), retryable: \(errorInfo.retryable ?? false)")
                 #if DEBUG
                 integrationLog("SSE: ERROR event: \(errorInfo.message), retryable=\(errorInfo.retryable ?? false)")
                 #endif
 
                 if errorInfo.retryable == true {
-                    print("🔄 Error is retryable - signaling for retry")
+                    e2eLogger.info("Error is retryable - signaling for retry")
                     await callbacks.onRetryableError(errorInfo.message)
                 } else {
-                    print("❌ Error is NOT retryable - showing permanent error")
+                    e2eLogger.error("Error is NOT retryable - showing permanent error")
                     await callbacks.onError(errorInfo.message)
                 }
                 removeAuthToken(jobId: jobId)
                 return 0
 
             case .canceled:
-                print("⚠️ SSE job canceled (jobId: \(jobId))")
+                e2eLogger.warning("SSE job canceled (jobId: \(jobId))")
                 await callbacks.onCanceled()
                 removeAuthToken(jobId: jobId)
                 return 0
 
             case .segmented(let preview):
-                print("📸 Segmented preview: \(preview.totalBooks) books detected (\(preview.imageData.count) bytes)")
+                e2eLogger.debug("Segmented preview: \(preview.totalBooks) books detected (\(preview.imageData.count) bytes)")
                 await callbacks.onSegmented(preview)
 
             case .bookProgress(let progress):
-                print("📊 Book progress: \(progress.current)/\(progress.total)")
+                e2eLogger.debug("Book progress: \(progress.current)/\(progress.total)")
                 await callbacks.onBookProgress(progress.current, progress.total)
 
             case .ping:
-                print("💓 SSE ping received")
+                e2eLogger.debug("SSE ping received")
 
             case .enrichmentDegraded(let info):
-                print("⚠️ Enrichment degraded: \(info.reason ?? "unknown reason")")
+                e2eLogger.warning("Enrichment degraded: \(info.reason ?? "unknown reason")")
                 if let isbn = info.isbn {
-                    print("   ISBN: \(isbn)")
+                    e2eLogger.debug("Enrichment degraded ISBN: \(isbn)")
                 }
                 if let fallback = info.fallbackSource {
-                    print("   Fallback: \(fallback)")
+                    e2eLogger.debug("Enrichment fallback: \(fallback)")
                 }
                 await callbacks.onEnrichmentDegraded(info.reason)
             }
@@ -331,20 +328,20 @@ actor ScanJobCoordinator {
         let token = authToken ?? jobAuthTokens[jobId]
         do {
             try await talariaService.cleanup(jobId: jobId, authToken: token)
-            print("🗑️ Server cleanup successful for job: \(jobId)")
+            e2eLogger.info("Server cleanup successful for job: \(jobId)")
         } catch {
-            print("⚠️ Server cleanup failed for job \(jobId): \(error.localizedDescription)")
+            e2eLogger.warning("Server cleanup failed for job \(jobId): \(error.localizedDescription)")
         }
     }
 
     func cleanupTempFile(_ url: URL) {
         do {
             try FileManager.default.removeItem(at: url)
-            print("🗑️ Local temp file cleanup successful: \(url.lastPathComponent)")
+            e2eLogger.info("Local temp file cleanup successful: \(url.lastPathComponent)")
         } catch let error as CocoaError where error.code == .fileNoSuchFile {
-            print("ℹ️ Temp file already deleted: \(url.lastPathComponent)")
+            e2eLogger.debug("Temp file already deleted: \(url.lastPathComponent)")
         } catch {
-            print("⚠️ Local temp file cleanup failed for \(url.lastPathComponent): \(error.localizedDescription)")
+            e2eLogger.warning("Local temp file cleanup failed for \(url.lastPathComponent): \(error.localizedDescription)")
         }
     }
 
@@ -359,7 +356,7 @@ actor ScanJobCoordinator {
         let jobCount = activeJobs.count
         guard jobCount > 0 else { return }
 
-        print("Cancelling \(jobCount) active SSE streams (navigation/backgrounding)")
+        e2eLogger.info("Cancelling \(jobCount) active SSE streams (navigation/backgrounding)")
 
         // Cancel all Swift Task instances
         for (_, task) in activeJobs {
@@ -372,18 +369,23 @@ actor ScanJobCoordinator {
             .filter { $0.state == .uploading || $0.state == .analyzing }
             .compactMap { $0.jobId }
 
-        // Fire-and-forget cleanup calls to backend
+        // Cancel any previously running cleanup tasks
+        for task in cleanupTasks { task.cancel() }
+        cleanupTasks.removeAll()
+
+        // Fire-and-forget cleanup calls to backend (tracked for future cancellation)
         for activeJobId in activeJobIds {
             let storedAuthToken = jobAuthTokens[activeJobId]
             let service = talariaService
-            Task {
+            let cleanupTask = Task {
                 do {
                     try await service.cleanup(jobId: activeJobId, authToken: storedAuthToken)
-                    print("Backend cleanup sent for disconnected job: \(activeJobId)")
+                    e2eLogger.info("Backend cleanup sent for disconnected job: \(activeJobId)")
                 } catch {
-                    print("Backend cleanup failed for \(activeJobId): \(error.localizedDescription)")
+                    e2eLogger.warning("Backend cleanup failed for \(activeJobId): \(error.localizedDescription)")
                 }
             }
+            cleanupTasks.append(cleanupTask)
         }
 
         // Clear all auth tokens

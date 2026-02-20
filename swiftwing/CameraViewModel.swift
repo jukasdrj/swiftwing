@@ -70,6 +70,10 @@ final class CameraViewModel {
     let offlineQueueManager: OfflineQueueManager = OfflineQueueManager()
     var offlineQueuedCount: Int = 0
 
+    // MARK: - Capture Throttle
+    private var activeCaptureCount = 0
+    private let maxConcurrentCaptures = 5
+
     // MARK: - US-410: Stream Concurrency Manager
     let streamManager: StreamManager = StreamManager()
 
@@ -176,16 +180,16 @@ final class CameraViewModel {
 
             // Log total cold start time
             let totalDuration = CFAbsoluteTimeGetCurrent() - coldStartTime
-            print("📹 Camera cold start: \(String(format: "%.3f", totalDuration))s (target: < 0.5s)")
+            e2eLogger.info("Camera cold start: \(String(format: "%.3f", totalDuration))s (target: < 0.5s)")
 
             if totalDuration >= 0.5 {
-                print("⚠️ WARNING: Camera cold start exceeded 0.5s target!")
+                e2eLogger.warning("Camera cold start exceeded 0.5s target!")
             }
 
         } catch {
             errorMessage = error.localizedDescription
             isLoading = false
-            print("❌ Camera setup failed: \(error)")
+            e2eLogger.error("Camera setup failed: \(error.localizedDescription)")
         }
     }
 
@@ -209,9 +213,16 @@ final class CameraViewModel {
     func captureImage() {
         // US-408: Safety check - should not be called when rate limited (button is disabled)
         guard !isRateLimited else {
-            print("⚠️ Capture blocked: rate limited")
+            e2eLogger.warning("Capture blocked: rate limited")
             return
         }
+
+        guard activeCaptureCount < maxConcurrentCaptures else {
+            let limit = maxConcurrentCaptures
+            e2eLogger.warning("Max concurrent captures reached (\(limit))")
+            return
+        }
+        activeCaptureCount += 1
 
         // Show flash immediately (100ms animation)
         withAnimation(.easeOut(duration: 0.1)) {
@@ -230,6 +241,7 @@ final class CameraViewModel {
         let itemId = UUID()
         let task = Task {
             await processCapture(itemId: itemId)
+            self.activeCaptureCount -= 1
         }
         Task { await scanCoordinator.trackJob(id: itemId, task: task) }
     }
@@ -239,28 +251,30 @@ final class CameraViewModel {
         do {
             // Capture photo from camera (must be on main actor)
             let imageData = try await cameraManager.capturePhoto()
-            print("📸 Image captured (\(imageData.count) bytes)")
+            e2eLogger.info("Image captured (\(imageData.count) bytes)")
 
             // Process with injected modelContext
             guard let modelContext = modelContext else {
-                print("❌ ModelContext not injected — cannot process capture")
+                e2eLogger.error("ModelContext not injected — cannot process capture")
                 await showProcessingErrorOverlay("Internal error: storage unavailable. Please restart the app.")
                 return
             }
 
             await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: modelContext)
         } catch {
-            print("❌ Camera capture failed: \(error)")
+            e2eLogger.error("Camera capture failed: \(error.localizedDescription)")
             await showProcessingErrorOverlay(error.localizedDescription)
         }
     }
 
-    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext) async {
+    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String? = nil) async {
         let startTime = CFAbsoluteTimeGetCurrent()
         var queueItem: ProcessingItem?
         var tempFileURL: URL?
         var jobId: String?
         var authToken: String?
+        // Snapshot the Vision-detected ISBN at capture time (caller may pass explicit value, or we read current)
+        let capturedISBN = preScannedISBN ?? detectedISBN
 
         // Cleanup task tracker when done
         defer {
@@ -268,25 +282,23 @@ final class CameraViewModel {
         }
 
         do {
-            e2eLogger.info("📸 Processing image data (\(imageData.count) bytes)")
-            print("📸 Processing image data (\(imageData.count) bytes)")
+            e2eLogger.info("Processing image data (\(imageData.count) bytes)")
 
             // US-409: Check if offline - if so, queue for later upload
-            e2eLogger.info("🌐 Network check: isConnected=\(self.networkMonitor.isConnected)")
+            e2eLogger.info("Network check: isConnected=\(self.networkMonitor.isConnected)")
             if !networkMonitor.isConnected {
-                e2eLogger.warning("📴 Offline mode - queueing scan for later upload")
-                print("📴 Offline mode - queueing scan for later upload")
+                e2eLogger.warning("Offline mode - queueing scan for later upload")
 
                 // Add to processing queue with offline state
                 var item = ProcessingItem(imageData: imageData, state: .offline, progressMessage: "Queued (offline)")
-                item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
+                item.preScannedISBN = capturedISBN
                 withAnimation(.swissSpring) {
                     processingQueue.append(item)
                 }
 
                 // Queue scan in FileManager for persistent storage
-                let queuedId = try await offlineQueueManager.queueScan(imageData: imageData)
-                print("💾 Scan queued with ID: \(queuedId)")
+                let queuedId = try await offlineQueueManager.queueScan(imageData: imageData, preScannedISBN: capturedISBN)
+                e2eLogger.info("Scan queued with ID: \(queuedId)")
 
                 // Update offline queue count
                 let count = try await offlineQueueManager.getQueuedScanCount()
@@ -297,56 +309,22 @@ final class CameraViewModel {
             }
 
             // Add to processing queue immediately with thumbnail (preprocessing state)
-            queueItem = addToQueue(imageData: imageData)
+            queueItem = addToQueue(imageData: imageData, preScannedISBN: capturedISBN)
 
             guard let item = queueItem else { return }
 
-            // Step 1: Preprocess image (contrast, brightness, denoising, rotation)
-            updateQueueItem(id: item.id, state: .preprocessing, message: "Preprocessing...")
-            let preprocessResult = await imagePreprocessor.preprocess(imageData)
-            print("✨ Preprocessing: \(preprocessResult.processingTimeMs)ms, rotated: \(preprocessResult.wasRotated), brightness adj: \(preprocessResult.brightnessAdjustment)")
-
-            // Step 2: Process (resize + compress) the preprocessed image
-            let fileURL = try await imagePreprocessor.processImageForUpload(preprocessResult.processedData)
+            // Steps 1 & 2: Preprocess + process image for upload
+            let (uploadData, fileURL) = try await preprocessAndPrepareUpload(
+                itemId: itemId, item: item, imageData: imageData, startTime: startTime
+            )
             tempFileURL = fileURL
 
-            let duration = CFAbsoluteTimeGetCurrent() - startTime
-            print("✅ Image processed in \(String(format: "%.3f", duration))s (target: < 0.5s)")
-
-            if duration >= 0.5 {
-                print("⚠️ WARNING: Image processing exceeded 0.5s target!")
-            }
-
-            // Read processed image data for upload
-            let uploadData = try Data(contentsOf: fileURL)
-
-            // US-410: Performance optimization - limit concurrent SSE streams to 5
-            await streamManager.acquireStreamSlot(scanId: itemId)
-
-            // Ensure we release the stream slot when done (even on error)
-            defer {
-                Task {
-                    await streamManager.releaseStreamSlot(scanId: itemId)
-                }
-            }
-
-            // Update progress: uploading
-            updateQueueItemProgress(id: item.id, message: "Uploading...")
-
-            // Performance logging: start upload timer
-            let uploadStart = CFAbsoluteTimeGetCurrent()
-
-            // Upload via coordinator
-            let uploadResult = try await scanCoordinator.uploadScan(imageData: uploadData, deviceId: self.deviceId)
+            // Step 3: Upload to Talaria
+            let uploadResult = try await uploadToTalaria(
+                itemId: itemId, item: item, uploadData: uploadData, fileURL: fileURL
+            )
             jobId = uploadResult.jobId
             authToken = uploadResult.authToken
-
-            // Performance logging: upload completed
-            let uploadDuration = (CFAbsoluteTimeGetCurrent() - uploadStart) * 1000 // Convert to ms
-            print("📤 Upload took \(Int(uploadDuration))ms, jobId: \(uploadResult.jobId)")
-
-            // Store temp file URL and job ID for cleanup (US-406)
-            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResult.jobId)
 
             // Switch to analyzing state
             updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
@@ -357,84 +335,8 @@ final class CameraViewModel {
             let reviewCountBefore = reviewQueueManager.pendingReviewBooks.count
 
             // Build callbacks for the coordinator
-            let callbacks = ScanJobCallbacks(
-                onProgress: { [weak self] message in
-                    self?.updateQueueItemProgress(id: capturedItemId, message: message)
-                },
-                onBookResult: { [weak self] metadata, rawJSON in
-                    self?.reviewQueueManager.handleBookResult(metadata: metadata, rawJSON: rawJSON, thumbnailData: capturedThumbnailData, modelContext: modelContext)
-                },
-                onScanComplete: { [weak self] booksAdded, thumbnailData in
-                    self?.reviewQueueManager.showScanComplete(booksAdded: booksAdded, thumbnailData: thumbnailData)
-                },
-                onError: { [weak self] message in
-                    self?.updateQueueItemError(id: capturedItemId, errorMessage: message)
-                    Task {
-                        await self?.showProcessingErrorOverlay(message)
-                    }
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-                    impactFeedback.impactOccurred()
-                },
-                onRetryableError: { [weak self] message in
-                    guard let self else { return }
-                    self.updateQueueItemProgress(id: capturedItemId, message: "Retrying...")
-
-                    // Auto-retry once after 2 second delay
-                    if let originalImageData = item.originalImageData {
-                        Task {
-                            try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            withAnimation(.swissSpring) {
-                                self.processingQueue.removeAll { $0.id == capturedItemId }
-                            }
-
-                            let retryItemId = UUID()
-                            let retryTask = Task {
-                                await self.processCaptureWithImageData(itemId: retryItemId, imageData: originalImageData, modelContext: modelContext)
-                            }
-                            await self.scanCoordinator.trackJob(id: retryItemId, task: retryTask)
-                        }
-                    } else {
-                        self.updateQueueItemError(id: capturedItemId, errorMessage: message)
-                        Task {
-                            await self.showProcessingErrorOverlay(message)
-                        }
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-                        impactFeedback.impactOccurred()
-                    }
-                },
-                onEnrichmentDegraded: { [weak self] reason in
-                    Task {
-                        await self?.showEnrichmentDegradedBanner(reason: reason)
-                    }
-                },
-                onCanceled: { [weak self] in
-                    self?.updateQueueItem(id: capturedItemId, state: .error, message: "Canceled")
-                },
-                onQueueProgress: { [weak self] message in
-                    self?.updateQueueItemProgress(id: capturedItemId, message: message)
-                },
-                onBookMetadataReceived: { [weak self] metadata in
-                    if let index = self?.processingQueue.firstIndex(where: { $0.id == capturedItemId }) {
-                        self?.processingQueue[index].bookMetadata = metadata
-                    }
-                },
-                onSegmented: { [weak self] preview in
-                    self?.updateQueueItemSegmented(id: capturedItemId, preview: preview)
-                },
-                onBookProgress: { [weak self] current, total in
-                    self?.updateQueueItemBookProgress(id: capturedItemId, current: current, total: total)
-                },
-                onResultsFetchFailed: { [weak self] url, fetchAuthToken, failedJobId in
-                    self?.updateQueueItemError(id: capturedItemId, errorMessage: "Failed to fetch results. Check network and retry.")
-                    if let index = self?.processingQueue.firstIndex(where: { $0.id == capturedItemId }) {
-                        self?.processingQueue[index].retryContext = ResultsFetchRetryContext(
-                            resultsUrl: url,
-                            authToken: fetchAuthToken,
-                            jobId: failedJobId
-                        )
-                    }
-                    print("💡 Item kept in queue for manual retry")
-                }
+            let callbacks = buildScanCallbacks(
+                itemId: capturedItemId, item: item, capturedISBN: capturedISBN, modelContext: modelContext
             )
 
             // Stream SSE events via coordinator
@@ -479,9 +381,9 @@ final class CameraViewModel {
             // US-408: Check if this is a rate limit error
             if let networkError = error as? NetworkError,
                case .rateLimited(let retryAfter) = networkError {
-                print("⏰ Rate limited: retry after \(retryAfter ?? 0)s")
+                e2eLogger.warning("Rate limited: retry after \(retryAfter ?? 0)s")
 
-                await rateLimitState.queueScan(imageData)
+                await rateLimitState.queueScan(imageData, preScannedISBN: capturedISBN)
 
                 let retryDuration = retryAfter ?? 60.0
                 await rateLimitState.setRateLimited(retryAfter: retryDuration)
@@ -502,7 +404,7 @@ final class CameraViewModel {
             }
 
             // Other errors:
-            print("❌ Image processing/upload failed: \(error.localizedDescription)")
+            e2eLogger.error("Image processing/upload failed: \(error.localizedDescription)")
 
             await showProcessingErrorOverlay(error.localizedDescription)
 
@@ -522,10 +424,145 @@ final class CameraViewModel {
         }
     }
 
+    // MARK: - Processing Pipeline Helpers
+
+    /// Preprocess raw image data and compress it for upload.
+    /// Returns the processed image data and temp file URL.
+    private func preprocessAndPrepareUpload(itemId: UUID, item: ProcessingItem, imageData: Data, startTime: CFAbsoluteTime) async throws -> (Data, URL) {
+        // Step 1: Preprocess image (contrast, brightness, denoising, rotation)
+        updateQueueItem(id: item.id, state: .preprocessing, message: "Preprocessing...")
+        let preprocessResult = await imagePreprocessor.preprocess(imageData)
+        e2eLogger.debug("Preprocessing: \(preprocessResult.processingTimeMs)ms, rotated: \(preprocessResult.wasRotated), brightness adj: \(preprocessResult.brightnessAdjustment)")
+
+        // Step 2: Process (resize + compress) the preprocessed image
+        let fileURL = try await imagePreprocessor.processImageForUpload(preprocessResult.processedData)
+
+        let duration = CFAbsoluteTimeGetCurrent() - startTime
+        e2eLogger.info("Image processed in \(String(format: "%.3f", duration))s (target: < 0.5s)")
+
+        if duration >= 0.5 {
+            e2eLogger.warning("Image processing exceeded 0.5s target!")
+        }
+
+        let uploadData = try Data(contentsOf: fileURL)
+        return (uploadData, fileURL)
+    }
+
+    /// Acquire a stream slot, upload image data to Talaria, and record cleanup info.
+    /// Returns the upload result containing jobId, authToken, and streamUrl.
+    private func uploadToTalaria(itemId: UUID, item: ProcessingItem, uploadData: Data, fileURL: URL) async throws -> ScanUploadResult {
+        // US-410: Performance optimization - limit concurrent SSE streams to 5
+        await streamManager.acquireStreamSlot(scanId: itemId)
+
+        // Ensure we release the stream slot when done (even on error)
+        defer {
+            Task {
+                await streamManager.releaseStreamSlot(scanId: itemId)
+            }
+        }
+
+        updateQueueItemProgress(id: item.id, message: "Uploading...")
+
+        let uploadStart = CFAbsoluteTimeGetCurrent()
+        let uploadResult = try await scanCoordinator.uploadScan(imageData: uploadData, deviceId: self.deviceId)
+        let uploadDuration = (CFAbsoluteTimeGetCurrent() - uploadStart) * 1000 // Convert to ms
+        e2eLogger.info("Upload took \(Int(uploadDuration))ms, jobId: \(uploadResult.jobId)")
+
+        // Store temp file URL and job ID for cleanup (US-406)
+        updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResult.jobId)
+
+        return uploadResult
+    }
+
+    /// Build the full set of SSE streaming callbacks for a scan job.
+    private func buildScanCallbacks(itemId: UUID, item: ProcessingItem, capturedISBN: String?, modelContext: ModelContext) -> ScanJobCallbacks {
+        let capturedThumbnailData = item.thumbnailData
+
+        return ScanJobCallbacks(
+            onProgress: { [weak self] message in
+                self?.updateQueueItemProgress(id: itemId, message: message)
+            },
+            onBookResult: { [weak self] metadata, rawJSON, _ in
+                self?.reviewQueueManager.handleBookResult(metadata: metadata, rawJSON: rawJSON, thumbnailData: capturedThumbnailData, preScannedISBN: capturedISBN, modelContext: modelContext)
+            },
+            onScanComplete: { [weak self] booksAdded, thumbnailData in
+                self?.reviewQueueManager.showScanComplete(booksAdded: booksAdded, thumbnailData: thumbnailData)
+            },
+            onError: { [weak self] message in
+                self?.updateQueueItemError(id: itemId, errorMessage: message)
+                Task {
+                    await self?.showProcessingErrorOverlay(message)
+                }
+                let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                impactFeedback.impactOccurred()
+            },
+            onRetryableError: { [weak self] message in
+                guard let self else { return }
+                self.updateQueueItemProgress(id: itemId, message: "Retrying...")
+
+                // Auto-retry once after 2 second delay
+                if let originalImageData = item.originalImageData {
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        withAnimation(.swissSpring) {
+                            self.processingQueue.removeAll { $0.id == itemId }
+                        }
+
+                        let retryItemId = UUID()
+                        let retryTask = Task {
+                            await self.processCaptureWithImageData(itemId: retryItemId, imageData: originalImageData, modelContext: modelContext, preScannedISBN: capturedISBN)
+                        }
+                        await self.scanCoordinator.trackJob(id: retryItemId, task: retryTask)
+                    }
+                } else {
+                    self.updateQueueItemError(id: itemId, errorMessage: message)
+                    Task {
+                        await self.showProcessingErrorOverlay(message)
+                    }
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                    impactFeedback.impactOccurred()
+                }
+            },
+            onEnrichmentDegraded: { [weak self] reason in
+                Task {
+                    await self?.showEnrichmentDegradedBanner(reason: reason)
+                }
+            },
+            onCanceled: { [weak self] in
+                self?.updateQueueItem(id: itemId, state: .error, message: "Canceled")
+            },
+            onQueueProgress: { [weak self] message in
+                self?.updateQueueItemProgress(id: itemId, message: message)
+            },
+            onBookMetadataReceived: { [weak self] metadata in
+                if let index = self?.processingQueue.firstIndex(where: { $0.id == itemId }) {
+                    self?.processingQueue[index].bookMetadata = metadata
+                }
+            },
+            onSegmented: { [weak self] preview in
+                self?.updateQueueItemSegmented(id: itemId, preview: preview)
+            },
+            onBookProgress: { [weak self] current, total in
+                self?.updateQueueItemBookProgress(id: itemId, current: current, total: total)
+            },
+            onResultsFetchFailed: { [weak self] url, fetchAuthToken, failedJobId in
+                self?.updateQueueItemError(id: itemId, errorMessage: "Failed to fetch results. Check network and retry.")
+                if let index = self?.processingQueue.firstIndex(where: { $0.id == itemId }) {
+                    self?.processingQueue[index].retryContext = ResultsFetchRetryContext(
+                        resultsUrl: url,
+                        authToken: fetchAuthToken,
+                        jobId: failedJobId
+                    )
+                }
+                e2eLogger.info("Item kept in queue for manual retry")
+            }
+        )
+    }
+
     // MARK: - Queue Management
-    private func addToQueue(imageData: Data) -> ProcessingItem {
+    private func addToQueue(imageData: Data, preScannedISBN: String? = nil) -> ProcessingItem {
         var item = ProcessingItem(imageData: imageData, state: .preprocessing)
-        item.preScannedISBN = detectedISBN  // TODO 4.4: Pass Vision-detected ISBN
+        item.preScannedISBN = preScannedISBN
         withAnimation(.swissSpring) {
             processingQueue.append(item)
         }
@@ -607,11 +644,11 @@ final class CameraViewModel {
     func retryFailedItem(_ item: ProcessingItem) {
         guard item.state == .error,
               let imageData = item.originalImageData else {
-            print("⚠️ Cannot retry: item not in error state or no image data")
+            e2eLogger.warning("Cannot retry: item not in error state or no image data")
             return
         }
 
-        print("🔄 Retrying failed item: \(item.id)")
+        e2eLogger.info("Retrying failed item: \(item.id)")
 
         withAnimation(.swissSpring) {
             processingQueue.removeAll { $0.id == item.id }
@@ -621,13 +658,13 @@ final class CameraViewModel {
         impactFeedback.impactOccurred()
 
         guard let ctx = modelContext else {
-            print("❌ ModelContext not injected — cannot retry failed item")
+            e2eLogger.error("ModelContext not injected — cannot retry failed item")
             return
         }
 
         let itemId = UUID()
         let task = Task {
-            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: item.preScannedISBN)
         }
         Task { await scanCoordinator.trackJob(id: itemId, task: task) }
     }
@@ -650,13 +687,13 @@ final class CameraViewModel {
 
                     let queuedScans = await rateLimitState.dequeueAllScans()
                     guard let ctx = modelContext else {
-                        print("❌ ModelContext not injected — cannot process rate-limit queue")
+                        e2eLogger.error("ModelContext not injected — cannot process rate-limit queue")
                         break
                     }
-                    for imageData in queuedScans {
+                    for scan in queuedScans {
                         let itemId = UUID()
                         let task = Task {
-                            await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+                            await processCaptureWithImageData(itemId: itemId, imageData: scan.imageData, modelContext: ctx, preScannedISBN: scan.preScannedISBN)
                         }
                         await scanCoordinator.trackJob(id: itemId, task: task)
                     }
@@ -753,13 +790,13 @@ final class CameraViewModel {
             offlineQueuedCount = count
 
             if count > 0 && networkMonitor.isConnected {
-                print("📤 Found \(count) queued scans - uploading now")
+                e2eLogger.info("Found \(count) queued scans - uploading now")
                 await uploadQueuedScans()
             } else if count > 0 {
-                print("📴 Found \(count) queued scans - waiting for network")
+                e2eLogger.info("Found \(count) queued scans - waiting for network")
             }
         } catch {
-            print("⚠️ Failed to check queued scans: \(error)")
+            e2eLogger.warning("Failed to check queued scans: \(error.localizedDescription)")
         }
     }
 
@@ -771,21 +808,21 @@ final class CameraViewModel {
                 return
             }
 
-            print("📤 Uploading \(queuedScans.count) queued scans")
+            e2eLogger.info("Uploading \(queuedScans.count) queued scans")
 
             withAnimation(.swissSpring) {
                 processingQueue.removeAll { $0.state == .offline }
             }
 
             guard let ctx = modelContext else {
-                print("❌ ModelContext not injected — cannot upload queued scans")
+                e2eLogger.error("ModelContext not injected — cannot upload queued scans")
                 return
             }
 
             for (metadata, imageData) in queuedScans {
                 let itemId = UUID()
                 let task = Task {
-                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
+                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: metadata.preScannedISBN)
                 }
                 await scanCoordinator.trackJob(id: itemId, task: task)
 
@@ -797,9 +834,9 @@ final class CameraViewModel {
                 offlineQueuedCount = count
             }
 
-            print("✅ All queued scans uploaded")
+            e2eLogger.info("All queued scans uploaded")
         } catch {
-            print("❌ Failed to upload queued scans: \(error)")
+            e2eLogger.error("Failed to upload queued scans: \(error.localizedDescription)")
         }
     }
 
@@ -814,11 +851,11 @@ final class CameraViewModel {
     // MARK: - Fix #2: Retry Failed Results Fetch
     func retryResultsFetch(item: ProcessingItem) {
         guard let context = item.retryContext else {
-            print("⚠️ No retry context available")
+            e2eLogger.warning("No retry context available")
             return
         }
 
-        print("🔄 Retrying results fetch for job: \(context.jobId)")
+        e2eLogger.info("Retrying results fetch for job: \(context.jobId)")
 
         // Reset state to analyzing
         updateQueueItem(id: item.id, state: .analyzing, message: "Retrying...")
@@ -830,10 +867,10 @@ final class CameraViewModel {
                     authToken: context.authToken
                 )
 
-                print("📚 Retry successful: Received \(books.count) books")
+                e2eLogger.info("Retry successful: Received \(books.count) books")
 
                 guard let ctx = modelContext else {
-                    print("❌ ModelContext not available")
+                    e2eLogger.error("ModelContext not available")
                     return
                 }
 
@@ -855,7 +892,7 @@ final class CameraViewModel {
                 await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
 
             } catch {
-                print("❌ Retry failed: \(error)")
+                e2eLogger.error("Retry failed: \(error.localizedDescription)")
                 updateQueueItemError(id: item.id, errorMessage: "Retry failed: \(error.localizedDescription)")
             }
         }

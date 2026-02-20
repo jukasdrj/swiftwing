@@ -122,10 +122,9 @@ class CameraManager: ObservableObject {
         self.captureSession = session
         self.isConfigured = true
 
-        if let format = camera.activeFormat.formatDescription {
-            let dimensions = CMVideoFormatDescriptionGetDimensions(format)
-            self.resolution = CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
-        }
+        let format = camera.activeFormat.formatDescription
+        let dimensions = CMVideoFormatDescriptionGetDimensions(format)
+        self.resolution = CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
 
         observeNotifications()
 

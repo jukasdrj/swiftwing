@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "offline-queue")
 
 /// Manages offline scan queue persistence using FileManager
 /// Thread-safe actor for storing and retrieving queued scan images
@@ -14,6 +17,7 @@ actor OfflineQueueManager {
         let id: UUID
         let captureDate: Date
         let imageFileName: String
+        let preScannedISBN: String?
     }
 
     // MARK: - Initialization
@@ -25,18 +29,32 @@ actor OfflineQueueManager {
 
         // Create directory if it doesn't exist (non-blocking)
         Task {
-            try? await createQueueDirectoryIfNeeded()
+            await ensureInitialized()
+        }
+    }
+
+    // MARK: - Initialization Guard
+
+    /// Ensures the queue directory exists before any queue operation.
+    /// Logs errors instead of silently swallowing them.
+    func ensureInitialized() async {
+        do {
+            try await createQueueDirectoryIfNeeded()
+        } catch {
+            logger.error("Failed to create queue directory: \(error)")
         }
     }
 
     // MARK: - Public API
 
     /// Queue a scan for offline upload later
-    /// - Parameter imageData: Full-size JPEG image data to queue
+    /// - Parameters:
+    ///   - imageData: Full-size JPEG image data to queue
+    ///   - preScannedISBN: Vision-detected ISBN from barcode scanner
     /// - Returns: UUID of the queued item
-    func queueScan(imageData: Data) async throws -> UUID {
-        // Create queue directory if needed
-        try await createQueueDirectoryIfNeeded()
+    func queueScan(imageData: Data, preScannedISBN: String? = nil) async throws -> UUID {
+        // Ensure queue directory exists before writing
+        await ensureInitialized()
 
         // Generate unique ID and filename
         let scanId = UUID()
@@ -50,14 +68,15 @@ actor OfflineQueueManager {
         let metadata = QueuedScanMetadata(
             id: scanId,
             captureDate: Date(),
-            imageFileName: imageFileName
+            imageFileName: imageFileName,
+            preScannedISBN: preScannedISBN
         )
         let metadataFileName = "\(scanId.uuidString).json"
         let metadataURL = queueDirectory.appendingPathComponent(metadataFileName)
         let metadataData = try JSONEncoder().encode(metadata)
         try metadataData.write(to: metadataURL)
 
-        print("💾 Queued offline scan: \(scanId)")
+        logger.info("Queued offline scan: \(scanId)")
         return scanId
     }
 
@@ -91,7 +110,7 @@ actor OfflineQueueManager {
 
                 results.append((metadata: metadata, imageData: imageData))
             } catch {
-                print("⚠️ Failed to load queued scan from \(metadataFile.lastPathComponent): \(error)")
+                logger.warning("Failed to load queued scan from \(metadataFile.lastPathComponent): \(error)")
                 // Continue with other scans even if one fails
             }
         }
@@ -99,7 +118,7 @@ actor OfflineQueueManager {
         // Sort by capture date (oldest first)
         results.sort { $0.metadata.captureDate < $1.metadata.captureDate }
 
-        print("📂 Found \(results.count) queued offline scans")
+        logger.info("Found \(results.count) queued offline scans")
         return results
     }
 
@@ -116,7 +135,7 @@ actor OfflineQueueManager {
         try? FileManager.default.removeItem(at: imageURL)
         try? FileManager.default.removeItem(at: metadataURL)
 
-        print("🗑️ Removed queued scan: \(scanId)")
+        logger.info("Removed queued scan: \(scanId)")
     }
 
     /// Get count of queued scans
@@ -144,7 +163,7 @@ actor OfflineQueueManager {
                 at: queueDirectory,
                 withIntermediateDirectories: true
             )
-            print("📁 Created offline queue directory")
+            logger.info("Created offline queue directory")
         }
     }
 }
