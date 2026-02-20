@@ -318,7 +318,10 @@ final class CameraViewModel {
             }
 
             // Read processed image data for upload
-            let uploadData = try Data(contentsOf: fileURL)
+            // US-410: Performance optimization - move file I/O off main thread
+            let uploadData = try await Task.detached(priority: .userInitiated) {
+                try Data(contentsOf: fileURL)
+            }.value
 
             // US-410: Performance optimization - limit concurrent SSE streams to 5
             await streamManager.acquireStreamSlot(scanId: itemId)
