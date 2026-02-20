@@ -44,7 +44,7 @@ struct CameraView: View {
                 // Object detection overlay (rectangle bounding boxes)
                 ObjectBoundingBoxView(
                     detectedObjects: viewModel.detectedObjects,
-                    imageSize: CGSize(width: 1920, height: 1080)  // TODO: Get actual camera resolution
+                    imageSize: viewModel.cameraManager.resolution
                 )
                 .allowsHitTesting(false)
 
