@@ -822,12 +822,13 @@ struct BookGridCell: View {
     var onDelete: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Cover image with 100x150 aspect ratio
+        VStack(alignment: .leading, spacing: 8) {
+            // Cover image: fixed height, fills column width
             ZStack(alignment: .topLeading) {
                 AsyncImageWithLoading(url: book.coverUrl, title: book.title, author: book.author)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 150)
-                    .aspectRatio(2/3, contentMode: .fit)
+                    .clipped()
                     .cornerRadius(8)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
@@ -864,15 +865,16 @@ struct BookGridCell: View {
                 }
             }
 
-            // Title (2 lines max, truncated)
+            // Title (2 lines max, reserved height for alignment consistency)
             Text(book.title)
                 .font(.caption.weight(.medium))
                 .foregroundColor(.swissText)
                 .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .topLeading)
                 .accessibilityHidden(true) // Parent VStack has combined label
         }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 }
 

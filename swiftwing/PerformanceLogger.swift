@@ -68,7 +68,6 @@ struct PerformanceLogger {
     ///   - duration: Time taken in seconds
     private static func log(category: Category, operation: String, duration: TimeInterval) {
         let milliseconds = duration * 1000
-        let emoji = getEmoji(for: duration, category: category)
 
         logger.info("[\(category.rawValue, privacy: .public)] \(operation, privacy: .public): \(String(format: "%.2f", milliseconds), privacy: .public)ms")
 
@@ -103,7 +102,6 @@ struct PerformanceLogger {
     ///   - scrollDistance: Distance scrolled (for context)
     static func logScrollPerformance(frameTime: TimeInterval, scrollDistance: CGFloat = 0) {
         let fps = 1.0 / frameTime
-        let emoji = fps >= 55 ? "✅" : (fps >= 30 ? "⚠️" : "❌")
 
         logger.info("Scroll FPS: \(String(format: "%.1f", fps), privacy: .public)")
 
@@ -140,24 +138,6 @@ struct PerformanceLogger {
     }
 
     // MARK: - Helpers
-
-    /// Get appropriate emoji for performance measurement
-    private static func getEmoji(for duration: TimeInterval, category: Category) -> String {
-        let milliseconds = duration * 1000
-
-        switch category {
-        case .libraryRendering:
-            return milliseconds < 100 ? "✅" : (milliseconds < 500 ? "⚠️" : "❌")
-        case .scrollPerformance:
-            return milliseconds < 16.67 ? "✅" : (milliseconds < 33 ? "⚠️" : "❌")  // 60 FPS target
-        case .imageLoading:
-            return milliseconds < 500 ? "✅" : (milliseconds < 1000 ? "⚠️" : "❌")
-        case .dataFetch:
-            return milliseconds < 100 ? "✅" : (milliseconds < 500 ? "⚠️" : "❌")
-        case .cacheEfficiency:
-            return "📊"
-        }
-    }
 
     /// Check if duration should trigger a warning
     private static func shouldWarn(duration: TimeInterval, category: Category) -> Bool {

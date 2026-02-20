@@ -4,6 +4,18 @@ import SwiftUI
 import UIKit
 #endif
 
+// MARK: - URL ATS Helper
+extension URL {
+    /// Upgrades http:// to https:// to satisfy iOS App Transport Security.
+    /// Talaria may return http:// cover URLs; ATS blocks them without this upgrade.
+    var upgradedToHTTPS: URL {
+        guard scheme?.lowercased() == "http" else { return self }
+        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)
+        components?.scheme = "https"
+        return components?.url ?? self
+    }
+}
+
 // MARK: - Shimmer Effect View
 /// Animated gradient shimmer for loading states
 /// Matches Swiss Glass aesthetic with white glow on black
@@ -213,7 +225,7 @@ struct AsyncImageWithLoading: View {
 
     /// Loads image using ImageCacheManager's optimized URLSession
     private func loadImage() async {
-        guard let url = url else {
+        guard let url = url?.upgradedToHTTPS else {
             loadFailed = true
             return
         }

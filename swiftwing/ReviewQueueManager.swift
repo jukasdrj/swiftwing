@@ -214,12 +214,20 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll { $0.id == pendingBook.id }
         }
 
+        if pendingReviewBooks.isEmpty {
+            UserDefaults.standard.set(false, forKey: "show_review_needed")
+        }
+
         logger.info("Book approved and added to library: \(pendingBook.resolvedTitle)")
     }
 
     func rejectBook(_ pendingBook: PendingBookResult) {
         withAnimation(.swissSpring) {
             pendingReviewBooks.removeAll { $0.id == pendingBook.id }
+        }
+
+        if pendingReviewBooks.isEmpty {
+            UserDefaults.standard.set(false, forKey: "show_review_needed")
         }
 
         logger.info("Book rejected from review queue: \(pendingBook.metadata.resolvedTitle)")
@@ -242,6 +250,7 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll()
         }
 
+        UserDefaults.standard.set(false, forKey: "show_review_needed")
         logger.info("All \(count) books approved and added to library")
     }
 
@@ -264,6 +273,10 @@ final class ReviewQueueManager {
         let approvedIds = Set(highConfidence.map { $0.id })
         withAnimation(.swissSpring) {
             pendingReviewBooks.removeAll { approvedIds.contains($0.id) }
+        }
+
+        if pendingReviewBooks.isEmpty {
+            UserDefaults.standard.set(false, forKey: "show_review_needed")
         }
 
         logger.info("\(count) high-confidence books approved and added to library")
@@ -351,6 +364,9 @@ final class ReviewQueueManager {
             // Remove from review queue if it was an approve-time duplicate
             if let pending = pendingBookBeingApproved {
                 pendingReviewBooks.removeAll { $0.id == pending.id }
+            }
+            if pendingReviewBooks.isEmpty {
+                UserDefaults.standard.set(false, forKey: "show_review_needed")
             }
             duplicateBook = nil
             pendingBookMetadata = nil

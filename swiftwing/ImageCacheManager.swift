@@ -87,6 +87,8 @@ actor ImageCacheManager {
     /// Prefetch a single image URL
     /// - Parameter url: Image URL to prefetch
     private func prefetchImage(url: URL) async {
+        let url = url.upgradedToHTTPS
+
         // Check if already prefetching this URL
         guard prefetchTasks[url] == nil else { return }
 
@@ -189,7 +191,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     }
 
     private func loadImage() async {
-        guard let url = url else { return }
+        guard let url = url?.upgradedToHTTPS else { return }
         guard !isLoading else { return }
 
         isLoading = true
