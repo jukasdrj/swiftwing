@@ -32,6 +32,7 @@ struct ProcessingQueueView: View {
                     .clipShape(Circle())
                     .padding(.trailing, 16)
                     .padding(.top, 8)
+                    .accessibilityLabel("\(items.count) items in processing queue")
             }
         }
     }
@@ -45,67 +46,72 @@ struct ProcessingThumbnailView: View {
 
     var body: some View {
         ZStack {
-            // Thumbnail image (pre-processed to 60x90px for performance)
-            if let uiImage = UIImage(data: item.thumbnailData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 90)
-                    .clipped()
-                    .cornerRadius(4)
-            } else {
-                // Fallback for invalid image data
-                Color.gray.opacity(0.3)
-                    .frame(width: 60, height: 90)
-                    .cornerRadius(4)
-            }
-
-            // Progress text overlay (if available)
-            if let progressMessage = item.progressMessage {
-                VStack {
-                    Spacer()
-                    Text(progressMessage)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.black.opacity(0.7))
-                        .cornerRadius(2)
-                        .padding(.bottom, 2)
+            // Group visual elements for accessibility
+            Group {
+                // Thumbnail image (pre-processed to 60x90px for performance)
+                if let uiImage = UIImage(data: item.thumbnailData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 60, height: 90)
+                        .clipped()
+                        .cornerRadius(4)
+                } else {
+                    // Fallback for invalid image data
+                    Color.gray.opacity(0.3)
+                        .frame(width: 60, height: 90)
+                        .cornerRadius(4)
                 }
-                .frame(width: 60, height: 90)
-            }
 
-            // US-407: Error icon overlay (if error state)
-            if item.state == .error {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(.red)
-                    .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
-            }
-
-            // US-407: Error message overlay (if error message available)
-            if let errorMessage = item.errorMessage {
-                VStack {
-                    Spacer()
-                    Text(errorMessage)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 3)
-                        .padding(.vertical, 2)
-                        .background(Color.red.opacity(0.9))
-                        .cornerRadius(2)
-                        .padding(.bottom, 2)
+                // Progress text overlay (if available)
+                if let progressMessage = item.progressMessage {
+                    VStack {
+                        Spacer()
+                        Text(progressMessage)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.black.opacity(0.7))
+                            .cornerRadius(2)
+                            .padding(.bottom, 2)
+                    }
+                    .frame(width: 60, height: 90)
                 }
-                .frame(width: 60, height: 90)
-            }
 
-            // State-based border
-            RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(item.state.borderColor, lineWidth: 2)
-                .frame(width: 60, height: 90)
+                // US-407: Error icon overlay (if error state)
+                if item.state == .error {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.red)
+                        .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
+                }
+
+                // US-407: Error message overlay (if error message available)
+                if let errorMessage = item.errorMessage {
+                    VStack {
+                        Spacer()
+                        Text(errorMessage)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 2)
+                            .background(Color.red.opacity(0.9))
+                            .cornerRadius(2)
+                            .padding(.bottom, 2)
+                    }
+                    .frame(width: 60, height: 90)
+                }
+
+                // State-based border
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(item.state.borderColor, lineWidth: 2)
+                    .frame(width: 60, height: 90)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityDescription)
 
             // US-407: Retry button overlay (only for error state)
             if item.state == .error {
@@ -122,9 +128,35 @@ struct ProcessingThumbnailView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .offset(y: 20)  // Position below center
+                .accessibilityLabel("Retry processing")
+                .accessibilityHint("Retries the failed book scan")
             }
         }
         .transition(.scale.combined(with: .opacity))
+    }
+
+    // Computed property for accessibility description
+    private var accessibilityDescription: String {
+        var description = "Book scan: "
+
+        switch item.state {
+        case .preprocessing: description += "Preprocessing"
+        case .uploading: description += "Uploading"
+        case .analyzing: description += "Analyzing"
+        case .done: description += "Complete"
+        case .error: description += "Failed"
+        case .offline: description += "Queued offline"
+        }
+
+        if let progress = item.progressMessage {
+            description += ", \(progress)"
+        }
+
+        if item.state == .error, let error = item.errorMessage {
+            description += ". Error: \(error)"
+        }
+
+        return description
     }
 }
 
