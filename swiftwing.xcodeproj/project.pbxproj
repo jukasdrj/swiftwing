@@ -42,6 +42,9 @@
 		92F6E063027BB1606D340CF6 /* VisionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCC3A90A3E43A15C862A285 /* VisionOverlayView.swift */; };
 		95FB8FCAEBE2CD1FC9961AE8 /* ObjectBoundingBoxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329BC1FAC62E46C122D2E635 /* ObjectBoundingBoxView.swift */; };
 		9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */; };
+		E45C07BB1B11437EBD3E70CF /* ReviewQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB25D1B2E3814C39BDC893D8 /* ReviewQueueManager.swift */; };
+		DE27FC4955CE4E1BB2B3100C /* ScanJobCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49C8108C2BC84A87B0BEBBC8 /* ScanJobCoordinator.swift */; };
+		A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */; };
 		A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A589308A2F26D83900629770 /* CameraViewModel.swift */; };
 		A5A480302F23C145006CD05C /* LibraryPrefetchCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */; };
 		A5A480382F23CF0D006CD05C /* ImageCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */; };
@@ -116,6 +119,9 @@
 		A52E4313BB7F44F7A6879536 /* ConfidenceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = swiftwing/ConfidenceBadge.swift; sourceTree = "<group>"; };
 		A58930792F268AA000629770 /* swiftwingTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swiftwingTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		UI00000200000000000000001 /* swiftwingUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swiftwingUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CB25D1B2E3814C39BDC893D8 /* ReviewQueueManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewQueueManager.swift; sourceTree = "<group>"; };
+		49C8108C2BC84A87B0BEBBC8 /* ScanJobCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScanJobCoordinator.swift; sourceTree = "<group>"; };
+		170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AutoApproveSettings.swift; sourceTree = "<group>"; };
 		A589308A2F26D83900629770 /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
 		A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryPrefetchCoordinator.swift; sourceTree = "<group>"; };
 		A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCacheManager.swift; sourceTree = "<group>"; };
@@ -211,6 +217,9 @@
 				733AF8F390562E0E6977AD18 /* CameraManager.swift */,
 				2B42B677D75020B244722F76 /* CameraPreviewView.swift */,
 				8FF5FA190CF9E5B8B778E942 /* CameraView.swift */,
+				CB25D1B2E3814C39BDC893D8 /* ReviewQueueManager.swift */,
+				49C8108C2BC84A87B0BEBBC8 /* ScanJobCoordinator.swift */,
+				170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */,
 				A589308A2F26D83900629770 /* CameraViewModel.swift */,
 				3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */,
 				A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */,
@@ -484,6 +493,9 @@
 				7B2A93E4D8FF47B0A02715CD /* DuplicateDetection.swift in Sources */,
 				AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */,
 				671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */,
+				E45C07BB1B11437EBD3E70CF /* ReviewQueueManager.swift in Sources */,
+				DE27FC4955CE4E1BB2B3100C /* ScanJobCoordinator.swift in Sources */,
+				A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */,
 				A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */,
 				DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */,
 				F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */,

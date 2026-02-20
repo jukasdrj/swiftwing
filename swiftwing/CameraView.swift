@@ -145,7 +145,7 @@ struct CameraView: View {
             }
 
             // Scan complete banner (shown above shutter when books land in review queue)
-            if let banner = viewModel.scanCompleteBanner {
+            if let banner = viewModel.reviewQueueManager.scanCompleteBanner {
                 VStack {
                     Spacer()
 
@@ -153,11 +153,11 @@ struct CameraView: View {
                         bookCount: banner.bookCount,
                         thumbnailData: banner.thumbnailData,
                         onTap: {
-                            viewModel.dismissScanCompleteBanner()
+                            viewModel.reviewQueueManager.dismissScanCompleteBanner()
                             viewModel.requestedTab = 1
                         },
                         onDismiss: {
-                            viewModel.dismissScanCompleteBanner()
+                            viewModel.reviewQueueManager.dismissScanCompleteBanner()
                         }
                     )
                     .padding(.horizontal, 24)
@@ -165,6 +165,29 @@ struct CameraView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 .zIndex(99)
+            }
+
+            // Auto-approve toast (brief notification when high-confidence book is auto-added)
+            if viewModel.reviewQueueManager.showAutoApproveToastFlag,
+               let title = viewModel.reviewQueueManager.autoApprovedBookTitle {
+                VStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Added: \(title)")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(.swissText)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .swissGlassCard()
+                    .padding(.top, 100)
+
+                    Spacer()
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(98)
             }
 
             // Zoom level display and offline indicator (top-right corner)
@@ -326,13 +349,13 @@ struct CameraView: View {
                             modelContext: modelContext
                         )
                         debugLog("INJECT_TEST_IMAGE: processCaptureWithImageData completed")
-                        debugLog("INJECT_TEST_IMAGE: pendingReviewBooks.count = \(viewModel.pendingReviewBooks.count)")
+                        debugLog("INJECT_TEST_IMAGE: pendingReviewBooks.count = \(viewModel.reviewQueueManager.pendingReviewBooks.count)")
                         debugLog("INJECT_TEST_IMAGE: processingQueue.count = \(viewModel.processingQueue.count)")
-                        for (i, book) in viewModel.pendingReviewBooks.enumerated() {
+                        for (i, book) in viewModel.reviewQueueManager.pendingReviewBooks.enumerated() {
                             debugLog("INJECT_TEST_IMAGE: pendingBook[\(i)] = '\(book.metadata.resolvedTitle)' by '\(book.metadata.resolvedAuthor)'")
                         }
                     }
-                    viewModel.activeStreamingTasks[itemId] = scanTask
+                    Task { await viewModel.scanCoordinator.trackJob(id: itemId, task: scanTask) }
                     debugLog("INJECT_TEST_IMAGE: Scan task launched successfully")
                 } else {
                     debugLog("INJECT_TEST_IMAGE: ERROR - Could not load test image from any path")

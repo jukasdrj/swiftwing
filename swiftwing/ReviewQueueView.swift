@@ -9,7 +9,7 @@ struct ReviewQueueView: View {
     @State private var selectedProcessingItem: ProcessingItem?
 
     private var sortedPendingBooks: [PendingBookResult] {
-        viewModel.pendingReviewBooks.sorted { a, b in
+        viewModel.reviewQueueManager.pendingReviewBooks.sorted { a, b in
             // Low confidence first (needs most attention)
             let confA = a.confidence ?? 1.0
             let confB = b.confidence ?? 1.0
@@ -39,13 +39,13 @@ struct ReviewQueueView: View {
                 Color.swissBackground.ignoresSafeArea()
 
                 // Content
-                if viewModel.pendingReviewBooks.isEmpty && viewModel.processingQueue.isEmpty {
+                if viewModel.reviewQueueManager.pendingReviewBooks.isEmpty && viewModel.processingQueue.isEmpty {
                     emptyStateView
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
                             // Scan batch summary header
-                            if let batch = viewModel.lastScanBatch {
+                            if let batch = viewModel.reviewQueueManager.lastScanBatch {
                                 ScanBatchHeaderView(batch: batch)
                                     .padding(.bottom, 8)
                             }
@@ -72,13 +72,13 @@ struct ReviewQueueView: View {
                                     ReviewCardView(
                                         book: book,
                                         onApprove: {
-                                            viewModel.approveBook(book, modelContext: modelContext)
+                                            viewModel.reviewQueueManager.approveBook(book, modelContext: modelContext)
                                         },
                                         onReject: {
-                                            viewModel.rejectBook(book)
+                                            viewModel.reviewQueueManager.rejectBook(book)
                                         },
                                         onEdit: { editedTitle, editedAuthor in
-                                            viewModel.updatePendingBookEdits(
+                                            viewModel.reviewQueueManager.updatePendingBookEdits(
                                                 id: book.id,
                                                 title: editedTitle,
                                                 author: editedAuthor
@@ -97,13 +97,13 @@ struct ReviewQueueView: View {
                                     ReviewCardView(
                                         book: book,
                                         onApprove: {
-                                            viewModel.approveBook(book, modelContext: modelContext)
+                                            viewModel.reviewQueueManager.approveBook(book, modelContext: modelContext)
                                         },
                                         onReject: {
-                                            viewModel.rejectBook(book)
+                                            viewModel.reviewQueueManager.rejectBook(book)
                                         },
                                         onEdit: { editedTitle, editedAuthor in
-                                            viewModel.updatePendingBookEdits(
+                                            viewModel.reviewQueueManager.updatePendingBookEdits(
                                                 id: book.id,
                                                 title: editedTitle,
                                                 author: editedAuthor
@@ -120,20 +120,20 @@ struct ReviewQueueView: View {
                                     color: .green,
                                     actionLabel: "Approve All",
                                     onAction: {
-                                        viewModel.approveHighConfidenceBooks(modelContext: modelContext)
+                                        viewModel.reviewQueueManager.approveHighConfidenceBooks(modelContext: modelContext)
                                     }
                                 )
                                 ForEach(highConfidenceBooks) { book in
                                     ReviewCardView(
                                         book: book,
                                         onApprove: {
-                                            viewModel.approveBook(book, modelContext: modelContext)
+                                            viewModel.reviewQueueManager.approveBook(book, modelContext: modelContext)
                                         },
                                         onReject: {
-                                            viewModel.rejectBook(book)
+                                            viewModel.reviewQueueManager.rejectBook(book)
                                         },
                                         onEdit: { editedTitle, editedAuthor in
-                                            viewModel.updatePendingBookEdits(
+                                            viewModel.reviewQueueManager.updatePendingBookEdits(
                                                 id: book.id,
                                                 title: editedTitle,
                                                 author: editedAuthor
@@ -162,7 +162,7 @@ struct ReviewQueueView: View {
                         isbn: isbn,
                         confidence: nil
                     )
-                    viewModel.addBookToLibrary(
+                    viewModel.reviewQueueManager.addBookToLibrary(
                         title: title,
                         author: author,
                         metadata: metadata,
@@ -178,10 +178,10 @@ struct ReviewQueueView: View {
                 }
             }
             .toolbar {
-                if !viewModel.pendingReviewBooks.isEmpty {
+                if !viewModel.reviewQueueManager.pendingReviewBooks.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Approve All") {
-                            viewModel.approveAllBooks(modelContext: modelContext)
+                            viewModel.reviewQueueManager.approveAllBooks(modelContext: modelContext)
                         }
                         .foregroundColor(.internationalOrange)
                         .accessibilityIdentifier("review_approve_all")
@@ -189,17 +189,17 @@ struct ReviewQueueView: View {
                 }
             }
             .overlay {
-                if viewModel.showDuplicateAlert, let duplicate = viewModel.duplicateBook {
+                if viewModel.reviewQueueManager.showDuplicateAlert, let duplicate = viewModel.reviewQueueManager.duplicateBook {
                     DuplicateBookAlert(
                         duplicateBook: duplicate,
                         onCancel: {
-                            viewModel.dismissDuplicateAlert()
+                            viewModel.reviewQueueManager.dismissDuplicateAlert()
                         },
                         onAddAnyway: {
-                            viewModel.addDuplicateAnyway(modelContext: modelContext)
+                            viewModel.reviewQueueManager.addDuplicateAnyway(modelContext: modelContext)
                         },
                         onViewExisting: {
-                            viewModel.dismissDuplicateAlert()
+                            viewModel.reviewQueueManager.dismissDuplicateAlert()
                         }
                     )
                 }
@@ -534,7 +534,7 @@ struct ReviewCardView: View {
 // MARK: - Scan Batch Header
 
 struct ScanBatchHeaderView: View {
-    let batch: CameraViewModel.ScanBatch
+    let batch: ReviewQueueManager.ScanBatch
 
     var body: some View {
         HStack(spacing: 12) {
@@ -597,7 +597,7 @@ struct ScanBatchHeaderView: View {
 #Preview {
     @Previewable @State var viewModel = {
         let vm = CameraViewModel()
-        vm.pendingReviewBooks = [
+        vm.reviewQueueManager.pendingReviewBooks = [
             PendingBookResult(
                 metadata: BookMetadata(
                     title: "The Swift Programming Language",

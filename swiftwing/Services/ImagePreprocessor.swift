@@ -7,7 +7,9 @@
 
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import ImageIO
 import UIKit
+import UniformTypeIdentifiers
 
 /// Actor-isolated image preprocessing pipeline for book spine recognition
 /// Applies contrast enhancement, brightness adjustment, denoising, and rotation correction
@@ -218,6 +220,104 @@ actor ImagePreprocessor {
         }
 
         image = outputImage
+    }
+
+    // MARK: - Resize and Compress (ImageIO)
+
+    /// Resize and compress image data using ImageIO for memory efficiency.
+    /// - Parameters:
+    ///   - imageData: Source JPEG/PNG image data
+    ///   - maxDimension: Maximum width or height in pixels (default 1920)
+    ///   - compressionQuality: JPEG quality 0.0–1.0 (default 0.85)
+    /// - Returns: Resized and compressed JPEG data
+    /// - Throws: ImageProcessingError if the image cannot be read or encoded
+    func resizeAndCompress(
+        _ imageData: Data,
+        maxDimension: CGFloat = 1920,
+        compressionQuality: Double = 0.85
+    ) throws -> Data {
+        // Create CGImageSource from raw data (zero-copy read)
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let pixelWidth = props[kCGImagePropertyPixelWidth] as? CGFloat,
+              let pixelHeight = props[kCGImagePropertyPixelHeight] as? CGFloat else {
+            throw ImageProcessingError.invalidImageData
+        }
+
+        // Compute thumbnail size preserving aspect ratio
+        let longestEdge = max(pixelWidth, pixelHeight)
+        let thumbnailMaxPixels: Int
+        if longestEdge <= maxDimension {
+            // No resize needed — still re-encode to normalise orientation/format
+            thumbnailMaxPixels = Int(longestEdge)
+        } else {
+            thumbnailMaxPixels = Int(maxDimension)
+        }
+
+        let options: [CFString: Any] = [
+            kCGImageSourceThumbnailMaxPixelSize: thumbnailMaxPixels,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,  // Honour EXIF orientation
+            kCGImageSourceShouldCacheImmediately: false
+        ]
+
+        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            throw ImageProcessingError.invalidImageData
+        }
+
+        // Encode to JPEG via ImageIO
+        let outputData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            outputData,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else {
+            throw ImageProcessingError.compressionFailed
+        }
+
+        let destOptions: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: compressionQuality
+        ]
+        CGImageDestinationAddImage(destination, thumbnail, destOptions as CFDictionary)
+
+        guard CGImageDestinationFinalize(destination) else {
+            throw ImageProcessingError.compressionFailed
+        }
+
+        return outputData as Data
+    }
+
+    /// Full pipeline: preprocess (enhance) then resize/compress and write to a temp file.
+    /// Replaces the former `CameraViewModel.processImage` static method.
+    /// - Parameter imageData: Raw captured image data
+    /// - Returns: URL of a temp JPEG file (auto-cleaned after 30 minutes)
+    /// - Throws: ImageProcessingError on failure
+    func processImageForUpload(_ imageData: Data) async throws -> URL {
+        // Enhance first (contrast, brightness, noise reduction, rotation)
+        let preprocessed = await preprocess(imageData)
+
+        // Resize and compress using ImageIO
+        let finalData = try resizeAndCompress(preprocessed.processedData)
+
+        // Write to temp file
+        let filename = "\(UUID().uuidString).jpg"
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try finalData.write(to: fileURL)
+
+        // Schedule auto-cleanup after 30 minutes
+        Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .seconds(1800))
+            do {
+                try FileManager.default.removeItem(at: fileURL)
+                print("🗑️ Fallback cleanup for temp file: \(filename)")
+            } catch CocoaError.fileNoSuchFile {
+            } catch {
+                print("⚠️ Fallback cleanup failed for \(filename): \(error.localizedDescription)")
+            }
+        }
+
+        return fileURL
     }
 
     /// Render CIImage to JPEG Data with specified quality

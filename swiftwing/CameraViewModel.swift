@@ -49,42 +49,14 @@ final class CameraViewModel {
     var enrichmentDegradedMessage: String?
     var showEnrichmentDegradedBanner = false
 
-    // MARK: - US-405: Duplicate Detection State
-    var duplicateBook: Book?
-    var showDuplicateAlert = false
-    var pendingBookMetadata: BookMetadata?
-    var pendingRawJSON: String?
-
-    // MARK: - Review Queue State
-    var pendingReviewBooks: [PendingBookResult] = []
-    var pendingBookBeingApproved: PendingBookResult?
-
-    // MARK: - Scan Complete Banner
-    struct ScanCompleteBanner: Identifiable {
-        let id = UUID()
-        let bookCount: Int
-        let thumbnailData: Data?
-    }
-    var scanCompleteBanner: ScanCompleteBanner?
-
-    // MARK: - Scan Batch Summary
-    struct ScanBatch {
-        let timestamp: Date
-        let totalBooks: Int
-        let highConfidenceCount: Int
-        let lowConfidenceCount: Int
-        let thumbnailData: Data?
-    }
-    var lastScanBatch: ScanBatch?
+    // MARK: - Review Queue Manager (extracted Phase 1A)
+    let reviewQueueManager = ReviewQueueManager()
 
     // MARK: - Tab Navigation
     var requestedTab: Int?
 
-    // MARK: - US-406: Active Streaming Tasks
-    var activeStreamingTasks: [UUID: Task<Void, Never>] = [:]
-
-    // NEW: Job ID to auth token mapping for cleanup calls
-    private var jobAuthTokens: [String: String] = [:]
+    // MARK: - Scan Job Coordinator (extracted Phase 1B)
+    let scanCoordinator: ScanJobCoordinator
 
     // MARK: - US-408: Rate Limit State
     let rateLimitState: RateLimitState = RateLimitState()
@@ -133,7 +105,9 @@ final class CameraViewModel {
     // MARK: - Initialization
     init(deviceId: String = DeviceIdentifier.current, talariaService: TalariaService? = nil) {
         self.deviceId = deviceId
-        self.talariaService = talariaService ?? TalariaService(deviceId: deviceId)
+        let service = talariaService ?? TalariaService(deviceId: deviceId)
+        self.talariaService = service
+        self.scanCoordinator = ScanJobCoordinator(talariaService: service)
     }
 
     // MARK: - Camera Setup
@@ -257,7 +231,7 @@ final class CameraViewModel {
         let task = Task {
             await processCapture(itemId: itemId)
         }
-        activeStreamingTasks[itemId] = task
+        Task { await scanCoordinator.trackJob(id: itemId, task: task) }
     }
 
     // MARK: - Processing Pipeline
@@ -290,7 +264,7 @@ final class CameraViewModel {
 
         // Cleanup task tracker when done
         defer {
-            activeStreamingTasks.removeValue(forKey: itemId)
+            Task { await scanCoordinator.removeJob(id: itemId) }
         }
 
         do {
@@ -333,7 +307,7 @@ final class CameraViewModel {
             print("✨ Preprocessing: \(preprocessResult.processingTimeMs)ms, rotated: \(preprocessResult.wasRotated), brightness adj: \(preprocessResult.brightnessAdjustment)")
 
             // Step 2: Process (resize + compress) the preprocessed image
-            let fileURL = try await Self.processImage(preprocessResult.processedData)
+            let fileURL = try await imagePreprocessor.processImageForUpload(preprocessResult.processedData)
             tempFileURL = fileURL
 
             let duration = CFAbsoluteTimeGetCurrent() - startTime
@@ -362,386 +336,140 @@ final class CameraViewModel {
             // Performance logging: start upload timer
             let uploadStart = CFAbsoluteTimeGetCurrent()
 
-            // Use persistent device ID (stored in UserDefaults)
-            e2eLogger.info("📤 Starting upload to Talaria...")
-            #if DEBUG
-            integrationLog("UPLOAD: Starting upload to Talaria...")
-            #endif
-            let (uploadedJobId, streamUrl, uploadedAuthToken) = try await talariaService.uploadScan(image: uploadData, deviceId: self.deviceId)
-            jobId = uploadedJobId
-            authToken = uploadedAuthToken
-            e2eLogger.info("📤 Upload success! jobId=\(uploadedJobId), streamUrl=\(streamUrl.absoluteString)")
-            #if DEBUG
-            integrationLog("UPLOAD: Success! jobId=\(uploadedJobId), streamUrl=\(streamUrl.absoluteString)")
-            #endif
-
-            // NEW: Store auth token for disconnect cleanup
-            if let uploadedAuthToken = uploadedAuthToken {
-                jobAuthTokens[uploadedJobId] = uploadedAuthToken
-            }
+            // Upload via coordinator
+            let uploadResult = try await scanCoordinator.uploadScan(imageData: uploadData, deviceId: self.deviceId)
+            jobId = uploadResult.jobId
+            authToken = uploadResult.authToken
 
             // Performance logging: upload completed
             let uploadDuration = (CFAbsoluteTimeGetCurrent() - uploadStart) * 1000 // Convert to ms
-            print("📤 Upload took \(Int(uploadDuration))ms, jobId: \(uploadedJobId)")
+            print("📤 Upload took \(Int(uploadDuration))ms, jobId: \(uploadResult.jobId)")
 
             // Store temp file URL and job ID for cleanup (US-406)
-            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadedJobId)
+            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResult.jobId)
 
             // Switch to analyzing state
             updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
 
-            // Performance logging: start SSE stream timer
-            let streamStart = CFAbsoluteTimeGetCurrent()
+            // Capture item ID and thumbnail for callbacks
+            let capturedItemId = item.id
+            let capturedThumbnailData = item.thumbnailData
+            let reviewCountBefore = reviewQueueManager.pendingReviewBooks.count
 
-            // Stream SSE events from Talaria (use same deviceId as upload)
-            let eventStream = talariaService.streamEvents(streamUrl: streamUrl, deviceId: self.deviceId, authToken: authToken)
-
-            e2eLogger.info("📡 Starting SSE event loop...")
-            #if DEBUG
-            integrationLog("SSE: Starting event loop for streamUrl=\(streamUrl.absoluteString)")
-            #endif
-            let reviewCountBeforeStream = pendingReviewBooks.count
-            for try await event in eventStream {
-                // Check for task cancellation (app backgrounding)
-                if Task.isCancelled {
-                    e2eLogger.warning("🛑 SSE stream cancelled (app backgrounding)")
-                    print("🛑 SSE stream cancelled (app backgrounding)")
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
-                    return
-                }
-
-                switch event {
-                case .progress(let message):
-                    e2eLogger.info("📡 SSE progress: \(message)")
-                    print("📡 SSE progress: \(message)")
-                    #if DEBUG
-                    integrationLog("SSE: progress event: \(message)")
-                    #endif
-                    updateQueueItemProgress(id: item.id, message: message)
-
-                case .result(let bookMetadata):
-                    e2eLogger.info("📚 Book result: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
-                    print("📚 Book identified: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
-                    #if DEBUG
-                    integrationLog("SSE: result event: '\(bookMetadata.resolvedTitle)' by '\(bookMetadata.resolvedAuthor)'")
-                    #endif
-
-                    // Store metadata on processing item for detail sheet access
-                    if let index = processingQueue.firstIndex(where: { $0.id == item.id }) {
-                        processingQueue[index].bookMetadata = bookMetadata
+            // Build callbacks for the coordinator
+            let callbacks = ScanJobCallbacks(
+                onProgress: { [weak self] message in
+                    self?.updateQueueItemProgress(id: capturedItemId, message: message)
+                },
+                onBookResult: { [weak self] metadata, rawJSON in
+                    self?.reviewQueueManager.handleBookResult(metadata: metadata, rawJSON: rawJSON, thumbnailData: capturedThumbnailData, modelContext: modelContext)
+                },
+                onScanComplete: { [weak self] booksAdded, thumbnailData in
+                    self?.reviewQueueManager.showScanComplete(booksAdded: booksAdded, thumbnailData: thumbnailData)
+                },
+                onError: { [weak self] message in
+                    self?.updateQueueItemError(id: capturedItemId, errorMessage: message)
+                    Task {
+                        await self?.showProcessingErrorOverlay(message)
                     }
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                    impactFeedback.impactOccurred()
+                },
+                onRetryableError: { [weak self] message in
+                    guard let self else { return }
+                    self.updateQueueItemProgress(id: capturedItemId, message: "Retrying...")
 
-                    // Encode metadata to raw JSON string for debugging
-                    let rawJSON: String?
-                    if let jsonData = try? JSONEncoder().encode(bookMetadata),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        rawJSON = jsonString
-                    } else {
-                        rawJSON = nil
-                    }
-
-                    handleBookResult(metadata: bookMetadata, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext)
-
-                case .complete(let resultsUrl, let inlineBooks):
-                    let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
-                    e2eLogger.info("✅ SSE complete! duration=\(String(format: "%.1f", streamDuration))s, hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
-                    print("✅ SSE stream lasted \(String(format: "%.1f", streamDuration))s")
-                    #if DEBUG
-                    integrationLog("SSE: COMPLETE event! hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
-                    #endif
-
-                    var books: [BookMetadata] = []
-
-                    // First, check for inline books (modern API)
-                    if let inlineBooks = inlineBooks, !inlineBooks.isEmpty {
-                        print("📚 Using inline books from completion event (\(inlineBooks.count) books)")
-                        books = inlineBooks
-                    }
-                    // Fallback to fetching from resultsUrl (legacy API)
-                    else if let url = resultsUrl,
-                            let jid = jobId,
-                            let authToken = jobAuthTokens[jid] {
-                        print("📥 Fetching book results from: \(url)")
-
-                        do {
-                            books = try await talariaService.fetchResults(
-                                resultsUrl: url,
-                                authToken: authToken
-                            )
-
-                            print("📚 Received \(books.count) books from results API")
-                        } catch {
-                            print("❌ Failed to fetch results from \(url): \(error)")
-
-                            // FIX #2: Keep item in queue with retry option instead of auto-removal
-                            updateQueueItemError(id: item.id, errorMessage: "Failed to fetch results. Check network and retry.")
-
-                            // Store retry info in item
-                            if let index = processingQueue.firstIndex(where: { $0.id == item.id }) {
-                                processingQueue[index].retryContext = ResultsFetchRetryContext(
-                                    resultsUrl: url,
-                                    authToken: authToken,
-                                    jobId: jobId ?? "unknown"
-                                )
-                            }
-
-                            // DON'T cleanup - user can retry
-                            // DON'T auto-remove - show persistent error
-                            print("💡 Item kept in queue for manual retry")
-                            return
-                        }
-                    } else {
-                        // Missing both inline books and resultsUrl
-                        print("⚠️ No results available in completion event")
-                        #if DEBUG
-                        integrationLog("SSE: COMPLETE but NO RESULTS - no inline books and no resultsUrl")
-                        #endif
-
-                        // Check if books were already delivered via individual SSE result events
-                        let booksFromResultEvents = pendingReviewBooks.count - reviewCountBeforeStream
-                        if booksFromResultEvents > 0 {
-                            // Books were delivered via result events before complete fired — treat as success
-                            print("✅ \(booksFromResultEvents) book(s) already delivered via result events, treating complete as success")
-                            #if DEBUG
-                            integrationLog("SSE: COMPLETE with books from result events (\(booksFromResultEvents) books), treating as success")
-                            #endif
-
-                            // Show scan complete banner
-                            let bannerId = UUID()
-                            withAnimation(.swissSpring) {
-                                scanCompleteBanner = ScanCompleteBanner(
-                                    bookCount: booksFromResultEvents,
-                                    thumbnailData: item.thumbnailData
-                                )
-                            }
-                            // Auto-dismiss after 5 seconds (only if banner still matches)
-                            Task {
-                                try? await Task.sleep(nanoseconds: 5_000_000_000)
-                                // Guard: only dismiss if the banner is still the same one
-                                if scanCompleteBanner?.id == bannerId {
-                                    withAnimation(.swissSpring) {
-                                        scanCompleteBanner = nil
-                                    }
-                                }
-                            }
-
-                            // Update scan batch summary header
-                            let booksFromScan = pendingReviewBooks.suffix(booksFromResultEvents)
-                            let high = booksFromScan.filter { ($0.confidence ?? 1.0) >= 0.8 }.count
-                            let low = booksFromScan.filter { ($0.confidence ?? 1.0) < 0.5 }.count
-                            lastScanBatch = ScanBatch(
-                                timestamp: Date(),
-                                totalBooks: booksFromResultEvents,
-                                highConfidenceCount: high,
-                                lowConfidenceCount: low,
-                                thumbnailData: item.thumbnailData
-                            )
-
-                            // Success - mark as done
-                            updateQueueItem(id: item.id, state: .done, message: nil)
-
-                            // Cleanup resources (non-blocking)
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
-
-                            // Remove auth token (job is done)
-                            if let jid = jobId {
-                                jobAuthTokens.removeValue(forKey: jid)
-                            }
-
-                            // Auto-remove from queue after 5 seconds
-                            await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
-                        } else {
-                            // Truly no books at all — treat as error
-                            #if DEBUG
-                            integrationLog("SSE: COMPLETE with no books at all - treating as error")
-                            #endif
-                            updateQueueItemError(id: item.id, errorMessage: "No results available")
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
-                            if let jid = jobId {
-                                jobAuthTokens.removeValue(forKey: jid)
-                            }
-                            await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
-                        }
-                        return
-                    }
-
-                    // Process all books
-                    let countBefore = pendingReviewBooks.count
-                    for book in books {
-                        #if DEBUG
-                        integrationLog("SSE: Processing book from complete: '\(book.resolvedTitle)' by '\(book.resolvedAuthor)'")
-                        #endif
-                        // Encode to raw JSON for debugging
-                        let rawJSON: String?
-                        if let jsonData = try? JSONEncoder().encode(book),
-                           let jsonString = String(data: jsonData, encoding: .utf8) {
-                            rawJSON = jsonString
-                        } else {
-                            rawJSON = nil
-                        }
-
-                        handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: modelContext)
-                    }
-
-                    // Show scan complete banner if any books were added
-                    let booksAdded = pendingReviewBooks.count - countBefore
-                    if booksAdded > 0 {
-                        let bannerId = UUID()
-                        withAnimation(.swissSpring) {
-                            scanCompleteBanner = ScanCompleteBanner(
-                                bookCount: booksAdded,
-                                thumbnailData: item.thumbnailData
-                            )
-                        }
-                        // Auto-dismiss after 5 seconds (only if banner still matches)
+                    // Auto-retry once after 2 second delay
+                    if let originalImageData = item.originalImageData {
                         Task {
-                            try? await Task.sleep(nanoseconds: 5_000_000_000)
-                            if scanCompleteBanner?.id == bannerId {
-                                withAnimation(.swissSpring) {
-                                    scanCompleteBanner = nil
-                                }
-                            }
-                        }
-
-                        // Update scan batch summary header
-                        let booksFromScan = pendingReviewBooks.suffix(booksAdded)
-                        let high = booksFromScan.filter { ($0.confidence ?? 1.0) >= 0.8 }.count
-                        let low = booksFromScan.filter { ($0.confidence ?? 1.0) < 0.5 }.count
-                        lastScanBatch = ScanBatch(
-                            timestamp: Date(),
-                            totalBooks: booksAdded,
-                            highConfidenceCount: high,
-                            lowConfidenceCount: low,
-                            thumbnailData: item.thumbnailData
-                        )
-                    }
-
-                    // Success - mark as done
-                    updateQueueItem(id: item.id, state: .done, message: nil)
-
-                    // Cleanup resources (non-blocking)
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
-
-                    // Remove auth token (job is done)
-                    if let jid = jobId {
-                        jobAuthTokens.removeValue(forKey: jid)
-                    }
-
-                    // Auto-remove from queue after 5 seconds
-                    await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
-
-                case .error(let errorInfo):
-                    print("❌ SSE error (jobId: \(jobId ?? "unknown")): \(errorInfo.message), retryable: \(errorInfo.retryable ?? false)")
-                    #if DEBUG
-                    integrationLog("SSE: ERROR event: \(errorInfo.message), retryable=\(errorInfo.retryable ?? false)")
-                    #endif
-
-                    // Handle retryable errors with automatic retry
-                    if errorInfo.retryable == true {
-                        print("🔄 Error is retryable - attempting automatic retry once")
-                        updateQueueItemProgress(id: item.id, message: "Retrying...")
-
-                        // Auto-retry once (without user action)
-                        // TODO: Implement exponential backoff if multiple retries needed in future
-                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 second delay
-
-                        // Restart the scan (already have imageData and modelContext)
-                        if let originalImageData = item.originalImageData {
-                            // Remove failed item
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
                             withAnimation(.swissSpring) {
-                                processingQueue.removeAll { $0.id == item.id }
+                                self.processingQueue.removeAll { $0.id == capturedItemId }
                             }
 
-                            // Cleanup partial resources
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
-                            if let jid = jobId {
-                                jobAuthTokens.removeValue(forKey: jid)
-                            }
-
-                            // Retry with new item ID
                             let retryItemId = UUID()
                             let retryTask = Task {
-                                await processCaptureWithImageData(itemId: retryItemId, imageData: originalImageData, modelContext: modelContext)
+                                await self.processCaptureWithImageData(itemId: retryItemId, imageData: originalImageData, modelContext: modelContext)
                             }
-                            activeStreamingTasks[retryItemId] = retryTask
-                        } else {
-                            // No original image data - treat as permanent error
-                            updateQueueItemError(id: item.id, errorMessage: errorInfo.message)
-                            await showProcessingErrorOverlay(errorInfo.message)
-
-                            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-                            impactFeedback.impactOccurred()
-
-                            await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
-                            if let jid = jobId {
-                                jobAuthTokens.removeValue(forKey: jid)
-                            }
+                            await self.scanCoordinator.trackJob(id: retryItemId, task: retryTask)
                         }
                     } else {
-                        // Non-retryable error - show immediately
-                        print("❌ Error is NOT retryable - showing permanent error")
-                        updateQueueItemError(id: item.id, errorMessage: errorInfo.message)
-                        await showProcessingErrorOverlay(errorInfo.message)
-
-                        // Trigger error haptic feedback
+                        self.updateQueueItemError(id: capturedItemId, errorMessage: message)
+                        Task {
+                            await self.showProcessingErrorOverlay(message)
+                        }
                         let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
                         impactFeedback.impactOccurred()
-
-                        await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
-
-                        // Remove auth token (job is done)
-                        if let jid = jobId {
-                            jobAuthTokens.removeValue(forKey: jid)
-                        }
                     }
-
-                case .canceled:
-                    print("⚠️ SSE job canceled (jobId: \(jobId ?? "unknown"))")
-
-                    updateQueueItem(id: item.id, state: .error, message: "Canceled")
-
-                    await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
-
-                    // Remove auth token (job is done)
-                    if let jid = jobId {
-                        jobAuthTokens.removeValue(forKey: jid)
+                },
+                onEnrichmentDegraded: { [weak self] reason in
+                    Task {
+                        await self?.showEnrichmentDegradedBanner(reason: reason)
                     }
-
-                    await removeQueueItemAfterDelay(id: item.id, delay: 3.0)
-
-                // NEW: Progressive results event handling
-                case .segmented(let preview):
-                    print("📸 Segmented preview: \(preview.totalBooks) books detected (\(preview.imageData.count) bytes)")
-                    updateQueueItemSegmented(id: item.id, preview: preview)
-
-                case .bookProgress(let progress):
-                    print("📊 Book progress: \(progress.current)/\(progress.total)")
-                    updateQueueItemBookProgress(id: item.id, current: progress.current, total: progress.total)
-
-                case .ping:
-                    // SSE keepalive - no action needed
-                    print("💓 SSE ping received")
-
-                case .enrichmentDegraded(let info):
-                    // Log enrichment degradation for debugging
-                    print("⚠️ Enrichment degraded: \(info.reason ?? "unknown reason")")
-                    if let isbn = info.isbn {
-                        print("   ISBN: \(isbn)")
+                },
+                onCanceled: { [weak self] in
+                    self?.updateQueueItem(id: capturedItemId, state: .error, message: "Canceled")
+                },
+                onQueueProgress: { [weak self] message in
+                    self?.updateQueueItemProgress(id: capturedItemId, message: message)
+                },
+                onBookMetadataReceived: { [weak self] metadata in
+                    if let index = self?.processingQueue.firstIndex(where: { $0.id == capturedItemId }) {
+                        self?.processingQueue[index].bookMetadata = metadata
                     }
-                    if let fallback = info.fallbackSource {
-                        print("   Fallback: \(fallback)")
+                },
+                onSegmented: { [weak self] preview in
+                    self?.updateQueueItemSegmented(id: capturedItemId, preview: preview)
+                },
+                onBookProgress: { [weak self] current, total in
+                    self?.updateQueueItemBookProgress(id: capturedItemId, current: current, total: total)
+                },
+                onResultsFetchFailed: { [weak self] url, fetchAuthToken, failedJobId in
+                    self?.updateQueueItemError(id: capturedItemId, errorMessage: "Failed to fetch results. Check network and retry.")
+                    if let index = self?.processingQueue.firstIndex(where: { $0.id == capturedItemId }) {
+                        self?.processingQueue[index].retryContext = ResultsFetchRetryContext(
+                            resultsUrl: url,
+                            authToken: fetchAuthToken,
+                            jobId: failedJobId
+                        )
                     }
-
-                    // Show user-friendly banner (non-blocking info message)
-                    await showEnrichmentDegradedBanner(reason: info.reason)
-
-                    // Continue processing - degraded enrichment is not fatal
+                    print("💡 Item kept in queue for manual retry")
                 }
+            )
+
+            // Stream SSE events via coordinator
+            let _ = try await scanCoordinator.streamAndProcess(
+                streamUrl: uploadResult.streamUrl,
+                deviceId: self.deviceId,
+                authToken: authToken,
+                jobId: uploadResult.jobId,
+                thumbnailData: capturedThumbnailData,
+                reviewCountBefore: reviewCountBefore,
+                callbacks: callbacks,
+                getReviewCount: { [weak self] in
+                    self?.reviewQueueManager.pendingReviewBooks.count ?? 0
+                }
+            )
+
+            // Check if task was cancelled during streaming
+            if Task.isCancelled {
+                await scanCoordinator.cleanup(jobId: uploadResult.jobId, authToken: authToken)
+                if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
+                return
             }
 
-            #if DEBUG
-            integrationLog("SSE: for-await loop EXITED normally (no more events). Task.isCancelled=\(Task.isCancelled)")
-            #endif
+            // Success path - mark as done (unless callbacks already handled error/retry)
+            if let index = processingQueue.firstIndex(where: { $0.id == capturedItemId }),
+               processingQueue[index].state == .analyzing {
+                updateQueueItem(id: capturedItemId, state: .done, message: nil)
+            }
+
+            // Cleanup resources (non-blocking)
+            await scanCoordinator.cleanup(jobId: uploadResult.jobId, authToken: authToken)
+            if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
+
+            // Auto-remove from queue after 5 seconds
+            await removeQueueItemAfterDelay(id: capturedItemId, delay: 5.0)
 
         } catch {
             e2eLogger.error("❌ processCaptureWithImageData error: \(error.localizedDescription)")
@@ -784,7 +512,10 @@ final class CameraViewModel {
                 let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
                 impactFeedback.impactOccurred()
 
-                await performCleanup(jobId: jobId, tempFileURL: tempFileURL, authToken: authToken)
+                if let jid = jobId {
+                    await scanCoordinator.cleanup(jobId: jid, authToken: authToken)
+                }
+                if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
 
                 await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
             }
@@ -898,7 +629,7 @@ final class CameraViewModel {
         let task = Task {
             await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
         }
-        activeStreamingTasks[itemId] = task
+        Task { await scanCoordinator.trackJob(id: itemId, task: task) }
     }
 
     // MARK: - US-408: Rate Limit Management
@@ -927,7 +658,7 @@ final class CameraViewModel {
                         let task = Task {
                             await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
                         }
-                        activeStreamingTasks[itemId] = task
+                        await scanCoordinator.trackJob(id: itemId, task: task)
                     }
 
                     break
@@ -940,38 +671,10 @@ final class CameraViewModel {
 
     // MARK: - US-406: Stream Cancellation
     func cancelAllStreamingTasks() {
-        let taskCount = activeStreamingTasks.count
-        guard taskCount > 0 else { return }
-
-        print("Cancelling \(taskCount) active SSE streams (navigation/backgrounding)")
-
-        // Cancel all Swift Task instances (triggers Task.isCancelled in stream loops)
-        for (_, task) in activeStreamingTasks {
-            task.cancel()
+        let queueSnapshot = processingQueue
+        Task {
+            await scanCoordinator.cancelAllJobs(processingQueue: queueSnapshot)
         }
-        activeStreamingTasks.removeAll()
-
-        // Collect all in-progress job IDs that need backend cleanup
-        let activeJobIds = processingQueue
-            .filter { $0.state == .uploading || $0.state == .analyzing }
-            .compactMap { $0.jobId }
-
-        // Fire-and-forget cleanup calls to backend with stored auth tokens
-        for activeJobId in activeJobIds {
-            let storedAuthToken = jobAuthTokens[activeJobId]
-            let service = talariaService
-            Task {
-                do {
-                    try await service.cleanup(jobId: activeJobId, authToken: storedAuthToken)
-                    print("Backend cleanup sent for disconnected job: \(activeJobId)")
-                } catch {
-                    print("Backend cleanup failed for \(activeJobId): \(error.localizedDescription)")
-                }
-            }
-        }
-
-        // Clear all auth tokens (all jobs are being abandoned)
-        jobAuthTokens.removeAll()
 
         // Remove in-progress items from queue with animation
         withAnimation(.swissSpring) {
@@ -1084,7 +787,7 @@ final class CameraViewModel {
                 let task = Task {
                     await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx)
                 }
-                activeStreamingTasks[itemId] = task
+                await scanCoordinator.trackJob(id: itemId, task: task)
 
                 await task.value
 
@@ -1122,7 +825,7 @@ final class CameraViewModel {
 
         Task {
             do {
-                let books = try await talariaService.fetchResults(
+                let books = try await scanCoordinator.fetchResults(
                     resultsUrl: context.resultsUrl,
                     authToken: context.authToken
                 )
@@ -1144,7 +847,7 @@ final class CameraViewModel {
                         rawJSON = nil
                     }
 
-                    handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: ctx)
+                    reviewQueueManager.handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: ctx)
                 }
 
                 // Success - mark as done
@@ -1158,220 +861,6 @@ final class CameraViewModel {
         }
     }
 
-    // MARK: - US-405: Book Result Handling
-    func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, modelContext: ModelContext) {
-        print("🔍 DEBUG: handleBookResult called for: \(metadata.resolvedTitle)")
-
-        // Debug logging for integration test
-        if ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") {
-            let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
-            let timestamp = ISO8601DateFormatter().string(from: Date())
-            let line = "[\(timestamp)] handleBookResult: title='\(metadata.title ?? "nil")' author='\(metadata.author ?? "nil")' isbn='\(metadata.isbn ?? "nil")'\n"
-            if let data = line.data(using: .utf8) {
-                if let handle = try? FileHandle(forWritingTo: logFile) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
-                    handle.closeFile()
-                }
-            }
-        }
-
-        // FIX #3: Validate metadata quality before processing
-        let title = (metadata.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let author = (metadata.author ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !title.isEmpty else {
-            print("❌ Rejected book result: empty title")
-            Task {
-                await showProcessingErrorOverlay("Book title is empty - unable to add to review queue")
-            }
-            return
-        }
-
-        guard !author.isEmpty else {
-            print("❌ Rejected book result: empty author")
-            Task {
-                await showProcessingErrorOverlay("Book author is empty - unable to add to review queue")
-            }
-            return
-        }
-
-        // Warn on low confidence (but don't reject)
-        if let confidence = metadata.confidence, confidence < 0.3 {
-            print("⚠️ Low confidence result: \(Int(confidence * 100))% for '\(title)'")
-        }
-
-        // FIX #1: Deduplication guard to prevent .result + .complete duplicates
-        let isbn = metadata.isbn ?? ""
-        let isDuplicate = pendingReviewBooks.contains { pending in
-            // Match on ISBN OR (title + author) within last 60 seconds
-            let matchesISBN = !isbn.isEmpty && pending.metadata.isbn == isbn
-            let matchesTitleAuthor = pending.metadata.title == metadata.title &&
-                                     pending.metadata.author == metadata.author
-            let isRecent = pending.scannedDate.timeIntervalSinceNow > -60
-
-            return (matchesISBN || matchesTitleAuthor) && isRecent
-        }
-
-        if isDuplicate {
-            print("⚠️ Duplicate book result suppressed: \(metadata.resolvedTitle) (ISBN: \(isbn))")
-            return
-        }
-
-        // Route ALL results to review queue (no auto-add)
-        let pendingBook = PendingBookResult(
-            metadata: metadata,
-            rawJSON: rawJSON,
-            thumbnailData: thumbnailData
-        )
-
-        print("🔍 DEBUG: PendingBookResult created successfully, id: \(pendingBook.id)")
-
-        withAnimation(.swissSpring) {
-            pendingReviewBooks.append(pendingBook)
-        }
-
-        print("🔍 DEBUG: Appended to pendingReviewBooks, new count: \(pendingReviewBooks.count)")
-
-        print("📋 Book added to review queue: \(metadata.resolvedTitle) (pending: \(pendingReviewBooks.count))")
-
-        // Haptic feedback for new review item
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-    }
-
-    // MARK: - Review Queue Actions
-    func approveBook(_ pendingBook: PendingBookResult, modelContext: ModelContext) {
-        let isbn = pendingBook.metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)"
-
-        // Duplicate detection at approve time
-        do {
-            if let duplicate = try DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
-                pendingBookBeingApproved = pendingBook
-                pendingBookMetadata = pendingBook.metadata
-                pendingRawJSON = pendingBook.rawJSON
-                duplicateBook = duplicate
-                withAnimation(.swissSpring) {
-                    showDuplicateAlert = true
-                }
-                return
-            }
-        } catch {
-            // Proceed with add on detection failure
-        }
-
-        // Use resolved values (prefers user edits over AI results)
-        addBookToLibrary(
-            title: pendingBook.resolvedTitle,
-            author: pendingBook.resolvedAuthor,
-            metadata: pendingBook.metadata,
-            rawJSON: pendingBook.rawJSON,
-            modelContext: modelContext
-        )
-
-        withAnimation(.swissSpring) {
-            pendingReviewBooks.removeAll { $0.id == pendingBook.id }
-        }
-
-        print("✅ Book approved and added to library: \(pendingBook.resolvedTitle)")
-    }
-
-    func rejectBook(_ pendingBook: PendingBookResult) {
-        withAnimation(.swissSpring) {
-            pendingReviewBooks.removeAll { $0.id == pendingBook.id }
-        }
-
-        print("❌ Book rejected from review queue: \(pendingBook.metadata.resolvedTitle)")
-    }
-
-    func approveAllBooks(modelContext: ModelContext) {
-        let count = pendingReviewBooks.count
-        for book in pendingReviewBooks {
-            addBookToLibrary(
-                title: book.resolvedTitle,
-                author: book.resolvedAuthor,
-                metadata: book.metadata,
-                rawJSON: book.rawJSON,
-                modelContext: modelContext
-            )
-        }
-
-        withAnimation(.swissSpring) {
-            pendingReviewBooks.removeAll()
-        }
-
-        print("✅ All \(count) books approved and added to library")
-    }
-
-    func approveHighConfidenceBooks(modelContext: ModelContext) {
-        let highConfidence = pendingReviewBooks.filter { ($0.confidence ?? 1.0) >= 0.8 }
-        let count = highConfidence.count
-        guard count > 0 else { return }
-
-        for book in highConfidence {
-            addBookToLibrary(
-                title: book.resolvedTitle,
-                author: book.resolvedAuthor,
-                metadata: book.metadata,
-                rawJSON: book.rawJSON,
-                modelContext: modelContext
-            )
-        }
-
-        let approvedIds = Set(highConfidence.map { $0.id })
-        withAnimation(.swissSpring) {
-            pendingReviewBooks.removeAll { approvedIds.contains($0.id) }
-        }
-
-        print("✅ \(count) high-confidence books approved and added to library")
-    }
-
-    func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, modelContext: ModelContext) {
-        let resolvedTitle = (title ?? metadata.resolvedTitle).trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedAuthor = (author ?? metadata.resolvedAuthor).trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !resolvedTitle.isEmpty, !resolvedAuthor.isEmpty else {
-            print("❌ Rejected addBookToLibrary: empty title or author")
-            return
-        }
-
-        let publishedDate: Date?
-        if let dateString = metadata.publishedDate {
-            let formatter = ISO8601DateFormatter()
-            publishedDate = formatter.date(from: dateString)
-        } else {
-            publishedDate = nil
-        }
-
-        let newBook = Book(
-            title: resolvedTitle,
-            author: resolvedAuthor,
-            isbn: metadata.isbn ?? "UNKNOWN-\(UUID().uuidString)",
-            coverUrl: metadata.coverUrl,
-            format: metadata.format,
-            publisher: metadata.publisher,
-            publishedDate: publishedDate,
-            pageCount: metadata.pageCount,
-            spineConfidence: metadata.confidence,
-            addedDate: Date(),
-            rawJSON: rawJSON,
-            enrichmentStatus: metadata.enrichmentStatus?.rawValue
-        )
-
-        modelContext.insert(newBook)
-
-        do {
-            try modelContext.save()
-            print("✅ Book added to library: \(resolvedTitle)")
-
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
-
-        } catch {
-            print("❌ Failed to save book: \(error)")
-        }
-    }
-
     /// Generate guidance based on detected rectangle objects
     private func generateObjectGuidance(from objects: [DetectedObject]) -> CaptureGuidance {
         let highConfidenceObjects = objects.filter { $0.confidence > 0.85 }
@@ -1381,127 +870,6 @@ final class CameraViewModel {
             return .moveCloser
         } else {
             return .noBookDetected
-        }
-    }
-
-    func updatePendingBookEdits(id: UUID, title: String?, author: String?) {
-        if let index = pendingReviewBooks.firstIndex(where: { $0.id == id }) {
-            pendingReviewBooks[index].editedTitle = title
-            pendingReviewBooks[index].editedAuthor = author
-        }
-    }
-
-    func dismissDuplicateAlert() {
-        withAnimation(.swissSpring) {
-            showDuplicateAlert = false
-            duplicateBook = nil
-            pendingBookMetadata = nil
-            pendingRawJSON = nil
-            pendingBookBeingApproved = nil
-        }
-    }
-
-    func dismissScanCompleteBanner() {
-        withAnimation(.swissSpring) {
-            scanCompleteBanner = nil
-        }
-    }
-
-    func addDuplicateAnyway(modelContext: ModelContext) {
-        withAnimation(.swissSpring) {
-            showDuplicateAlert = false
-            if let metadata = pendingBookMetadata {
-                addBookToLibrary(
-                    title: pendingBookBeingApproved?.resolvedTitle,
-                    author: pendingBookBeingApproved?.resolvedAuthor,
-                    metadata: metadata,
-                    rawJSON: pendingRawJSON,
-                    modelContext: modelContext
-                )
-            }
-            // Remove from review queue if it was an approve-time duplicate
-            if let pending = pendingBookBeingApproved {
-                pendingReviewBooks.removeAll { $0.id == pending.id }
-            }
-            duplicateBook = nil
-            pendingBookMetadata = nil
-            pendingRawJSON = nil
-            pendingBookBeingApproved = nil
-        }
-    }
-
-    // MARK: - Resource Cleanup
-    private func performCleanup(jobId: String?, tempFileURL: URL?, authToken: String? = nil) async {
-        if let jobId = jobId {
-            do {
-                try await talariaService.cleanup(jobId: jobId, authToken: authToken)
-                print("🗑️ Server cleanup successful for job: \(jobId)")
-            } catch {
-                print("⚠️ Server cleanup failed for job \(jobId): \(error.localizedDescription)")
-            }
-        }
-
-        if let tempFileURL = tempFileURL {
-            do {
-                try FileManager.default.removeItem(at: tempFileURL)
-                print("🗑️ Local temp file cleanup successful: \(tempFileURL.lastPathComponent)")
-            } catch CocoaError.fileNoSuchFile {
-                print("ℹ️ Temp file already deleted: \(tempFileURL.lastPathComponent)")
-            } catch {
-                print("⚠️ Local temp file cleanup failed for \(tempFileURL.lastPathComponent): \(error.localizedDescription)")
-            }
-        }
-    }
-
-    // MARK: - Image Processing
-    static func processImage(_ imageData: Data) async throws -> URL {
-        guard let image = UIImage(data: imageData) else {
-            throw ImageProcessingError.invalidImageData
-        }
-
-        let resized = resizeImage(image, maxDimension: 1920)
-
-        guard let jpegData = resized.jpegData(compressionQuality: 0.85) else {
-            throw ImageProcessingError.compressionFailed
-        }
-
-        let filename = "\(UUID().uuidString).jpg"
-        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-
-        try jpegData.write(to: fileURL)
-
-        Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .seconds(1800)) // 30 minutes
-            do {
-                try FileManager.default.removeItem(at: fileURL)
-                print("🗑️ Fallback cleanup for temp file: \(filename)")
-            } catch CocoaError.fileNoSuchFile {
-            } catch {
-                print("⚠️ Fallback cleanup failed for \(filename): \(error.localizedDescription)")
-            }
-        }
-
-        return fileURL
-    }
-
-    static func resizeImage(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-        let size = image.size
-        let aspectRatio = size.width / size.height
-
-        let newSize: CGSize
-        if size.width > size.height {
-            newSize = CGSize(width: min(size.width, maxDimension), height: min(size.width, maxDimension) / aspectRatio)
-        } else {
-            newSize = CGSize(width: min(size.height, maxDimension) * aspectRatio, height: min(size.height, maxDimension))
-        }
-
-        if newSize.width >= size.width && newSize.height >= size.height {
-            return image
-        }
-
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
 

@@ -103,7 +103,7 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Review", systemImage: "checklist")
                 }
-                .badge(viewModel.pendingReviewBooks.count > 0 ? "\(viewModel.pendingReviewBooks.count)" : nil)
+                .badge(viewModel.reviewQueueManager.pendingReviewBooks.count > 0 ? "\(viewModel.reviewQueueManager.pendingReviewBooks.count)" : nil)
                 .tag(1)
 
             // Camera Tab
