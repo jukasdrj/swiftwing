@@ -78,22 +78,22 @@ final class CameraViewModel {
     // MARK: - US-410: Stream Concurrency Manager
     let streamManager: StreamManager = StreamManager()
 
-    // MARK: - Vision Framework State
-    var isVisionEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "isVisionEnabled") != false  // Default true if not set
-    }
-    var detectedText: [TextRegion] = []
-    var detectedISBN: String? = nil
-    var captureGuidance: CaptureGuidance = .noBookDetected
-    var detectedObjects: [DetectedObject] = []
+    // MARK: - Vision Framework State (delegated to CameraVisionCoordinator)
+    let visionCoordinator = CameraVisionCoordinator()
+
+    var isVisionEnabled: Bool { visionCoordinator.isVisionEnabled }
+    var detectedText: [TextRegion] { visionCoordinator.detectedText }
+    var detectedISBN: String? { visionCoordinator.detectedISBN }
+    var captureGuidance: CaptureGuidance { visionCoordinator.captureGuidance }
+    var detectedObjects: [DetectedObject] { visionCoordinator.detectedObjects }
 
     // MARK: - Camera Interruption State
     var isInterrupted: Bool {
         cameraManager.isInterrupted
     }
 
-    // MARK: - Haptic Feedback
-    private let hapticGenerator = UIImpactFeedbackGenerator(style: .medium)
+    // MARK: - Haptic Feedback (delegated to CameraHapticsManager)
+    private let haptics = CameraHapticsManager()
 
     // MARK: - Image Preprocessing
     private let imagePreprocessor = ImagePreprocessor()
@@ -131,45 +131,22 @@ final class CameraViewModel {
             // Configure session (must be on main thread per AVFoundation docs)
             try cameraManager.setupSession()
 
-            // Prepare haptic generator for faster response
-            hapticGenerator.prepare()
+            // Prepare haptic generators for faster response
+            haptics.prepare()
 
             // Wire Vision processing callback
             cameraManager.onVisionResult = { [weak self] result in
                 Task { @MainActor in
                     guard let self else { return }
 
-                    switch result {
-                    case .textRegions(let regions):
-                        self.detectedText = regions
-                        self.detectedObjects = []
-                        // Generate guidance based on detected text regions
-                        self.captureGuidance = self.generateGuidance(from: regions)
-
-                    case .barcode(let barcodeResult):
-                        self.detectedObjects = []
-                        if barcodeResult.isValidISBN {
-                            self.detectedISBN = barcodeResult.isbn
-                            self.captureGuidance = .spineDetected
-                            // Haptic feedback when spine detected
-                            self.hapticGenerator.impactOccurred()
-                        }
-
-                    case .objects(let objects):
-                        self.detectedObjects = objects
-                        // Generate guidance based on detected objects
-                        self.captureGuidance = self.generateObjectGuidance(from: objects)
-
-                    case .noContent:
-                        // Throttled frames return .noContent - don't clear objects, keep last detection
-                        // Objects will persist until next Vision result arrives
-                        break
+                    let spineDetected = self.visionCoordinator.handle(result: result)
+                    if spineDetected {
+                        self.haptics.spineDetected()
                     }
 
                     // TODO 6.1: Adaptive throttling based on activity
                     // Adjust VisionService processing rate based on guidance
-                    let isActivelyScanning = (self.captureGuidance == .spineDetected)
-                    self.cameraManager.setProcessingRate(active: isActivelyScanning)
+                    self.cameraManager.setProcessingRate(active: self.visionCoordinator.isActivelyScanning)
                 }
             }
 
@@ -199,8 +176,7 @@ final class CameraViewModel {
     }
 
     func toggleVision() {
-        let newValue = !isVisionEnabled
-        UserDefaults.standard.set(newValue, forKey: "isVisionEnabled")
+        visionCoordinator.setVisionEnabled(!isVisionEnabled)
         // Note: Vision is now always enabled in iOS 26, this is just for UI state
     }
 
@@ -430,8 +406,7 @@ final class CameraViewModel {
         if let item = queueItem {
             updateQueueItemError(id: item.id, errorMessage: error.localizedDescription)
 
-            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-            impactFeedback.impactOccurred()
+            haptics.errorOccurred()
 
             if let jid = jobId {
                 await scanCoordinator.cleanup(jobId: jid, authToken: authToken)
@@ -511,8 +486,7 @@ final class CameraViewModel {
                 Task {
                     await self?.showProcessingErrorOverlay(message)
                 }
-                let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-                impactFeedback.impactOccurred()
+                self?.haptics.errorOccurred()
             },
             onRetryableError: { [weak self] message in
                 guard let self else { return }
@@ -537,8 +511,7 @@ final class CameraViewModel {
                     Task {
                         await self.showProcessingErrorOverlay(message)
                     }
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-                    impactFeedback.impactOccurred()
+                    self.haptics.errorOccurred()
                 }
             },
             onEnrichmentDegraded: { [weak self] reason in
@@ -677,8 +650,7 @@ final class CameraViewModel {
             processingQueue.removeAll { $0.id == item.id }
         }
 
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
+        haptics.retryTriggered()
 
         guard let ctx = modelContext else {
             e2eLogger.error("ModelContext not injected — cannot retry failed item")
@@ -921,29 +893,4 @@ final class CameraViewModel {
         }
     }
 
-    /// Generate guidance based on detected rectangle objects
-    private func generateObjectGuidance(from objects: [DetectedObject]) -> CaptureGuidance {
-        let highConfidenceObjects = objects.filter { $0.confidence > 0.85 }
-        if !highConfidenceObjects.isEmpty {
-            return .spineDetected
-        } else if !objects.isEmpty {
-            return .moveCloser
-        } else {
-            return .noBookDetected
-        }
-    }
-
-    // MARK: - Vision Guidance Generation
-    private func generateGuidance(from regions: [TextRegion]) -> CaptureGuidance {
-        // Simple heuristic: if we have text regions with high confidence, spine is detected
-        let highConfidenceRegions = regions.filter { $0.confidence > 0.7 }
-
-        if highConfidenceRegions.count >= 3 {
-            return .spineDetected
-        } else if highConfidenceRegions.count > 0 {
-            return .moveCloser
-        } else {
-            return .noBookDetected
-        }
-    }
 }

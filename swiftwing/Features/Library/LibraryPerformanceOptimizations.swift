@@ -7,69 +7,7 @@ import UIKit
 
 // MARK: - US-321: Library Performance Optimizations
 /// Extensions and utilities for optimizing LibraryView performance with large datasets
-
-// MARK: - Prefetch Coordinator
-/// Manages intelligent prefetching of cover images for visible and upcoming rows
-@Observable
-class LibraryPrefetchCoordinator {
-
-    // MARK: - Properties
-    private var visibleBookIDs: Set<UUID> = []
-    private var prefetchedURLs: Set<URL> = []
-
-    // MARK: - Prefetching Logic
-
-    /// Update visible books and trigger prefetching for upcoming rows
-    /// - Parameter books: Currently visible books in the library
-    func updateVisibleBooks(_ books: [Book]) {
-        let newIDs = Set(books.map { $0.id })
-
-        // Only prefetch if visible set changed significantly
-        guard newIDs != visibleBookIDs else { return }
-
-        visibleBookIDs = newIDs
-
-        // Extract cover URLs (filter nil)
-        let coverURLs = books.compactMap { $0.coverUrl }
-
-        // Prefetch images
-        Task {
-            await ImageCacheManager.shared.prefetchImages(urls: coverURLs)
-        }
-
-        // Track prefetched URLs
-        prefetchedURLs.formUnion(coverURLs)
-    }
-
-    /// Prefetch images for a range of books (e.g., next 20 rows during scroll)
-    /// - Parameters:
-    ///   - books: Array of books to prefetch
-    ///   - maxCount: Maximum number of images to prefetch (default: 20)
-    func prefetchUpcoming(books: [Book], maxCount: Int = 20) {
-        let urls = books
-            .prefix(maxCount)
-            .compactMap { $0.coverUrl }
-            .filter { !prefetchedURLs.contains($0) }  // Skip already prefetched
-
-        guard !urls.isEmpty else { return }
-
-        Task {
-            await ImageCacheManager.shared.prefetchImages(urls: Array(urls))
-        }
-
-        prefetchedURLs.formUnion(urls)
-    }
-
-    /// Clear prefetch state (call when filter/sort changes)
-    func reset() {
-        visibleBookIDs.removeAll()
-        prefetchedURLs.removeAll()
-
-        Task {
-            await ImageCacheManager.shared.cancelAllPrefetches()
-        }
-    }
-}
+/// Note: LibraryPrefetchCoordinator is defined in LibraryPrefetchCoordinator.swift
 
 // MARK: - Optimized Async Image
 /// Drop-in replacement for AsyncImageWithLoading with optimized caching
@@ -268,7 +206,7 @@ struct ScrollPositionTracker: ViewModifier {
 }
 
 struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+    nonisolated(unsafe) static var defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()

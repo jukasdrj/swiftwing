@@ -44,26 +44,39 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 
 | File | Role |
 |------|------|
-| `swiftwing/RootView.swift` | Tab container (Camera / Library) |
-| `swiftwing/CameraView.swift` | Camera UI (~250 lines) |
-| `swiftwing/CameraViewModel.swift` | Camera business logic (~550 lines) |
-| `swiftwing/Services/TalariaService.swift` | Network + SSE actor |
-| `swiftwing/ReviewQueueView.swift` | Book review/approve UI |
-| `swiftwing/LibraryView.swift` | Library grid |
-| `swiftwing/Models/Book.swift` | SwiftData model |
+| `App/RootView.swift` | Tab container (Camera / Library) |
+| `Features/Camera/CameraView.swift` | Camera UI (~280 lines) |
+| `Features/Camera/CameraViewModel.swift` | Camera business logic |
+| `Features/Camera/CameraOverlayView.swift` | Camera overlay composition |
+| `Features/Camera/CameraHapticsManager.swift` | Haptic feedback coordinator |
+| `Features/Camera/CameraVisionCoordinator.swift` | Vision state management |
+| `Features/Library/LibraryView.swift` | Library shell (~280 lines) |
+| `Features/Library/LibraryViewModel.swift` | Library business logic |
+| `Features/Library/LibraryGridView.swift` | Library grid display |
+| `Features/ReviewQueue/ReviewQueueView.swift` | Review queue container (~220 lines) |
+| `Features/ReviewQueue/ReviewCardView.swift` | Individual review card |
+| `Services/TalariaService.swift` | Network + SSE actor |
+| `Models/Book.swift` | SwiftData model |
 
 ### Folder Organization
 
 ```
 swiftwing/
-├── App/                  # SwiftwingApp.swift (entry point)
-├── Features/             # Feature modules (camera, library, etc.)
-├── Models/               # SwiftData @Model classes
-├── Services/             # TalariaService, CameraManager, actors
+├── App/                  # SwiftwingApp.swift, RootView, LaunchScreen
+├── Features/
+│   ├── Camera/           # Camera capture, preview, overlays, vision (20 files)
+│   ├── Library/          # Book library grid, search, filtering (8 files)
+│   ├── ReviewQueue/      # Book review/approve workflow (5 files)
+│   ├── Onboarding/       # First-run onboarding
+│   └── Settings/         # Debug feature flags
+├── UIComponents/         # Theme, shared views (AsyncImage, ConfidenceBadge)
+├── Services/             # TalariaService, network, caching, vision (12 files)
+├── Models/               # SwiftData @Model classes (6 files)
+├── Utilities/            # Performance test data
 ├── OpenAPI/              # Committed Talaria API spec
 │   └── talaria-openapi.yaml
 ├── Generated/            # Auto-generated code (not committed)
-├── Theme.swift           # Swiss Glass design system
+├── Fonts/                # JetBrains Mono
 └── Assets.xcassets/
 ```
 
