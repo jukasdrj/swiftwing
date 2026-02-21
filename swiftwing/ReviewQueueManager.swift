@@ -54,7 +54,7 @@ final class ReviewQueueManager {
     var showProcessingError = false
 
     // MARK: - US-405: Book Result Handling
-    func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil, modelContext: ModelContext) {
+    func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil, modelContext: ModelContext) {
         logger.debug("handleBookResult called for: \(metadata.resolvedTitle)")
 
         // Debug logging for integration test
@@ -82,7 +82,7 @@ final class ReviewQueueManager {
         if autoApproveSettings.isEnabled,
            let confidence = metadata.confidence,
            confidence >= autoApproveSettings.confidenceThreshold {
-            autoApproveBook(metadata: metadata, rawJSON: rawJSON, thumbnailData: thumbnailData, preScannedISBN: preScannedISBN, modelContext: modelContext)
+            autoApproveBook(metadata: metadata, rawJSON: rawJSON, thumbnailData: thumbnailData, preScannedISBN: preScannedISBN, originalPhotoURL: originalPhotoURL, modelContext: modelContext)
             return
         }
 
@@ -91,7 +91,8 @@ final class ReviewQueueManager {
             metadata: metadata,
             rawJSON: rawJSON,
             thumbnailData: thumbnailData,
-            preScannedISBN: preScannedISBN
+            preScannedISBN: preScannedISBN,
+            originalPhotoURL: originalPhotoURL
         )
 
         withAnimation(.swissSpring) {
@@ -146,7 +147,7 @@ final class ReviewQueueManager {
     }
 
     // MARK: - Auto-Approve
-    private func autoApproveBook(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data?, preScannedISBN: String? = nil, modelContext: ModelContext) {
+    private func autoApproveBook(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data?, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil, modelContext: ModelContext) {
         let confidence = metadata.confidence ?? 0
         logger.info("Auto-approving high-confidence book: \(metadata.resolvedTitle) (confidence: \(confidence))")
 
@@ -158,6 +159,9 @@ final class ReviewQueueManager {
             preScannedISBN: preScannedISBN,
             modelContext: modelContext
         )
+
+        // Auto-approved books skip review — clean up photo immediately
+        cleanupPhoto(originalPhotoURL)
 
         // Light haptic for auto-approve (distinct from manual approve)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -210,9 +214,11 @@ final class ReviewQueueManager {
             modelContext: modelContext
         )
 
+        let photoURL = pendingBook.originalPhotoURL
         withAnimation(.swissSpring) {
             pendingReviewBooks.removeAll { $0.id == pendingBook.id }
         }
+        cleanupPhoto(photoURL)
 
         if pendingReviewBooks.isEmpty {
             UserDefaults.standard.set(false, forKey: "show_review_needed")
@@ -222,9 +228,11 @@ final class ReviewQueueManager {
     }
 
     func rejectBook(_ pendingBook: PendingBookResult) {
+        let photoURL = pendingBook.originalPhotoURL
         withAnimation(.swissSpring) {
             pendingReviewBooks.removeAll { $0.id == pendingBook.id }
         }
+        cleanupPhoto(photoURL)
 
         if pendingReviewBooks.isEmpty {
             UserDefaults.standard.set(false, forKey: "show_review_needed")
@@ -235,6 +243,7 @@ final class ReviewQueueManager {
 
     func approveAllBooks(modelContext: ModelContext) {
         let count = pendingReviewBooks.count
+        let photoURLs = Set(pendingReviewBooks.compactMap { $0.originalPhotoURL })
         for book in pendingReviewBooks {
             addBookToLibrary(
                 title: book.resolvedTitle,
@@ -250,6 +259,8 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll()
         }
 
+        for url in photoURLs { cleanupPhoto(url) }
+
         UserDefaults.standard.set(false, forKey: "show_review_needed")
         logger.info("All \(count) books approved and added to library")
     }
@@ -259,6 +270,7 @@ final class ReviewQueueManager {
         let count = highConfidence.count
         guard count > 0 else { return }
 
+        let photoURLs = Set(highConfidence.compactMap { $0.originalPhotoURL })
         for book in highConfidence {
             addBookToLibrary(
                 title: book.resolvedTitle,
@@ -274,6 +286,8 @@ final class ReviewQueueManager {
         withAnimation(.swissSpring) {
             pendingReviewBooks.removeAll { approvedIds.contains($0.id) }
         }
+
+        for url in photoURLs { cleanupPhoto(url) }
 
         if pendingReviewBooks.isEmpty {
             UserDefaults.standard.set(false, forKey: "show_review_needed")
@@ -416,6 +430,23 @@ final class ReviewQueueManager {
             lowConfidenceCount: low,
             thumbnailData: thumbnailData
         )
+    }
+
+    // MARK: - Photo Cleanup
+
+    /// Clean up temp photo file if no other pending result references the same URL
+    private func cleanupPhoto(_ url: URL?) {
+        guard let url else { return }
+        let stillReferenced = pendingReviewBooks.contains { $0.originalPhotoURL == url }
+        guard !stillReferenced else { return }
+        do {
+            try FileManager.default.removeItem(at: url)
+            logger.debug("Cleaned up temp photo: \(url.lastPathComponent)")
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {
+            logger.debug("Temp photo already deleted: \(url.lastPathComponent)")
+        } catch {
+            logger.warning("Failed to clean up temp photo \(url.lastPathComponent): \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Error Display

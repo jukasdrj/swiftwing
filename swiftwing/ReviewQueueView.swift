@@ -7,6 +7,8 @@ struct ReviewQueueView: View {
 
     // US-B3: Selected processing item for detail view
     @State private var selectedProcessingItem: ProcessingItem?
+    // Bounding box overlay
+    @State private var selectedBookForOverlay: PendingBookResult?
 
     private var sortedPendingBooks: [PendingBookResult] {
         viewModel.reviewQueueManager.pendingReviewBooks.sorted { a, b in
@@ -69,22 +71,7 @@ struct ReviewQueueView: View {
                                     title: "Needs Review", count: lowConfidenceBooks.count,
                                     color: .red)
                                 ForEach(lowConfidenceBooks) { book in
-                                    ReviewCardView(
-                                        book: book,
-                                        onApprove: {
-                                            viewModel.reviewQueueManager.approveBook(book, modelContext: modelContext)
-                                        },
-                                        onReject: {
-                                            viewModel.reviewQueueManager.rejectBook(book)
-                                        },
-                                        onEdit: { editedTitle, editedAuthor in
-                                            viewModel.reviewQueueManager.updatePendingBookEdits(
-                                                id: book.id,
-                                                title: editedTitle,
-                                                author: editedAuthor
-                                            )
-                                        }
-                                    )
+                                    reviewCard(for: book)
                                 }
                             }
 
@@ -94,22 +81,7 @@ struct ReviewQueueView: View {
                                     title: "Verify", count: mediumConfidenceBooks.count,
                                     color: .orange)
                                 ForEach(mediumConfidenceBooks) { book in
-                                    ReviewCardView(
-                                        book: book,
-                                        onApprove: {
-                                            viewModel.reviewQueueManager.approveBook(book, modelContext: modelContext)
-                                        },
-                                        onReject: {
-                                            viewModel.reviewQueueManager.rejectBook(book)
-                                        },
-                                        onEdit: { editedTitle, editedAuthor in
-                                            viewModel.reviewQueueManager.updatePendingBookEdits(
-                                                id: book.id,
-                                                title: editedTitle,
-                                                author: editedAuthor
-                                            )
-                                        }
-                                    )
+                                    reviewCard(for: book)
                                 }
                             }
 
@@ -124,22 +96,7 @@ struct ReviewQueueView: View {
                                     }
                                 )
                                 ForEach(highConfidenceBooks) { book in
-                                    ReviewCardView(
-                                        book: book,
-                                        onApprove: {
-                                            viewModel.reviewQueueManager.approveBook(book, modelContext: modelContext)
-                                        },
-                                        onReject: {
-                                            viewModel.reviewQueueManager.rejectBook(book)
-                                        },
-                                        onEdit: { editedTitle, editedAuthor in
-                                            viewModel.reviewQueueManager.updatePendingBookEdits(
-                                                id: book.id,
-                                                title: editedTitle,
-                                                author: editedAuthor
-                                            )
-                                        }
-                                    )
+                                    reviewCard(for: book)
                                 }
                             }
                         }
@@ -177,6 +134,16 @@ struct ReviewQueueView: View {
                     }
                 }
             }
+            .sheet(item: $selectedBookForOverlay) { book in
+                if let photoURL = book.originalPhotoURL,
+                   let boundingBox = book.metadata.boundingBox {
+                    BoundingBoxOverlay(
+                        photoURL: photoURL,
+                        boundingBox: boundingBox,
+                        bookTitle: book.resolvedTitle
+                    )
+                }
+            }
             .toolbar {
                 if !viewModel.reviewQueueManager.pendingReviewBooks.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -205,6 +172,28 @@ struct ReviewQueueView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func reviewCard(for book: PendingBookResult) -> some View {
+        let hasOverlay = book.metadata.boundingBox != nil && book.originalPhotoURL != nil
+        ReviewCardView(
+            book: book,
+            onApprove: {
+                viewModel.reviewQueueManager.approveBook(book, modelContext: modelContext)
+            },
+            onReject: {
+                viewModel.reviewQueueManager.rejectBook(book)
+            },
+            onEdit: { editedTitle, editedAuthor in
+                viewModel.reviewQueueManager.updatePendingBookEdits(
+                    id: book.id,
+                    title: editedTitle,
+                    author: editedAuthor
+                )
+            },
+            onShowOverlay: hasOverlay ? { selectedBookForOverlay = book } : nil
+        )
     }
 
     private var emptyStateView: some View {
@@ -391,6 +380,7 @@ struct ReviewCardView: View {
     let onApprove: () -> Void
     let onReject: () -> Void
     let onEdit: (String?, String?) -> Void
+    var onShowOverlay: (() -> Void)?
 
     @State private var isEditing = false
     @State private var editedTitle: String
@@ -398,12 +388,14 @@ struct ReviewCardView: View {
 
     init(
         book: PendingBookResult, onApprove: @escaping () -> Void, onReject: @escaping () -> Void,
-        onEdit: @escaping (String?, String?) -> Void
+        onEdit: @escaping (String?, String?) -> Void,
+        onShowOverlay: (() -> Void)? = nil
     ) {
         self.book = book
         self.onApprove = onApprove
         self.onReject = onReject
         self.onEdit = onEdit
+        self.onShowOverlay = onShowOverlay
         self._editedTitle = State(initialValue: book.resolvedTitle)
         self._editedAuthor = State(initialValue: book.resolvedAuthor)
     }
@@ -418,6 +410,20 @@ struct ReviewCardView: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 60, height: 80)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(alignment: .bottomTrailing) {
+                        if onShowOverlay != nil {
+                            Image(systemName: "magnifyingglass")
+                                .font(.caption2.bold())
+                                .foregroundColor(.white)
+                                .padding(4)
+                                .background(Color.internationalOrange)
+                                .clipShape(Circle())
+                                .offset(x: 4, y: 4)
+                        }
+                    }
+                    .onTapGesture {
+                        onShowOverlay?()
+                    }
             }
 
             VStack(alignment: .leading, spacing: 12) {

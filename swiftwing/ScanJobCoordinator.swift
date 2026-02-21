@@ -33,7 +33,7 @@ struct ScanJobCallbacks: Sendable {
     let onProgress: @MainActor @Sendable (_ message: String) -> Void
 
     /// Called when a book result arrives (individual SSE result event)
-    let onBookResult: @MainActor @Sendable (_ metadata: BookMetadata, _ rawJSON: String?, _ preScannedISBN: String?) -> Void
+    let onBookResult: @MainActor @Sendable (_ metadata: BookMetadata, _ rawJSON: String?, _ preScannedISBN: String?, _ originalPhotoURL: URL?) -> Void
 
     /// Called when SSE stream completes with books (booksAdded count, thumbnail, inline books processed)
     let onScanComplete: @MainActor @Sendable (_ booksAdded: Int, _ thumbnailData: Data?) -> Void
@@ -190,7 +190,7 @@ actor ScanJobCoordinator {
                     rawJSON = nil
                 }
 
-                await callbacks.onBookResult(bookMetadata, rawJSON, nil)
+                await callbacks.onBookResult(bookMetadata, rawJSON, nil, nil)
 
             case .complete(let resultsUrl, let inlineBooks, let summary, let duration, let truncation):
                 let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
@@ -269,7 +269,7 @@ actor ScanJobCoordinator {
                     } else {
                         rawJSON = nil
                     }
-                    await callbacks.onBookResult(book, rawJSON, nil)
+                    await callbacks.onBookResult(book, rawJSON, nil, nil)
                 }
 
                 let booksAdded = await getReviewCount() - countBefore

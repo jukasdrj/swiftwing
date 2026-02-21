@@ -21,6 +21,7 @@ struct SwiftwingApp: App {
 
     init() {
         configureForUITesting()
+        cleanupOrphanedTempPhotos()
 
         #if DEBUG
         // OPTIONAL: Uncomment to auto-seed library on first launch
@@ -41,6 +42,34 @@ struct SwiftwingApp: App {
                 .preferredColorScheme(.dark)
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    /// Remove orphaned JPEG temp files older than 1 hour from the temp directory.
+    /// Handles crash/force-quit scenarios where normal cleanup didn't run.
+    private func cleanupOrphanedTempPhotos() {
+        let tempDir = FileManager.default.temporaryDirectory
+        let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "app-init")
+        let oneHourAgo = Date().addingTimeInterval(-3600)
+
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: tempDir, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles
+        ) else { return }
+
+        var cleaned = 0
+        for file in files where file.pathExtension == "jpg" || file.pathExtension == "jpeg" {
+            guard let attrs = try? file.resourceValues(forKeys: [.creationDateKey]),
+                  let created = attrs.creationDate,
+                  created < oneHourAgo else { continue }
+            do {
+                try FileManager.default.removeItem(at: file)
+                cleaned += 1
+            } catch {
+                logger.warning("Failed to clean orphaned temp photo: \(error.localizedDescription)")
+            }
+        }
+        if cleaned > 0 {
+            logger.info("Cleaned up \(cleaned) orphaned temp photo(s)")
+        }
     }
 
     /// Configures app state based on launch arguments for UI testing

@@ -11,6 +11,7 @@ struct PendingBookResult: Identifiable, Equatable {
     let scannedDate: Date
     let confidence: Double?
     let preScannedISBN: String?     // Vision-detected ISBN from barcode scanner
+    let originalPhotoURL: URL?      // Temp file for bounding box overlay
 
     // Editable overrides (nil = use metadata value)
     var editedTitle: String?         // NEW
@@ -23,7 +24,7 @@ struct PendingBookResult: Identifiable, Equatable {
     /// ISBN resolution: prefer AI result, fall back to Vision barcode, then generate placeholder
     var resolvedISBN: String { metadata.isbn ?? preScannedISBN ?? "UNKNOWN-\(id.uuidString)" }
 
-    init(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil) {
+    init(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil) {
         self.id = UUID()
         self.metadata = metadata
         self.rawJSON = rawJSON
@@ -31,6 +32,7 @@ struct PendingBookResult: Identifiable, Equatable {
         self.scannedDate = Date()
         self.confidence = metadata.confidence
         self.preScannedISBN = preScannedISBN
+        self.originalPhotoURL = originalPhotoURL
         self.editedTitle = nil
         self.editedAuthor = nil
     }

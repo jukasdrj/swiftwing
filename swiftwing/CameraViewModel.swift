@@ -335,9 +335,9 @@ final class CameraViewModel {
             let capturedThumbnailData = item.thumbnailData
             let reviewCountBefore = reviewQueueManager.pendingReviewBooks.count
 
-            // Build callbacks for the coordinator
+            // Build callbacks for the coordinator (thread photo URL for bounding box overlay)
             let callbacks = buildScanCallbacks(
-                itemId: capturedItemId, item: item, capturedISBN: capturedISBN, modelContext: modelContext
+                itemId: capturedItemId, item: item, capturedISBN: capturedISBN, modelContext: modelContext, originalPhotoURL: tempFileURL
             )
 
             // Stream SSE events via coordinator
@@ -367,9 +367,8 @@ final class CameraViewModel {
                 updateQueueItem(id: capturedItemId, state: .done, message: nil)
             }
 
-            // Cleanup resources (non-blocking)
+            // Cleanup server resources (non-blocking); temp file deferred until review action
             await scanCoordinator.cleanup(jobId: uploadResult.jobId, authToken: authToken)
-            if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
 
             // Auto-remove from queue after 5 seconds
             await removeQueueItemAfterDelay(id: capturedItemId, delay: 5.0)
@@ -494,15 +493,15 @@ final class CameraViewModel {
     }
 
     /// Build the full set of SSE streaming callbacks for a scan job.
-    private func buildScanCallbacks(itemId: UUID, item: ProcessingItem, capturedISBN: String?, modelContext: ModelContext) -> ScanJobCallbacks {
+    private func buildScanCallbacks(itemId: UUID, item: ProcessingItem, capturedISBN: String?, modelContext: ModelContext, originalPhotoURL: URL? = nil) -> ScanJobCallbacks {
         let capturedThumbnailData = item.thumbnailData
 
         return ScanJobCallbacks(
             onProgress: { [weak self] message in
                 self?.updateQueueItemProgress(id: itemId, message: message)
             },
-            onBookResult: { [weak self] metadata, rawJSON, _ in
-                self?.reviewQueueManager.handleBookResult(metadata: metadata, rawJSON: rawJSON, thumbnailData: capturedThumbnailData, preScannedISBN: capturedISBN, modelContext: modelContext)
+            onBookResult: { [weak self] metadata, rawJSON, _, _ in
+                self?.reviewQueueManager.handleBookResult(metadata: metadata, rawJSON: rawJSON, thumbnailData: capturedThumbnailData, preScannedISBN: capturedISBN, originalPhotoURL: originalPhotoURL, modelContext: modelContext)
             },
             onScanComplete: { [weak self] booksAdded, thumbnailData in
                 self?.reviewQueueManager.showScanComplete(booksAdded: booksAdded, thumbnailData: thumbnailData)
