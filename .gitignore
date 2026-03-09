@@ -71,3 +71,6 @@ e2e_screenshots/
 # Legacy/Archive
 flutter-legacy/
 .mcp.json
+
+# CC local settings (personal, not shared)
+.claude/settings.local.json

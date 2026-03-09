@@ -537,9 +537,8 @@ actor TalariaService {
         }
 
         // Parse JSON response
-        // Talaria may return books under "results" or "books" key:
-        //   Format A: {"success": true, "data": {"results": [BookMetadata, ...]}}
-        //   Format B: {"success": true, "data": {"books": [BookMetadata, ...]}}
+        // Talaria returns books under "results" key:
+        //   {"success": true, "data": {"results": [BookMetadata, ...]}}
         let decoder = JSONDecoder()
 
         do {
@@ -549,14 +548,11 @@ actor TalariaService {
                 throw NetworkError.invalidResponse
             }
 
-            // Try "results" key first, then "books" (OpenAPI spec uses "books")
             let booksArray: [[String: Any]]
             if let results = dataObj["results"] as? [[String: Any]] {
                 booksArray = results
-            } else if let books = dataObj["books"] as? [[String: Any]] {
-                booksArray = books
             } else {
-                e2eLogger.error("Results fetch: No 'results' or 'books' key in data")
+                e2eLogger.error("Results fetch: No 'results' key in data")
                 throw NetworkError.invalidResponse
             }
 

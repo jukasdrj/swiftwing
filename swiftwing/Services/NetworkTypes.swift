@@ -5,6 +5,42 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "ne
 
 // MARK: - RFC 9457 Problem Details
 
+/// Handles mixed-type JSON values from Talaria's metadata dict.
+/// Talaria defines metadata as Record<string, unknown> — values can be strings, numbers, or booleans.
+public enum AnyCodableValue: Codable, Sendable, Equatable {
+    case string(String)
+    case int(Int)
+    case double(Double)
+    case bool(Bool)
+    case null
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let v = try? container.decode(String.self) { self = .string(v) }
+        else if let v = try? container.decode(Int.self) { self = .int(v) }
+        else if let v = try? container.decode(Double.self) { self = .double(v) }
+        else if let v = try? container.decode(Bool.self) { self = .bool(v) }
+        else if container.decodeNil() { self = .null }
+        else { self = .null }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let v): try container.encode(v)
+        case .int(let v): try container.encode(v)
+        case .double(let v): try container.encode(v)
+        case .bool(let v): try container.encode(v)
+        case .null: try container.encodeNil()
+        }
+    }
+
+    public var stringValue: String? {
+        if case .string(let v) = self { return v }
+        return nil
+    }
+}
+
 /// RFC 9457 Problem Details for HTTP APIs
 ///
 /// Standardized error response format used by Talaria API for structured error handling.
@@ -48,7 +84,7 @@ public struct ProblemDetails: Codable, Sendable {
     let retryable: Bool
     let retryAfterMs: Int?
     let instance: String?
-    let metadata: [String: String]?
+    let metadata: [String: AnyCodableValue]?
 }
 
 // MARK: - Network Errors
@@ -209,11 +245,9 @@ public enum EnrichmentStatus: String, Sendable {
     case error
     case circuitOpen = "circuit_open"
     case reviewNeeded = "review_needed"
-    // OpenAPI spec values (map to closest equivalent)
-    case complete
-    case partial
-    case degraded
-    case failed
+    // NOTE: Removed cases "complete", "partial", "degraded", "failed" (never sent by Talaria).
+    // Any persisted Book records with these values will map to .pending via the custom init fallback.
+    // No SwiftData migration required — enrichmentStatus is stored as String in the Book model.
 }
 
 extension EnrichmentStatus: Codable {
@@ -233,6 +267,8 @@ public struct UploadResponse: Codable, Sendable {
     let data: UploadResponseData
 }
 
+// NOTE: Talaria firehose upload (POST /v3/jobs/scans/firehose) returns additional
+// fields (uploadUrl, chunkSize, photoCount) not mapped here. Add when firehose is implemented.
 public struct UploadResponseData: Codable, Sendable {
     let jobId: String
     let sseUrl: URL
@@ -250,7 +286,11 @@ public struct BoundingBox: Codable, Sendable, Equatable {
     let height: Double
 }
 
-/// Book metadata returned from Talaria AI enrichment
+/// Book metadata decoded from Talaria SSE events and results endpoint.
+///
+/// **SSE `result` event fields (Mar 2026):** title, author, isbn, coverUrl, publisher,
+/// publicationYear, enrichmentStatus, confidence, boundingBox.
+/// **NOT available via SSE:** pageCount, format, publishedDate (results endpoint only).
 ///
 /// **Note:** `title` and `author` are optional because Talaria can return null
 /// for both when enrichment fails (enrichmentStatus: "review_needed").
@@ -306,7 +346,7 @@ public struct BookMetadata: Sendable, Equatable {
 
 extension BookMetadata: Codable {
     private enum CodingKeys: String, CodingKey {
-        case title, author, isbn, coverUrl, publisher
+        case title, author, authors, isbn, coverUrl, publisher
         case publishedDate, publicationYear
         case pageCount, format, confidence, boundingBox, enrichmentStatus
     }
@@ -314,7 +354,16 @@ extension BookMetadata: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         title = try container.decodeIfPresent(String.self, forKey: .title)
-        author = try container.decodeIfPresent(String.self, forKey: .author)
+        // Forward-compatible: if Talaria migrates to "authors" array, join into single string.
+        // Current scan surfaces use "author" (string); canonical BookSchema uses "authors" (array).
+        let authorString = try container.decodeIfPresent(String.self, forKey: .author)
+        if let a = authorString {
+            author = a
+        } else if let authorsArray = try? container.decodeIfPresent([String].self, forKey: .authors) {
+            author = authorsArray.joined(separator: ", ")
+        } else {
+            author = nil
+        }
         isbn = try container.decodeIfPresent(String.self, forKey: .isbn)
         publisher = try container.decodeIfPresent(String.self, forKey: .publisher)
         format = try container.decodeIfPresent(String.self, forKey: .format)
@@ -327,15 +376,13 @@ extension BookMetadata: Codable {
         boundingBox = try? container.decodeIfPresent(BoundingBox.self, forKey: .boundingBox)
         enrichmentStatus = try? container.decodeIfPresent(EnrichmentStatus.self, forKey: .enrichmentStatus)
 
-        // Handle publishedDate (string) vs publicationYear (number or string) mismatch.
-        // decodeIfPresent throws typeMismatch when key exists but type is wrong,
-        // so we must use try? to fall through gracefully.
-        if let date = try? container.decodeIfPresent(String.self, forKey: .publishedDate) {
-            publishedDate = date
-        } else if let year = try? container.decodeIfPresent(Int.self, forKey: .publicationYear) {
+        // Talaria sends publicationYear (Int). Try that first, then publishedDate (String) fallback.
+        if let year = try? container.decodeIfPresent(Int.self, forKey: .publicationYear) {
             publishedDate = "\(year)-01-01"
         } else if let yearStr = try? container.decodeIfPresent(String.self, forKey: .publicationYear) {
             publishedDate = "\(yearStr)-01-01"
+        } else if let date = try? container.decodeIfPresent(String.self, forKey: .publishedDate) {
+            publishedDate = date
         } else {
             publishedDate = nil
         }

@@ -9,43 +9,12 @@
     "command": "find swiftwing -type f \\( -name '*.swift' -o -name '*.json' -o -name '*.md' \\) 2>/dev/null"
   },
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "CLAUDE_USER_MESSAGE=\"$CLAUDE_USER_MESSAGE\" /Users/juju/dev_repos/swiftwing/.claude/hooks/pm-epic-review.sh",
-            "timeout": 3000,
-            "description": "Suggest PM epic review workflow when user asks for status"
-          },
-          {
-            "type": "command",
-            "command": "CLAUDE_USER_MESSAGE=\"$CLAUDE_USER_MESSAGE\" /Users/juju/dev_repos/swiftwing/.claude/hooks/enforce-planning.sh",
-            "timeout": 5000,
-            "description": "Enforce planning-with-files for complex tasks (>3 tool calls)"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'xcodebuild'; then echo '🔨 Build completed. Consider running tests next.'; fi",
-            "timeout": 3000,
-            "description": "Remind about tests after xcodebuild runs"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "echo '📱 SwiftWing iOS 26 | Epic-based development | Planning mandatory for >3 tool calls'",
+            "command": "echo '📱 SwiftWing iOS 26 | Epic-based development'",
             "timeout": 3000,
             "description": "Session startup reminder"
           }
@@ -54,22 +23,22 @@
     ]
   },
   "permissions": {
-    "Bash": "*",
-    "Read": "*",
-    "Write": "*",
-    "Edit": "*",
-    "Glob": "*",
-    "Grep": "*",
-    "Task": "*",
-    "Skill(planning-with-files)": "*",
-    "Skill(gogo)": "*",
-    "Skill(feature-dev)": "*",
-    "Skill(commit-push-pr)": "*",
-    "mcp__pal__debug": "*",
-    "mcp__pal__codereview": "*",
-    "mcp__pal__analyze": "*",
-    "mcp__pal__thinkdeep": "*",
-    "mcp__pal__chat": "*",
-    "mcp__pal__consensus": "*"
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Task(*)",
+      "Skill(gogo)",
+      "Skill(feature-dev)",
+      "mcp__pal__debug",
+      "mcp__pal__codereview",
+      "mcp__pal__analyze",
+      "mcp__pal__thinkdeep",
+      "mcp__pal__chat",
+      "mcp__pal__consensus"
+    ]
   }
 }

@@ -90,6 +90,8 @@ public struct SSEEventParser: Sendable {
             return .result(metadata)
 
         case "complete", "completed":
+            // Talaria SSE event name is "completed" but the JSON type field is "complete".
+            // Both are handled here for robustness.
             // Extract resultsUrl, optional books, summary stats, and duration from completion event
             guard let jsonData = data.data(using: .utf8) else {
                 return .complete(resultsUrl: nil, books: nil, summary: nil, duration: nil, truncation: nil)
@@ -110,14 +112,20 @@ public struct SSEEventParser: Sendable {
 
                 // Extract summary stats (top-level fields + nested summary dict)
                 var summary: ScanSummary?
-                if let totalDetected = json["totalDetected"] as? Int,
-                   let totalUnique = json["totalUnique"] as? Int {
-                    let nestedSummary = json["summary"] as? [String: Any]
+                let nestedSummary = json["summary"] as? [String: Any]
+
+                // Top-level fields are primary (new Talaria format).
+                // Nested summary dict fields are fallback (legacy format).
+                // Remove nested fallbacks after Swiftwing 1.1 ships.
+                let totalDetected = json["totalDetected"] as? Int ?? nestedSummary?["totalDetected"] as? Int
+                let totalUnique = json["totalUnique"] as? Int ?? nestedSummary?["totalUnique"] as? Int
+
+                if let totalDetected, let totalUnique {
                     summary = ScanSummary(
                         totalDetected: totalDetected,
                         totalUnique: totalUnique,
-                        approved: json["approved"] as? Int ?? 0,
-                        needsReview: json["needsReview"] as? Int ?? 0,
+                        approved: json["approved"] as? Int ?? nestedSummary?["approved"] as? Int ?? 0,
+                        needsReview: json["needsReview"] as? Int ?? nestedSummary?["needsReview"] as? Int ?? 0,
                         reviewNeeded: nestedSummary?["review_needed"] as? Int,
                         degradedCount: nestedSummary?["degraded_count"] as? Int
                     )
