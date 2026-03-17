@@ -121,7 +121,7 @@ final class CameraViewModel {
 
         // Show loading spinner only if setup takes > 200ms
         Task {
-            try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
+            try? await Task.sleep(for: .milliseconds(200)) // 200ms
             if cameraManager.captureSession == nil {
                 isLoading = true
             }
@@ -208,7 +208,7 @@ final class CameraViewModel {
 
         // Hide flash after 100ms
         Task {
-            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            try? await Task.sleep(for: .milliseconds(100)) // 100ms
             withAnimation(.easeOut(duration: 0.1)) {
                 showFlash = false
             }
@@ -495,7 +495,7 @@ final class CameraViewModel {
                 // Auto-retry once after 2 second delay
                 if let originalImageData = item.originalImageData {
                     Task {
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        try? await Task.sleep(for: .seconds(2))
                         withAnimation(.swissSpring) {
                             self.processingQueue.removeAll { $0.id == itemId }
                         }
@@ -630,7 +630,7 @@ final class CameraViewModel {
     }
 
     private func removeQueueItemAfterDelay(id: UUID, delay: TimeInterval) async {
-        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        try? await Task.sleep(for: .seconds(delay))
         withAnimation(.swissSpring) {
             processingQueue.removeAll { $0.id == id }
         }
@@ -696,7 +696,7 @@ final class CameraViewModel {
                     break
                 }
 
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                try? await Task.sleep(for: .seconds(1))
             }
         }
     }
@@ -723,12 +723,12 @@ final class CameraViewModel {
             showProcessingError = true
         }
 
-        try? await Task.sleep(nanoseconds: 5_000_000_000)
+        try? await Task.sleep(for: .seconds(5))
         withAnimation(.swissSpring) {
             showProcessingError = false
         }
 
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        try? await Task.sleep(for: .milliseconds(200))
         processingErrorMessage = nil
     }
 
@@ -743,12 +743,12 @@ final class CameraViewModel {
         }
 
         // Auto-dismiss after 5 seconds
-        try? await Task.sleep(nanoseconds: 5_000_000_000)
+        try? await Task.sleep(for: .seconds(5))
         withAnimation(.swissSpring) {
             showEnrichmentDegradedBanner = false
         }
 
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        try? await Task.sleep(for: .milliseconds(200))
         enrichmentDegradedMessage = nil
     }
 
@@ -771,7 +771,7 @@ final class CameraViewModel {
         }
 
         Task {
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            try? await Task.sleep(for: .seconds(1))
             withAnimation(.easeOut(duration: 0.3)) {
                 showFocusIndicator = false
             }

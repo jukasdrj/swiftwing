@@ -41,6 +41,18 @@ extension Color {
     static let swissError = Color.red
 }
 
+// MARK: - ShapeStyle Extensions
+// Enables dot-shorthand syntax with foregroundStyle (e.g. .foregroundStyle(.swissText))
+extension ShapeStyle where Self == Color {
+    static var swissBackground: Color { .swissBackground }
+    static var swissText: Color { .swissText }
+    static var internationalOrange: Color { .internationalOrange }
+    static var swissProcessing: Color { .swissProcessing }
+    static var swissUploading: Color { .swissUploading }
+    static var swissDone: Color { .swissDone }
+    static var swissError: Color { .swissError }
+}
+
 // MARK: - Font Extensions
 extension Font {
     /// Cached check for whether JetBrains Mono font is available
@@ -99,7 +111,7 @@ struct SwissGlassCard: ViewModifier {
         content
             .background(.black)
             .background(.ultraThinMaterial)
-            .cornerRadius(12)
+            .clipShape(.rect(cornerRadius: 12))
     }
 }
 
@@ -116,7 +128,7 @@ struct SwissGlassOverlay: ViewModifier {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(.ultraThinMaterial)
-            .cornerRadius(8)
+            .clipShape(.rect(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
@@ -137,7 +149,7 @@ struct SwissGlassButton: ViewModifier {
             .padding(.vertical, 16)
             .padding(.horizontal, 24)
             .background(.ultraThinMaterial)
-            .cornerRadius(12)
+            .clipShape(.rect(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
@@ -174,18 +186,6 @@ extension View {
     /// Applies Swiss Glass Button styling
     func swissGlassButton() -> some View {
         modifier(SwissGlassButton())
-    }
-
-    /// Adds Swiss Spring animation to any view modifier
-    ///
-    /// Usage:
-    /// ```swift
-    /// Circle()
-    ///     .swissSpring()
-    ///     .scaleEffect(isPressed ? 0.95 : 1.0)
-    /// ```
-    func swissSpring() -> some View {
-        self.animation(.swissSpring, value: UUID())
     }
 
     /// Triggers haptic feedback on value change

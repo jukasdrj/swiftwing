@@ -20,14 +20,14 @@ struct LibraryToolbarContent: ToolbarContent {
                 Button("Cancel") {
                     onCancelSelection()
                 }
-                .foregroundColor(.swissText)
+                .foregroundStyle(.swissText)
                 .accessibilityIdentifier("library_cancel_selection")
             } else {
                 Button {
                     onExport()
                 } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .foregroundColor(.swissText)
+                        .foregroundStyle(.swissText)
                         .accessibilityLabel("Export library to CSV")
                 }
                 .accessibilityIdentifier("library_export_button")
@@ -46,7 +46,7 @@ struct LibraryToolbarContent: ToolbarContent {
                         Text("Show Review Needed")
                     } icon: {
                         Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(showReviewNeeded ? .internationalOrange : .swissText)
+                            .foregroundStyle(showReviewNeeded ? .internationalOrange : .swissText)
                     }
                 }
                 .badge(reviewNeededCount > 0 ? "\(reviewNeededCount)" : nil)
@@ -74,7 +74,7 @@ struct LibraryToolbarContent: ToolbarContent {
                     }
                 } label: {
                     Image(systemName: "arrow.up.arrow.down")
-                        .foregroundColor(.swissText)
+                        .foregroundStyle(.swissText)
                         .accessibilityLabel("Sort library")
                 }
                 .accessibilityIdentifier("library_sort_menu")
@@ -86,7 +86,7 @@ struct LibraryToolbarContent: ToolbarContent {
             Button(isSelectionMode ? "Select All" : "Select") {
                 onSelectOrSelectAll()
             }
-            .foregroundColor(.internationalOrange)
+            .foregroundStyle(.internationalOrange)
             .disabled(!searchText.isEmpty)
             .accessibilityIdentifier("library_select_button")
         }

@@ -42,7 +42,7 @@ struct BoundingBoxOverlay: View {
                             // Book title label
                             Text(bookTitle)
                                 .font(.subheadline.bold())
-                                .foregroundColor(.swissText)
+                                .foregroundStyle(.swissText)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .swissGlassOverlay()
@@ -53,10 +53,10 @@ struct BoundingBoxOverlay: View {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.badge.exclamationmark")
                         .font(.system(size: 48))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                     Text("Unable to load photo")
                         .font(.body)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
             }
 

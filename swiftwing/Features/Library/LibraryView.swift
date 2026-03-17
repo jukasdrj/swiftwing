@@ -14,22 +14,23 @@ struct LibraryView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 Group {
+                    let filtered = viewModel.filteredBooks(from: books)
                     if books.isEmpty {
                         emptyStateView
-                    } else if viewModel.filteredBooks(from: books).isEmpty && !viewModel.searchText.isEmpty {
+                    } else if filtered.isEmpty && !viewModel.searchText.isEmpty {
                         searchEmptyStateView
-                    } else if viewModel.filteredBooks(from: books).isEmpty && viewModel.showReviewNeeded {
+                    } else if filtered.isEmpty && viewModel.showReviewNeeded {
                         reviewNeededEmptyStateView
                     } else {
                         LibraryGridView(
-                            books: viewModel.filteredBooks(from: books),
+                            books: filtered,
                             selectedBook: $viewModel.selectedBook,
                             bookToDelete: $viewModel.bookToDelete,
                             showDeleteConfirmation: $viewModel.showDeleteConfirmation,
                             isSelectionMode: viewModel.isSelectionMode,
                             selectedBookIDs: viewModel.selectedBookIDs,
                             onToggleSelection: { viewModel.toggleBookSelection($0) },
-                            onPrefetch: { viewModel.prefetchUpcomingImages(startingFrom: $0, in: viewModel.filteredBooks(from: books)) },
+                            onPrefetch: { viewModel.prefetchUpcomingImages(startingFrom: $0, in: filtered) },
                             onRefresh: { await viewModel.performRefresh() }
                         )
                     }
@@ -67,7 +68,7 @@ struct LibraryView: View {
                     onSelectSort: { viewModel.sortOptionRaw = $0.rawValue },
                     onSelectOrSelectAll: {
                         if viewModel.isSelectionMode {
-                            viewModel.selectAllBooks(from: viewModel.filteredBooks(from: books))
+                            viewModel.selectAllBooks(from: viewModel.cachedFilteredBooks)
                         } else {
                             viewModel.enterSelectionMode()
                         }
@@ -109,18 +110,18 @@ struct LibraryView: View {
         VStack(spacing: 24) {
             Image(systemName: "books.vertical")
                 .font(.system(size: 80))
-                .foregroundColor(.swissText)
+                .foregroundStyle(.swissText)
                 .shadow(color: .white.opacity(0.3), radius: 12)
                 .accessibilityHidden(true)
 
             Text("No Books Yet")
                 .font(.title2.bold())
-                .foregroundColor(.swissText)
+                .foregroundStyle(.swissText)
                 .accessibilityIdentifier("library_empty_state")
 
             Text("Tap the camera tab to scan your first book spine. SwiftWing will identify it automatically.")
                 .font(.body)
-                .foregroundColor(.gray)
+                .foregroundStyle(.gray)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
@@ -189,45 +190,16 @@ struct LibraryView: View {
 
     // MARK: - Search Empty State
     private var searchEmptyStateView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 80))
-                .foregroundColor(.gray)
-
-            Text("No results for '\(viewModel.searchText)'")
-                .font(.title3)
-                .foregroundColor(.swissText)
-                .multilineTextAlignment(.center)
-                .accessibilityIdentifier("library_no_results")
-
-            Text("Try searching by title or author")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ContentUnavailableView.search(text: viewModel.searchText)
     }
 
     // MARK: - Review Needed Empty State (US-319)
     private var reviewNeededEmptyStateView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-                .shadow(color: .green.opacity(0.3), radius: 12)
-
-            Text("No books need review")
-                .font(.title3)
-                .foregroundColor(.swissText)
-                .multilineTextAlignment(.center)
-                .accessibilityIdentifier("library_no_review_needed")
-
-            Text("All your books have high AI confidence scores!")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ContentUnavailableView(
+            "No Books Need Review",
+            systemImage: "checkmark.circle",
+            description: Text("All your books have high AI confidence scores!")
+        )
     }
 
     // MARK: - Selection Toolbar (US-320)
@@ -238,11 +210,11 @@ struct LibraryView: View {
             } label: {
                 Label("Delete Selected (\(viewModel.selectedBookIDs.count))", systemImage: "trash")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .padding()
                     .frame(maxWidth: .infinity)
                     .background(Color.red)
-                    .cornerRadius(12)
+                    .clipShape(.rect(cornerRadius: 12))
             }
             .accessibilityIdentifier("library_bulk_delete")
             .accessibilityLabel("Delete \(viewModel.selectedBookIDs.count) selected books")
@@ -302,7 +274,7 @@ struct BookDetailSheet: View {
                 VStack(spacing: 20) {
                     AsyncImageWithLoading(url: book.coverUrl, title: book.title, author: book.author)
                         .frame(width: 140, height: 210)
-                        .cornerRadius(12)
+                        .clipShape(.rect(cornerRadius: 12))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
@@ -316,7 +288,7 @@ struct BookDetailSheet: View {
                                 .frame(width: 8, height: 8)
                             Text("AI Confidence: \(Int(confidence * 100))%")
                                 .font(.caption)
-                                .foregroundColor(.gray)
+                                .foregroundStyle(.gray)
                         }
                     }
 
@@ -335,7 +307,7 @@ struct BookDetailSheet: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Published Date")
                                     .font(.caption)
-                                    .foregroundColor(.gray)
+                                    .foregroundStyle(.gray)
                                 if isEditing {
                                     DatePicker(
                                         "",
@@ -349,7 +321,7 @@ struct BookDetailSheet: View {
                                 } else {
                                     Text(editedPublishedDate?.formatted(date: .long, time: .omitted) ?? "Not set")
                                         .font(.body)
-                                        .foregroundColor(.swissText)
+                                        .foregroundStyle(.swissText)
                                 }
                             }
                         }
@@ -362,30 +334,30 @@ struct BookDetailSheet: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Reading Status")
                                     .font(.caption)
-                                    .foregroundColor(.gray)
+                                    .foregroundStyle(.gray)
                                 Text(status)
                                     .font(.body)
-                                    .foregroundColor(.swissText)
+                                    .foregroundStyle(.swissText)
                             }
                         }
                         if let dateRead = book.dateRead {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Date Read")
                                     .font(.caption)
-                                    .foregroundColor(.gray)
+                                    .foregroundStyle(.gray)
                                 Text(dateRead.formatted(date: .long, time: .omitted))
                                     .font(.body)
-                                    .foregroundColor(.swissText)
+                                    .foregroundStyle(.swissText)
                             }
                         }
                         if let rating = book.userRating {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Your Rating")
                                     .font(.caption)
-                                    .foregroundColor(.gray)
+                                    .foregroundStyle(.gray)
                                 Text("\(rating) / 5 ⭐️")
                                     .font(.body)
-                                    .foregroundColor(.swissText)
+                                    .foregroundStyle(.swissText)
                             }
                         }
                     }
@@ -400,10 +372,10 @@ struct BookDetailSheet: View {
                             HStack {
                                 Text("Personal Notes")
                                     .font(.headline)
-                                    .foregroundColor(.swissText)
+                                    .foregroundStyle(.swissText)
                                 Spacer()
                                 Image(systemName: isNotesExpanded ? "chevron.up" : "chevron.down")
-                                    .foregroundColor(.gray)
+                                    .foregroundStyle(.gray)
                             }
                         }
                         .padding(.horizontal, 24)
@@ -413,18 +385,18 @@ struct BookDetailSheet: View {
                                 .frame(minHeight: 120)
                                 .padding(8)
                                 .background(Color.black.opacity(0.3))
-                                .cornerRadius(8)
+                                .clipShape(.rect(cornerRadius: 8))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
                                         .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
                                 )
-                                .foregroundColor(.swissText)
+                                .foregroundStyle(.swissText)
                                 .font(.body)
                                 .scrollContentBackground(.hidden)
                                 .overlay(alignment: .topLeading) {
                                     if editedNotes.isEmpty {
                                         Text("Add personal notes...")
-                                            .foregroundColor(.gray)
+                                            .foregroundStyle(.gray)
                                             .padding(.horizontal, 12)
                                             .padding(.vertical, 16)
                                             .allowsHitTesting(false)
@@ -445,23 +417,23 @@ struct BookDetailSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     if isEditing {
                         Button("Cancel") { cancelEditing() }
-                            .foregroundColor(.swissText)
+                            .foregroundStyle(.swissText)
                             .accessibilityIdentifier("detail_cancel_button")
                     } else {
                         Button("Close") { dismiss() }
-                            .foregroundColor(.swissText)
+                            .foregroundStyle(.swissText)
                             .accessibilityIdentifier("detail_close_button")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if isEditing {
                         Button("Save") { saveChanges() }
-                            .foregroundColor(.internationalOrange)
+                            .foregroundStyle(.internationalOrange)
                             .bold()
                             .accessibilityIdentifier("detail_save_button")
                     } else {
                         Button("Edit") { isEditing = true }
-                            .foregroundColor(.internationalOrange)
+                            .foregroundStyle(.internationalOrange)
                             .accessibilityIdentifier("detail_edit_button")
                     }
                 }
@@ -513,7 +485,7 @@ struct MetadataField: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundStyle(.gray)
             if isEditing {
                 TextField(placeholder.isEmpty ? label : placeholder, text: $value)
                     .textFieldStyle(.roundedBorder)
@@ -521,7 +493,7 @@ struct MetadataField: View {
             } else {
                 Text(value.isEmpty ? "Not set" : value)
                     .font(.body)
-                    .foregroundColor(value.isEmpty ? .gray : .swissText)
+                    .foregroundStyle(value.isEmpty ? .gray : .swissText)
             }
         }
     }

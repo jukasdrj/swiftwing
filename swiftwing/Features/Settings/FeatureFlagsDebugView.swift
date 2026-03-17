@@ -12,7 +12,7 @@ struct FeatureFlagsDebugView: View {
                 Toggle("Vision Overlay (Rectangle Detection)", isOn: $showVisionOverlays)
                 Text("Show green bounding boxes for detected rectangles")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Auto-Approve") {
@@ -22,7 +22,7 @@ struct FeatureFlagsDebugView: View {
                 ))
                 Text("Automatically add books to library when confidence exceeds threshold")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
 
                 if autoApproveSettings.isEnabled {
                     VStack(alignment: .leading, spacing: 4) {
@@ -53,7 +53,7 @@ struct FeatureFlagsDebugView: View {
                     autoApproveSettings.confidenceThreshold = 0.90
                     autoApproveSettings.showAutoApproveToast = true
                 }
-                .foregroundColor(.red)
+                .foregroundStyle(.red)
             }
         }
         .navigationTitle("Feature Flags")

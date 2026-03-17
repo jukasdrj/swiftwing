@@ -46,12 +46,12 @@ struct OnboardingView: View {
                         // Get Started button (final slide)
                         Button(action: completeOnboarding) {
                             Text("Get Started")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.swissBackground)
+                                .font(.headline)
+                                .foregroundStyle(.swissBackground)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
                                 .background(Color.internationalOrange)
-                                .cornerRadius(12)
+                                .clipShape(.rect(cornerRadius: 12))
                         }
                         .accessibilityIdentifier("onboarding_get_started")
                         .transition(.opacity)
@@ -59,12 +59,12 @@ struct OnboardingView: View {
                         // Next button
                         Button(action: { withAnimation { currentPage += 1 } }) {
                             Text("Next")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.swissBackground)
+                                .font(.headline)
+                                .foregroundStyle(.swissBackground)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
                                 .background(Color.internationalOrange)
-                                .cornerRadius(12)
+                                .clipShape(.rect(cornerRadius: 12))
                         }
                         .accessibilityIdentifier("onboarding_next")
                         .transition(.opacity)
@@ -73,8 +73,8 @@ struct OnboardingView: View {
                     // Skip button
                     Button(action: completeOnboarding) {
                         Text("Skip")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white.opacity(0.6))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.6))
                     }
                     .accessibilityIdentifier("onboarding_skip")
                 }
@@ -111,13 +111,13 @@ struct Slide1Welcome: View {
 
             VStack(spacing: 16) {
                 Text("Welcome to SwiftWing")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.swissText)
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(.swissText)
                     .multilineTextAlignment(.center)
 
                 Text("Scan book spines with your camera.\nGet instant metadata from AI.\nBuild your digital library in seconds.")
-                    .font(.system(size: 17))
-                    .foregroundColor(.swissText.opacity(0.8))
+                    .font(.body)
+                    .foregroundStyle(.swissText.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
             }
@@ -142,18 +142,18 @@ struct Slide2CameraPermission: View {
 
                 Image(systemName: "camera.fill")
                     .font(.system(size: 64))
-                    .foregroundColor(.internationalOrange)
+                    .foregroundStyle(.internationalOrange)
             }
 
             VStack(spacing: 16) {
                 Text("Camera Access")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.swissText)
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(.swissText)
                     .multilineTextAlignment(.center)
 
                 Text("SwiftWing needs camera access to scan book spines.\n\nYour photos are never stored — we only send them to our AI for instant recognition.")
-                    .font(.system(size: 17))
-                    .foregroundColor(.swissText.opacity(0.8))
+                    .font(.body)
+                    .foregroundStyle(.swissText.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
             }
@@ -216,17 +216,17 @@ struct FeatureRow: View {
         HStack(alignment: .top, spacing: 16) {
             Image(systemName: icon)
                 .font(.system(size: 28))
-                .foregroundColor(.internationalOrange)
+                .foregroundStyle(.internationalOrange)
                 .frame(width: 40)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.swissText)
+                    .font(.headline)
+                    .foregroundStyle(.swissText)
 
                 Text(description)
-                    .font(.system(size: 15))
-                    .foregroundColor(.swissText.opacity(0.7))
+                    .font(.subheadline)
+                    .foregroundStyle(.swissText.opacity(0.7))
             }
 
             Spacer()

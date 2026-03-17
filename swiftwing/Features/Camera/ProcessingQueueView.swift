@@ -29,7 +29,7 @@ struct ProcessingQueueView: View {
             if items.count > 3 {
                 Text("\(items.count)")
                     .font(.caption.bold())
-                    .foregroundColor(.black)
+                    .foregroundStyle(.black)
                     .frame(minWidth: 24, minHeight: 24)
                     .background(Color.white)
                     .clipShape(Circle())
@@ -58,12 +58,12 @@ struct ProcessingThumbnailView: View {
                         .aspectRatio(contentMode: .fill)
                         .frame(width: 60, height: 90)
                         .clipped()
-                        .cornerRadius(4)
+                        .clipShape(.rect(cornerRadius: 4))
                 } else {
                     // Fallback for invalid image data
                     Color.gray.opacity(0.3)
                         .frame(width: 60, height: 90)
-                        .cornerRadius(4)
+                        .clipShape(.rect(cornerRadius: 4))
                 }
 
                 // Progress text overlay (if available)
@@ -72,11 +72,11 @@ struct ProcessingThumbnailView: View {
                         Spacer()
                         Text(progressMessage)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
                             .background(Color.black.opacity(0.7))
-                            .cornerRadius(2)
+                            .clipShape(.rect(cornerRadius: 2))
                             .padding(.bottom, 2)
                     }
                     .frame(width: 60, height: 90)
@@ -86,7 +86,7 @@ struct ProcessingThumbnailView: View {
                 if item.state == .error {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(.red)
+                        .foregroundStyle(.red)
                         .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                 }
 
@@ -96,13 +96,13 @@ struct ProcessingThumbnailView: View {
                         Spacer()
                         Text(errorMessage)
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .lineLimit(2)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 3)
                             .padding(.vertical, 2)
                             .background(Color.red.opacity(0.9))
-                            .cornerRadius(2)
+                            .clipShape(.rect(cornerRadius: 2))
                             .padding(.bottom, 2)
                     }
                     .frame(width: 60, height: 90)
@@ -123,7 +123,7 @@ struct ProcessingThumbnailView: View {
                 }) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(width: 24, height: 24)
                         .background(Color.red)
                         .clipShape(Circle())

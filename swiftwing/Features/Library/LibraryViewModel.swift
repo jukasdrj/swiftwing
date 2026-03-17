@@ -124,10 +124,9 @@ final class LibraryViewModel {
         var result = sortedBooks(from: books)
 
         if !searchText.isEmpty {
-            let lowercasedSearch = searchText.lowercased()
             result = result.filter { book in
-                book.title.lowercased().contains(lowercasedSearch) ||
-                book.author.lowercased().contains(lowercasedSearch)
+                book.title.localizedStandardContains(searchText) ||
+                book.author.localizedStandardContains(searchText)
             }
         }
 

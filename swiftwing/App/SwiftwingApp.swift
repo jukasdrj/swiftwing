@@ -5,13 +5,15 @@ import OSLog
 @main
 struct SwiftwingApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Book.self
-        ])
+        let schema = Schema(versionedSchema: BookSchemaV1.self)
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: BookMigrationPlan.self,
+                configurations: [modelConfiguration]
+            )
         } catch {
             Logger(subsystem: "com.ooheynerds.swiftwing", category: "app-init")
                 .fault("Could not create ModelContainer: \(error)")

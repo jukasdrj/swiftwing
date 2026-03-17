@@ -49,32 +49,32 @@ struct ProcessingItemDetailSheet: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Title")
                                     .font(.headline)
-                                    .foregroundColor(.swissText)
+                                    .foregroundStyle(.swissText)
                                 TextField("Book title", text: $editedTitle)
                                     .padding(12)
                                     .background(.ultraThinMaterial)
-                                    .cornerRadius(8)
+                                    .clipShape(.rect(cornerRadius: 8))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 8)
                                             .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
                                     )
-                                    .foregroundColor(.swissText)
+                                    .foregroundStyle(.swissText)
                                     .focused($focusedField, equals: .title)
                             }
 
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Author")
                                     .font(.headline)
-                                    .foregroundColor(.swissText)
+                                    .foregroundStyle(.swissText)
                                 TextField("Author name", text: $editedAuthor)
                                     .padding(12)
                                     .background(.ultraThinMaterial)
-                                    .cornerRadius(8)
+                                    .clipShape(.rect(cornerRadius: 8))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 8)
                                             .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
                                     )
-                                    .foregroundColor(.swissText)
+                                    .foregroundStyle(.swissText)
                                     .focused($focusedField, equals: .author)
                             }
 
@@ -83,10 +83,10 @@ struct ProcessingItemDetailSheet: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("ISBN")
                                         .font(.headline)
-                                        .foregroundColor(.swissText)
+                                        .foregroundStyle(.swissText)
                                     Text(isbn)
                                         .font(.custom("JetBrainsMono-Regular", size: 14))
-                                        .foregroundColor(.swissText.opacity(0.6))
+                                        .foregroundStyle(.swissText.opacity(0.6))
                                 }
                             }
 
@@ -94,10 +94,10 @@ struct ProcessingItemDetailSheet: View {
                             if let confidence = item.bookMetadata?.confidence {
                                 HStack(spacing: 6) {
                                     Image(systemName: confidenceIcon(confidence))
-                                        .foregroundColor(confidenceColor(confidence))
+                                        .foregroundStyle(confidenceColor(confidence))
                                     Text("\(Int(confidence * 100))% confidence")
                                         .font(.subheadline)
-                                        .foregroundColor(.swissText.opacity(0.7))
+                                        .foregroundStyle(.swissText.opacity(0.7))
                                 }
                             }
                         }
@@ -114,7 +114,7 @@ struct ProcessingItemDetailSheet: View {
                     Button("Discard") {
                         dismiss()
                     }
-                    .foregroundColor(.swissText)
+                    .foregroundStyle(.swissText)
                     .accessibilityIdentifier("processing_detail_discard")
                 }
 
@@ -123,7 +123,7 @@ struct ProcessingItemDetailSheet: View {
                         onSave(editedTitle, editedAuthor, resolvedISBN)
                         dismiss()
                     }
-                    .foregroundColor(.internationalOrange)
+                    .foregroundStyle(.internationalOrange)
                     .disabled(editedTitle.isEmpty || editedAuthor.isEmpty)
                     .accessibilityIdentifier("processing_detail_save")
                 }

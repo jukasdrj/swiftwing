@@ -56,7 +56,7 @@ struct ShimmerView: View {
 /// ```swift
 /// AsyncImageWithLoading(url: book.coverUrl)
 ///     .frame(width: 100, height: 150)
-///     .cornerRadius(8)
+///     .clipShape(.rect(cornerRadius: 8))
 /// ```
 struct GeneratedCoverView: View {
     let title: String
@@ -91,13 +91,13 @@ struct GeneratedCoverView: View {
                 Text(title)
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
 
                 Text(author)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.75))
+                    .foregroundStyle(.white.opacity(0.75))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -161,7 +161,7 @@ struct AsyncImageWithLoading: View {
             VStack(spacing: 8) {
                 Image(systemName: "photo.badge.exclamationmark")
                     .font(.title2)
-                    .foregroundColor(.gray)
+                    .foregroundStyle(.gray)
 
                 Button {
                     retryLoad()
@@ -172,12 +172,12 @@ struct AsyncImageWithLoading: View {
                         Text("Retry")
                             .font(.caption2)
                     }
-                    .foregroundColor(Color.swissText)
+                    .foregroundStyle(Color.swissText)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .frame(minHeight: 28)
                     .background(.ultraThinMaterial)
-                    .cornerRadius(6)
+                    .clipShape(.rect(cornerRadius: 6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
                             .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
@@ -205,10 +205,10 @@ struct AsyncImageWithLoading: View {
                     VStack(spacing: 6) {
                         Image(systemName: "book.closed")
                             .font(.title2)
-                            .foregroundColor(.gray.opacity(0.6))
+                            .foregroundStyle(.gray.opacity(0.6))
                         Text("No Cover")
                             .font(.caption2)
-                            .foregroundColor(.gray.opacity(0.6))
+                            .foregroundStyle(.gray.opacity(0.6))
                     }
                 }
             }
@@ -262,14 +262,14 @@ struct AsyncImageWithLoading: View {
         // Loading shimmer (nil URL triggers .empty state)
         AsyncImageWithLoading(url: nil)
             .frame(width: 100, height: 150)
-            .cornerRadius(8)
+            .clipShape(.rect(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
             )
 
         Text("Loading State (Shimmer)")
-            .foregroundColor(Color.swissText)
+            .foregroundStyle(Color.swissText)
     }
     .padding()
     .background(Color.swissBackground)
@@ -280,14 +280,14 @@ struct AsyncImageWithLoading: View {
         // Invalid URL triggers .failure state
         AsyncImageWithLoading(url: URL(string: "https://invalid.url.test/image.jpg"))
             .frame(width: 100, height: 150)
-            .cornerRadius(8)
+            .clipShape(.rect(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
             )
 
         Text("Error State (Retry Button)")
-            .foregroundColor(Color.swissText)
+            .foregroundStyle(Color.swissText)
     }
     .padding()
     .background(Color.swissBackground)
@@ -298,14 +298,14 @@ struct AsyncImageWithLoading: View {
         // Valid URL shows image
         AsyncImageWithLoading(url: URL(string: "https://covers.openlibrary.org/b/isbn/9780544003415-L.jpg"))
             .frame(width: 100, height: 150)
-            .cornerRadius(8)
+            .clipShape(.rect(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
             )
 
         Text("Success State (Image Loaded)")
-            .foregroundColor(Color.swissText)
+            .foregroundStyle(Color.swissText)
     }
     .padding()
     .background(Color.swissBackground)

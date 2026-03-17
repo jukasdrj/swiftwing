@@ -29,18 +29,18 @@ final class NetworkMonitor: Sendable {
 
     private func startMonitoring() {
         // Create an AsyncStream to bridge the callback-based NWPathMonitor
-        let statusStream = AsyncStream<Bool> { continuation in
-            monitor.pathUpdateHandler = { path in
-                continuation.yield(path.status == .satisfied)
-            }
-            // Use a dedicated serial queue for the monitor as required by NWPathMonitor
-            let queue = DispatchQueue(label: "com.ooheynerds.swiftwing.networkmonitor")
-            monitor.start(queue: queue)
+        let (statusStream, continuation) = AsyncStream.makeStream(of: Bool.self)
 
-            // Handle termination if needed (stream cancellation)
-            continuation.onTermination = { [weak monitor] _ in
-                monitor?.cancel()
-            }
+        monitor.pathUpdateHandler = { path in
+            continuation.yield(path.status == .satisfied)
+        }
+        // Use a dedicated serial queue for the monitor as required by NWPathMonitor
+        let queue = DispatchQueue(label: "com.ooheynerds.swiftwing.networkmonitor")
+        monitor.start(queue: queue)
+
+        // Handle termination if needed (stream cancellation)
+        continuation.onTermination = { [weak monitor] _ in
+            monitor?.cancel()
         }
 
         // Consume the stream

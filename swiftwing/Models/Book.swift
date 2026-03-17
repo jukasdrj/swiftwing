@@ -11,6 +11,8 @@ public enum ReadingStatus: String, Codable {
 
 @Model
 public final class Book {
+    #Index<Book>([\.isbn], [\.addedDate])
+
     @Attribute(.unique) var isbn: String
     public var id: UUID
     public var title: String

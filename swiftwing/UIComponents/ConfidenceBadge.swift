@@ -25,7 +25,7 @@ struct ConfidenceBadge: View {
     var body: some View {
         Text("\(Int(confidence * 100))%")
             .font(.system(size: size.fontSize, weight: .semibold, design: .rounded))
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .padding(.horizontal, size.padding)
             .padding(.vertical, size.padding / 2)
             .background(

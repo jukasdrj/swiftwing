@@ -12,17 +12,17 @@ struct ProcessingFeedbackView: View {
             VStack(spacing: 12) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 48))
-                    .foregroundColor(.green)
+                    .foregroundStyle(.green)
                     .symbolEffect(.bounce)
 
                 Text("Photo captured")
                     .font(.headline)
-                    .foregroundColor(.swissText)
+                    .foregroundStyle(.swissText)
 
                 if processingCount > 0 {
                     Text("\(processingCount) scanning...")
                         .font(.subheadline)
-                        .foregroundColor(.swissText.opacity(0.7))
+                        .foregroundStyle(.swissText.opacity(0.7))
                 }
             }
             .padding(24)

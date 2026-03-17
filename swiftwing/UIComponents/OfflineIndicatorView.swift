@@ -9,17 +9,17 @@ struct OfflineIndicatorView: View {
         HStack(spacing: 8) {
             Image(systemName: "wifi.slash")
                 .font(.caption)
-                .foregroundColor(.swissError)
+                .foregroundStyle(.swissError)
                 .accessibilityHidden(true)  // Hide redundant icon from VoiceOver
 
             Text("OFFLINE")
                 .font(.jetBrainsMono)
-                .foregroundColor(.swissError)
+                .foregroundStyle(.swissError)
 
             if offlineQueuedCount > 0 {
                 Text("(\(offlineQueuedCount))")
                     .font(.jetBrainsMono)
-                    .foregroundColor(.swissText.opacity(0.7))
+                    .foregroundStyle(.swissText.opacity(0.7))
             }
         }
         .swissGlassOverlay()

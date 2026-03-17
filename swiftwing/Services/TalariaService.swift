@@ -202,82 +202,83 @@ actor TalariaService {
     ///   - maxAttempts: Maximum number of connection attempts on failure (default: 3 = 1 initial + 2 retries)
     /// - Returns: AsyncThrowingStream of SSEEvent
     nonisolated func streamEvents(streamUrl: URL, deviceId: String, authToken: String? = nil, maxAttempts: Int = 3) -> AsyncThrowingStream<SSEEvent, Error> {
-        AsyncThrowingStream { continuation in
-            Task {
-                // Create session once before retry loop
-                let sessionConfig = URLSessionConfiguration.default
-                sessionConfig.timeoutIntervalForRequest = 300 // 5 minutes
-                let session = URLSession(configuration: sessionConfig)
+        let (stream, continuation) = AsyncThrowingStream.makeStream(of: SSEEvent.self)
 
-                defer {
-                    session.finishTasksAndInvalidate()
-                }
+        Task {
+            // Create session once before retry loop
+            let sessionConfig = URLSessionConfiguration.default
+            sessionConfig.timeoutIntervalForRequest = 300 // 5 minutes
+            let session = URLSession(configuration: sessionConfig)
 
-                var attempt = 0
-                var lastEventId: String?
+            defer {
+                session.finishTasksAndInvalidate()
+            }
 
-                while attempt < maxAttempts {
-                    do {
-                        // Connect to SSE stream with required headers
-                        var request = URLRequest(url: streamUrl)
-                        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
-                        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-                        if let authToken = authToken {
-                            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
-                        }
-                        // On reconnection, send Last-Event-ID for resume capability
-                        if let lastEventId = lastEventId {
-                            request.setValue(lastEventId, forHTTPHeaderField: "Last-Event-ID")
-                        }
+            var attempt = 0
+            var lastEventId: String?
 
-                        let (bytes, response) = try await session.bytes(for: request)
+            while attempt < maxAttempts {
+                do {
+                    // Connect to SSE stream with required headers
+                    var request = URLRequest(url: streamUrl)
+                    request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    if let authToken = authToken {
+                        request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+                    }
+                    // On reconnection, send Last-Event-ID for resume capability
+                    if let lastEventId = lastEventId {
+                        request.setValue(lastEventId, forHTTPHeaderField: "Last-Event-ID")
+                    }
 
-                        // Validate response with comprehensive diagnostics
-                        guard let httpResponse = response as? HTTPURLResponse else {
-                            e2eLogger.error("SSE: Response is not HTTPURLResponse - \(String(describing: type(of: response)), privacy: .public)")
-                            throw SSEError.connectionFailed
-                        }
+                    let (bytes, response) = try await session.bytes(for: request)
 
-                        e2eLogger.debug("SSE Connection attempt \(attempt + 1, privacy: .public): Status=\(httpResponse.statusCode, privacy: .public) URL=\(streamUrl, privacy: .public)")
+                    // Validate response with comprehensive diagnostics
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        e2eLogger.error("SSE: Response is not HTTPURLResponse - \(String(describing: type(of: response)), privacy: .public)")
+                        throw SSEError.connectionFailed
+                    }
 
-                        guard httpResponse.statusCode == 200 else {
-                            e2eLogger.error("SSE: Expected 200, got \(httpResponse.statusCode, privacy: .public)")
-                            throw SSEError.connectionFailed
-                        }
+                    e2eLogger.debug("SSE Connection attempt \(attempt + 1, privacy: .public): Status=\(httpResponse.statusCode, privacy: .public) URL=\(streamUrl, privacy: .public)")
 
-                        e2eLogger.info("SSE: Connection established, status 200")
+                    guard httpResponse.statusCode == 200 else {
+                        e2eLogger.error("SSE: Expected 200, got \(httpResponse.statusCode, privacy: .public)")
+                        throw SSEError.connectionFailed
+                    }
+
+                    e2eLogger.info("SSE: Connection established, status 200")
+                    #if DEBUG
+                    sseLog("Connection established, status=200, content-type=\(httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "nil")")
+                    #endif
+
+                    // Parse SSE events
+                    // WORKAROUND: bytes.lines silently fails to yield data over HTTP/3 (QUIC)
+                    // on iOS 26. Read raw bytes and split on newlines manually instead.
+                    var currentEvent: String?
+                    var currentData: String?
+                    var currentId: String?
+                    var lineBuffer = Data()
+                    var byteCount = 0
+
+                    #if DEBUG
+                    sseLog("Starting byte iterator loop... Task.isCancelled=\(Task.isCancelled)")
+                    #endif
+                    for try await byte in bytes {
+                        byteCount += 1
                         #if DEBUG
-                        sseLog("Connection established, status=200, content-type=\(httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "nil")")
+                        if byteCount == 1 {
+                            sseLog("First byte received!")
+                        }
                         #endif
-
-                        // Parse SSE events
-                        // WORKAROUND: bytes.lines silently fails to yield data over HTTP/3 (QUIC)
-                        // on iOS 26. Read raw bytes and split on newlines manually instead.
-                        var currentEvent: String?
-                        var currentData: String?
-                        var currentId: String?
-                        var lineBuffer = Data()
-                        var byteCount = 0
-
-                        #if DEBUG
-                        sseLog("Starting byte iterator loop... Task.isCancelled=\(Task.isCancelled)")
-                        #endif
-                        for try await byte in bytes {
-                            byteCount += 1
-                            #if DEBUG
-                            if byteCount == 1 {
-                                sseLog("First byte received!")
+                        if byte == UInt8(ascii: "\n") {
+                            let line: String
+                            // Strip trailing \r if present (SSE uses \r\n)
+                            if lineBuffer.last == UInt8(ascii: "\r") {
+                                line = String(data: lineBuffer.dropLast(), encoding: .utf8) ?? ""
+                            } else {
+                                line = String(data: lineBuffer, encoding: .utf8) ?? ""
                             }
-                            #endif
-                            if byte == UInt8(ascii: "\n") {
-                                let line: String
-                                // Strip trailing \r if present (SSE uses \r\n)
-                                if lineBuffer.last == UInt8(ascii: "\r") {
-                                    line = String(data: lineBuffer.dropLast(), encoding: .utf8) ?? ""
-                                } else {
-                                    line = String(data: lineBuffer, encoding: .utf8) ?? ""
-                                }
-                                lineBuffer.removeAll(keepingCapacity: true)
+                            lineBuffer.removeAll(keepingCapacity: true)
 
                             #if DEBUG
                             sseLog("LINE[\(byteCount)]: '\(line.isEmpty ? "<BLANK>" : String(line.prefix(120)))'")
@@ -348,45 +349,46 @@ actor TalariaService {
                                 currentData = nil
                                 currentId = nil
                             }
-                            } else {
-                                // Accumulate non-newline bytes into line buffer
-                                lineBuffer.append(byte)
-                            }
-                        }
-
-                        #if DEBUG
-                        sseLog("Byte loop exited normally after \(byteCount) bytes, Task.isCancelled=\(Task.isCancelled)")
-                        #endif
-                        e2eLogger.info("SSE: Stream completed normally")
-                        continuation.finish()
-                        return // Success - exit retry loop
-
-                    } catch let error as SSEError where error == SSEError.connectionFailed {
-                        #if DEBUG
-                        sseLog("CATCH connectionFailed: attempt=\(attempt+1)/\(maxAttempts)")
-                        #endif
-                        attempt += 1
-                        if attempt < maxAttempts {
-                            let delay = pow(2.0, Double(attempt))
-                            e2eLogger.debug("SSE retry \(attempt, privacy: .public)/\(maxAttempts - 1, privacy: .public) in \(delay, privacy: .public)s")
-                            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                         } else {
-                            e2eLogger.error("SSE: Max retries exceeded after \(maxAttempts, privacy: .public) attempts")
-                            continuation.finish(throwing: SSEError.maxRetriesExceeded)
-                            return
+                            // Accumulate non-newline bytes into line buffer
+                            lineBuffer.append(byte)
                         }
-                    } catch {
-                        #if DEBUG
-                        sseLog("CATCH generic error: \(error) - type=\(type(of: error)) - cancelled=\(Task.isCancelled)")
-                        #endif
-                        // Don't retry non-connection errors
-                        e2eLogger.error("SSE stream error: \(error.localizedDescription, privacy: .public) type=\(String(describing: type(of: error)), privacy: .public)")
-                        continuation.finish(throwing: error)
+                    }
+
+                    #if DEBUG
+                    sseLog("Byte loop exited normally after \(byteCount) bytes, Task.isCancelled=\(Task.isCancelled)")
+                    #endif
+                    e2eLogger.info("SSE: Stream completed normally")
+                    continuation.finish()
+                    return // Success - exit retry loop
+
+                } catch let error as SSEError where error == SSEError.connectionFailed {
+                    #if DEBUG
+                    sseLog("CATCH connectionFailed: attempt=\(attempt+1)/\(maxAttempts)")
+                    #endif
+                    attempt += 1
+                    if attempt < maxAttempts {
+                        let delay = pow(2.0, Double(attempt))
+                        e2eLogger.debug("SSE retry \(attempt, privacy: .public)/\(maxAttempts - 1, privacy: .public) in \(delay, privacy: .public)s")
+                        try? await Task.sleep(for: .seconds(delay))
+                    } else {
+                        e2eLogger.error("SSE: Max retries exceeded after \(maxAttempts, privacy: .public) attempts")
+                        continuation.finish(throwing: SSEError.maxRetriesExceeded)
                         return
                     }
+                } catch {
+                    #if DEBUG
+                    sseLog("CATCH generic error: \(error) - type=\(type(of: error)) - cancelled=\(Task.isCancelled)")
+                    #endif
+                    // Don't retry non-connection errors
+                    e2eLogger.error("SSE stream error: \(error.localizedDescription, privacy: .public) type=\(String(describing: type(of: error)), privacy: .public)")
+                    continuation.finish(throwing: error)
+                    return
                 }
             }
         }
+
+        return stream
     }
 
     /// Cleanup job resources on Talaria server

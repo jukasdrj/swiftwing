@@ -173,11 +173,11 @@ final class ReviewQueueManager {
                 showAutoApproveToastFlag = true
             }
             Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                try? await Task.sleep(for: .seconds(2))
                 withAnimation(.swissSpring) {
                     showAutoApproveToastFlag = false
                 }
-                try? await Task.sleep(nanoseconds: 200_000_000)
+                try? await Task.sleep(for: .milliseconds(200))
                 autoApprovedBookTitle = nil
             }
         }
@@ -411,7 +411,7 @@ final class ReviewQueueManager {
         }
         // Auto-dismiss after 5 seconds (only if banner still matches)
         Task {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(for: .seconds(5))
             if scanCompleteBanner?.id == bannerId {
                 withAnimation(.swissSpring) {
                     scanCompleteBanner = nil
@@ -456,12 +456,12 @@ final class ReviewQueueManager {
             showProcessingError = true
         }
 
-        try? await Task.sleep(nanoseconds: 5_000_000_000)
+        try? await Task.sleep(for: .seconds(5))
         withAnimation(.swissSpring) {
             showProcessingError = false
         }
 
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        try? await Task.sleep(for: .milliseconds(200))
         processingErrorMessage = nil
     }
 }

@@ -96,12 +96,12 @@ private struct TextRegionOverlay: View {
             if !region.text.isEmpty {
                 Text(region.text)
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundColor(.swissText)
+                    .foregroundStyle(.swissText)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.black.opacity(0.8))
                     .background(.ultraThinMaterial)
-                    .cornerRadius(6)
+                    .clipShape(.rect(cornerRadius: 6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
                             .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)

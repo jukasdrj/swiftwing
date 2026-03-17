@@ -27,29 +27,29 @@ struct DuplicateBookAlert: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.largeTitle)
                     .imageScale(.large)
-                    .foregroundColor(.internationalOrange)
+                    .foregroundStyle(Color.internationalOrange)
 
                 // Title
                 Text("Duplicate Book Detected")
                     .font(.title3.bold())
-                    .foregroundColor(.swissText)
+                    .foregroundStyle(.swissText)
                     .multilineTextAlignment(.center)
 
                 // Message
                 VStack(spacing: 8) {
                     Text("\"\(duplicateBook.title)\"")
                         .font(.body.bold())
-                        .foregroundColor(.swissText)
+                        .foregroundStyle(.swissText)
                         .multilineTextAlignment(.center)
 
                     Text("is already in your library.")
                         .font(.body)
-                        .foregroundColor(.swissText.opacity(0.8))
+                        .foregroundStyle(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
 
                     Text("Add anyway?")
                         .font(.body)
-                        .foregroundColor(.swissText.opacity(0.8))
+                        .foregroundStyle(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
                 }
 
@@ -59,24 +59,24 @@ struct DuplicateBookAlert: View {
                     Button(action: onViewExisting) {
                         Text("View Existing")
                             .font(.body.weight(.semibold))
-                            .foregroundColor(.swissBackground)
+                            .foregroundStyle(.swissBackground)
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: 44)
                             .padding(.vertical, 14)
                             .background(Color.internationalOrange)
-                            .cornerRadius(10)
+                            .clipShape(.rect(cornerRadius: 10))
                     }
 
                     // Add Anyway button (secondary action)
                     Button(action: onAddAnyway) {
                         Text("Add Anyway")
                             .font(.body.weight(.medium))
-                            .foregroundColor(.swissText)
+                            .foregroundStyle(.swissText)
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: 44)
                             .padding(.vertical, 14)
                             .background(Color.white.opacity(0.1))
-                            .cornerRadius(10)
+                            .clipShape(.rect(cornerRadius: 10))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10)
                                     .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
@@ -87,7 +87,7 @@ struct DuplicateBookAlert: View {
                     Button(action: onCancel) {
                         Text("Cancel")
                             .font(.body.weight(.regular))
-                            .foregroundColor(.swissText.opacity(0.7))
+                            .foregroundStyle(.swissText.opacity(0.7))
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: 44)
                             .padding(.vertical, 12)

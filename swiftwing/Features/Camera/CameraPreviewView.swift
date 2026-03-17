@@ -33,7 +33,7 @@ struct CameraPreviewView: UIViewRepresentable {
         view.addGestureRecognizer(tapGesture)
 
         // Notify that preview layer is ready for rotation coordinator
-        DispatchQueue.main.async {
+        Task { @MainActor in
             onPreviewLayerReady(view.previewLayer)
         }
 

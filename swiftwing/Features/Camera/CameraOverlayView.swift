@@ -44,11 +44,11 @@ struct CameraOverlayView: View {
                 VStack(spacing: 16) {
                     Text("Camera Error")
                         .font(.title3.bold())
-                        .foregroundColor(.swissText)
+                        .foregroundStyle(.swissText)
 
                     Text(error)
                         .font(.body)
-                        .foregroundColor(.swissText.opacity(0.8))
+                        .foregroundStyle(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
                 }
@@ -88,15 +88,15 @@ struct CameraOverlayView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.largeTitle)
-                        .foregroundColor(.swissError)
+                        .foregroundStyle(.swissError)
 
                     Text("Processing Failed")
                         .font(.headline.weight(.semibold))
-                        .foregroundColor(.swissText)
+                        .foregroundStyle(.swissText)
 
                     Text(error)
                         .font(.subheadline)
-                        .foregroundColor(.swissText.opacity(0.8))
+                        .foregroundStyle(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 16)
                 }
@@ -111,15 +111,15 @@ struct CameraOverlayView: View {
                 VStack {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
+                            .foregroundStyle(.orange)
                         Text("Some books may not have been detected")
                             .font(.subheadline)
-                            .foregroundColor(.swissText)
+                            .foregroundStyle(.swissText)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(.ultraThinMaterial)
-                    .cornerRadius(12)
+                    .clipShape(.rect(cornerRadius: 12))
                 }
                 .padding(.top, 60)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -181,10 +181,10 @@ struct CameraOverlayView: View {
                 VStack {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundStyle(.green)
                         Text("Added: \(title)")
                             .font(.caption.weight(.medium))
-                            .foregroundColor(.swissText)
+                            .foregroundStyle(.swissText)
                             .lineLimit(1)
                     }
                     .padding(.horizontal, 12)
@@ -212,7 +212,7 @@ struct CameraOverlayView: View {
 
                     Text(String(format: "%.1fx", viewModel.cameraManager.currentZoomFactor))
                         .font(.jetBrainsMono)
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .swissGlassOverlay()
                         .padding(.top, 60)
                         .padding(.trailing, 16)
@@ -235,16 +235,16 @@ struct CameraOverlayView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "phone.fill")
                         .font(.system(size: 40))
-                        .foregroundColor(.orange)
+                        .foregroundStyle(.orange)
 
                     VStack(spacing: 8) {
                         Text("Camera Interrupted")
                             .font(.headline.weight(.semibold))
-                            .foregroundColor(.swissText)
+                            .foregroundStyle(.swissText)
 
                         Text("Phone call or FaceTime in progress")
                             .font(.subheadline)
-                            .foregroundColor(.swissText.opacity(0.8))
+                            .foregroundStyle(.swissText.opacity(0.8))
                             .multilineTextAlignment(.center)
                     }
                 }

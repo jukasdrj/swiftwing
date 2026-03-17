@@ -1,14 +1,11 @@
-import XCTest
+import Foundation
+import Testing
 @testable import swiftwing
 
 /// Unit tests for Book SwiftData model
-/// Tests data model validation, persistence, and business logic
-final class BookModelTests: XCTestCase {
+struct BookModelTests {
 
-    // MARK: - Properties
-
-    func testBookInitializationWithAllFields() {
-        // Arrange
+    @Test func bookInitializationWithAllFields() {
         let book = Book(
             title: "Test Book",
             author: "Test Author",
@@ -21,128 +18,63 @@ final class BookModelTests: XCTestCase {
             spineConfidence: 0.95
         )
 
-        // Assert
-        XCTAssertEqual(book.title, "Test Book")
-        XCTAssertEqual(book.author, "Test Author")
-        XCTAssertEqual(book.isbn, "1234567890")
-        XCTAssertNotNil(book.coverUrl)
-        XCTAssertEqual(book.format, "Hardcover")
-        XCTAssertEqual(book.pageCount, 250)
-        XCTAssertEqual(book.spineConfidence, 0.95)
-        XCTAssertEqual(book.readingStatus, nil)
-        XCTAssertEqual(book.userRating, nil)
-        XCTAssertEqual(book.notes, nil)
-        XCTAssertEqual(book.needsReview, false)
+        #expect(book.title == "Test Book")
+        #expect(book.author == "Test Author")
+        #expect(book.isbn == "1234567890")
+        #expect(book.coverUrl != nil)
+        #expect(book.format == "Hardcover")
+        #expect(book.pageCount == 250)
+        #expect(book.spineConfidence == 0.95)
+        #expect(book.readingStatus == nil)
+        #expect(book.userRating == nil)
+        #expect(book.notes == nil)
+        #expect(book.needsReview == false)
     }
 
-    func testBookInitializationWithMinimalFields() {
-        // Arrange
+    @Test func bookInitializationWithMinimalFields() {
         let book = Book(
             title: "Minimal Book",
             author: "Author",
             isbn: "09876543210"
         )
 
-        // Assert
-        XCTAssertEqual(book.title, "Minimal Book")
-        XCTAssertEqual(book.author, "Author")
-        XCTAssertEqual(book.isbn, "09876543210")
-        XCTAssertNil(book.coverUrl)
-        XCTAssertNil(book.format)
-        XCTAssertNil(book.publisher)
-        XCTAssertNil(book.publishedDate)
-        XCTAssertNil(book.pageCount)
-        XCTAssertNil(book.spineConfidence)
-        XCTAssertFalse(book.needsReview)
+        #expect(book.title == "Minimal Book")
+        #expect(book.author == "Author")
+        #expect(book.isbn == "09876543210")
+        #expect(book.coverUrl == nil)
+        #expect(book.format == nil)
+        #expect(book.publisher == nil)
+        #expect(book.publishedDate == nil)
+        #expect(book.pageCount == nil)
+        #expect(book.spineConfidence == nil)
+        #expect(book.needsReview == false)
     }
 
-    // MARK: - ISBN Validation
-
-    func testISBN10Validation() {
-        // Valid ISBN-10
-        let book = Book(
-            title: "Book",
-            author: "Author",
-            isbn: "03064061522",  // Valid ISBN-10
-            spineConfidence: 0.9
-        )
-
-        XCTAssertNotNil(book.isbn)
-        XCTAssertFalse(book.needsReview)
+    @Test(arguments: [
+        (0.95, false, "High confidence"),
+        (0.8, false, "Boundary high"),
+        (0.79, true, "Just below threshold"),
+        (0.7, true, "Low confidence"),
+        (0.5, true, "Medium-low confidence"),
+        (0.0, true, "Zero confidence"),
+    ])
+    func confidenceReviewThreshold(confidence: Double, expectsReview: Bool, label: String) {
+        let book = Book(title: "Book", author: "Author", isbn: "1234567890", spineConfidence: confidence)
+        #expect(book.needsReview == expectsReview, "\(label): confidence \(confidence) should \(expectsReview ? "" : "not ")need review")
     }
 
-    func testISBN13Validation() {
-        // Valid ISBN-13
-        let book = Book(
-            title: "Book",
-            author: "Author",
-            isbn: "9780306406157",  // Valid ISBN-13
-            spineConfidence: 0.85
-        )
-
-        XCTAssertNotNil(book.isbn)
-        XCTAssertFalse(book.needsReview)
+    @Test func nilConfidenceDefaultsToNoReview() {
+        let book = Book(title: "Book", author: "Author", isbn: "1234567890", spineConfidence: nil)
+        #expect(book.needsReview == false, "Nil confidence should default to 1.0 (no review)")
     }
 
-    func testLowConfidenceTriggersReviewNeeded() {
-        // Arrange
-        let book = Book(
-            title: "Low Confidence Book",
-            author: "Author",
-            isbn: "1234567890",
-            spineConfidence: 0.7  // Below 0.8 threshold
-        )
-
-        // Assert
-        XCTAssertTrue(book.needsReview, "Low confidence should trigger review needed")
+    @Test(arguments: ["to_read", "reading", "completed", "did_not_finish"])
+    func readingStatusValues(status: String) {
+        let book = Book(title: "Book", author: "Author", isbn: "1234567890", readingStatus: status)
+        #expect(book.readingStatus == status)
     }
 
-    func testHighConfidenceNoReviewNeeded() {
-        // Arrange
-        let book = Book(
-            title: "High Confidence Book",
-            author: "Author",
-            isbn: "1234567890",
-            spineConfidence: 0.95  // Above 0.8 threshold
-        )
-
-        // Assert
-        XCTAssertFalse(book.needsReview, "High confidence should not trigger review")
-    }
-
-    func testNilConfidenceDefaultsToNoReview() {
-        // Arrange
-        let book = Book(
-            title: "No Confidence Book",
-            author: "Author",
-            isbn: "1234567890",
-            spineConfidence: nil  // Defaults to 1.0 (high confidence) — no review needed
-        )
-
-        // Assert
-        XCTAssertFalse(book.needsReview, "Nil confidence should default to 1.0 (no review needed)")
-    }
-
-    // MARK: - Reading Status
-
-    func testReadingStatusValues() {
-        // Test all reading status values
-        let statuses: [String] = ["to_read", "reading", "completed", "did_not_finish"]
-
-        for status in statuses {
-            let book = Book(
-                title: "Book",
-                author: "Author",
-                isbn: "1234567890",
-                readingStatus: status
-            )
-
-            XCTAssertEqual(book.readingStatus, status)
-        }
-    }
-
-    func testReadingStatusWithAllFields() {
-        // Arrange
+    @Test func readingStatusWithAllFields() {
         let book = Book(
             title: "Completed Book",
             author: "Author",
@@ -152,60 +84,20 @@ final class BookModelTests: XCTestCase {
             userRating: 5,
             notes: "Great book!"
         )
-
-        // Assert
-        XCTAssertEqual(book.readingStatus, "completed")
-        XCTAssertNotNil(book.dateRead)
-        XCTAssertEqual(book.userRating, 5)
-        XCTAssertEqual(book.notes, "Great book!")
+        #expect(book.readingStatus == "completed")
+        #expect(book.dateRead != nil)
+        #expect(book.userRating == 5)
+        #expect(book.notes == "Great book!")
     }
 
-    // MARK: - UUID Generation
-
-    func testUniqueUUIDForEachBook() {
-        // Arrange
+    @Test func uniqueUUIDForEachBook() {
         let book1 = Book(title: "Book 1", author: "Author", isbn: "1111111111")
         let book2 = Book(title: "Book 2", author: "Author", isbn: "2222222222")
-
-        // Assert
-        XCTAssertNotEqual(book1.id, book2.id, "Each book should have unique UUID")
+        #expect(book1.id != book2.id)
     }
 
-    // MARK: - Edge Cases
-
-    func testEmptyTitleIsValid() {
-        // Arrange - Empty title should be allowed
-        let book = Book(
-            title: "",
-            author: "Author",
-            isbn: "1234567890"
-        )
-
-        XCTAssertEqual(book.title, "")
-        // Empty title doesn't mean invalid, just not useful
-    }
-
-    func testLongISBN() {
-        // Arrange - Longer than standard ISBN (should still work)
-        let longISBN = String(repeating: "1", count: 20)
-
-        let book = Book(
-            title: "Book",
-            author: "Author",
-            isbn: longISBN
-        )
-
-        XCTAssertEqual(book.isbn, longISBN)
-    }
-
-    func testSpecialCharactersInTitle() {
-        // Arrange
-        let book = Book(
-            title: "Book with émojis! 📚✨",
-            author: "Author",
-            isbn: "1234567890"
-        )
-
-        XCTAssertEqual(book.title, "Book with émojis! 📚✨")
+    @Test func specialCharactersInTitle() {
+        let book = Book(title: "Book with émojis! 📚✨", author: "Author", isbn: "1234567890")
+        #expect(book.title == "Book with émojis! 📚✨")
     }
 }

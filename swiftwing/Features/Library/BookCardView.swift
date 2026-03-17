@@ -15,7 +15,7 @@ struct BookGridCell: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 150)
                     .clipped()
-                    .cornerRadius(8)
+                    .clipShape(.rect(cornerRadius: 8))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .strokeBorder(
@@ -54,7 +54,7 @@ struct BookGridCell: View {
             // Title (2 lines max, reserved height for alignment consistency)
             Text(book.title)
                 .font(.caption.weight(.medium))
-                .foregroundColor(.swissText)
+                .foregroundStyle(.swissText)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, minHeight: 32, alignment: .topLeading)

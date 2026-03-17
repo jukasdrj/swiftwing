@@ -64,19 +64,19 @@ struct CaptureGuidanceView: View {
             if let icon = icon {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(textColor)
+                    .foregroundStyle(textColor)
             }
 
             // Guidance message
             Text(message)
                 .font(.system(size: 16, weight: .semibold, design: .default))
-                .foregroundColor(textColor)
+                .foregroundStyle(textColor)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(.black)
         .background(.ultraThinMaterial)
-        .cornerRadius(12)
+        .clipShape(.rect(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(textColor.opacity(0.3), lineWidth: 1)

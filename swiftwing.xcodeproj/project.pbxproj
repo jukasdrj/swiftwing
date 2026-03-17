@@ -33,6 +33,7 @@
 		7B2A93E4D8FF47B0A02715CD /* DuplicateDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */; };
 		7F0000010000000000000001 /* SwiftwingApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000020000000000000001 /* SwiftwingApp.swift */; };
 		7F0000050000000000000001 /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000060000000000000001 /* Book.swift */; };
+		AA00BSV010000000000000B1 /* BookSchemaVersioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BSV010000000000000V1 /* BookSchemaVersioning.swift */; };
 		7F0000070000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F0000080000000000000001 /* Assets.xcassets */; };
 		7F0000090000000000000001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F00000A0000000000000001 /* Preview Assets.xcassets */; };
 		7F00001C0000000000000001 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F00001D0000000000000001 /* LibraryView.swift */; };
@@ -119,6 +120,7 @@
 		733AF8F390562E0E6977AD18 /* CameraManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		7F0000020000000000000001 /* SwiftwingApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftwingApp.swift; sourceTree = "<group>"; };
 		7F0000060000000000000001 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
+		AA00BSV010000000000000V1 /* BookSchemaVersioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookSchemaVersioning.swift; sourceTree = "<group>"; };
 		7F0000080000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7F00000A0000000000000001 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		7F00000B0000000000000001 /* swiftwing.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = swiftwing.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -351,6 +353,7 @@
 			isa = PBXGroup;
 			children = (
 				7F0000060000000000000001 /* Book.swift */,
+				AA00BSV010000000000000V1 /* BookSchemaVersioning.swift */,
 				EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */,
 				592CF225879D432E9A26F387 /* PendingBookResult.swift */,
 				CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */,
@@ -578,6 +581,7 @@
 			files = (
 				2F881DDD1F304669B5B0F6A8 /* PendingBookResult.swift in Sources */,
 				7F0000050000000000000001 /* Book.swift in Sources */,
+				AA00BSV010000000000000B1 /* BookSchemaVersioning.swift in Sources */,
 				5BBE000C15164F08B85C9DC8 /* DataSeeder.swift in Sources */,
 				A5A480302F23C145006CD05C /* LibraryPrefetchCoordinator.swift in Sources */,
 				7F0000010000000000000001 /* SwiftwingApp.swift in Sources */,

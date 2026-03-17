@@ -80,43 +80,40 @@ struct RootView: View {
     }
 }
 
+enum AppTab: Int, Hashable {
+    case library = 0
+    case review = 1
+    case camera = 2
+}
+
 // MARK: - Main Tab View
 /// TabView with Library, Review, and Camera tabs
 /// Review tab shows pending book count badge
 struct MainTabView: View {
     @Query private var books: [Book]
     @State private var viewModel = CameraViewModel()
-    @State private var selectedTab: Int = ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") ? 2 : 0
+    @State private var selectedTab: AppTab = ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") ? .camera : .library
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Library Tab
-            LibraryView()
-                .tabItem {
-                    Label("Library", systemImage: "books.vertical")
-                }
-                .badge(books.count > 0 ? "\(books.count)" : nil)
-                .tag(0)
+            Tab("Library", systemImage: "books.vertical", value: AppTab.library) {
+                LibraryView()
+            }
+            .badge(books.count > 0 ? Text("\(books.count)") : nil)
 
-            // Review Tab
-            ReviewQueueView(viewModel: viewModel)
-                .tabItem {
-                    Label("Review", systemImage: "checklist")
-                }
-                .badge(viewModel.reviewQueueManager.pendingReviewBooks.count > 0 ? "\(viewModel.reviewQueueManager.pendingReviewBooks.count)" : nil)
-                .tag(1)
+            Tab("Review", systemImage: "checklist", value: AppTab.review) {
+                ReviewQueueView(viewModel: viewModel)
+            }
+            .badge(viewModel.reviewQueueManager.pendingReviewBooks.count > 0 ? Text("\(viewModel.reviewQueueManager.pendingReviewBooks.count)") : nil)
 
-            // Camera Tab
-            CameraView(viewModel: viewModel)
-                .tabItem {
-                    Label("Camera", systemImage: "camera")
-                }
-                .tag(2)
+            Tab("Camera", systemImage: "camera", value: AppTab.camera) {
+                CameraView(viewModel: viewModel)
+            }
         }
         .tint(.internationalOrange)  // Swiss Glass accent color for selected tab
         .onChange(of: viewModel.requestedTab) { _, newTab in
             if let tab = newTab {
-                selectedTab = tab
+                selectedTab = AppTab(rawValue: tab) ?? .library
                 viewModel.requestedTab = nil
             }
         }

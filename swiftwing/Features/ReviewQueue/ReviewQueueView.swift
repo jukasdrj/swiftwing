@@ -58,10 +58,12 @@ struct ReviewQueueView: View {
                                     title: "Processing", count: viewModel.processingQueue.count,
                                     color: .internationalOrange)
                                 ForEach(viewModel.processingQueue) { item in
-                                    ProcessingItemRow(item: item)
-                                        .onTapGesture {
-                                            selectedProcessingItem = item
-                                        }
+                                    Button {
+                                        selectedProcessingItem = item
+                                    } label: {
+                                        ProcessingItemRow(item: item)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
 
@@ -150,7 +152,7 @@ struct ReviewQueueView: View {
                         Button("Approve All") {
                             viewModel.reviewQueueManager.approveAllBooks(modelContext: modelContext)
                         }
-                        .foregroundColor(.internationalOrange)
+                        .foregroundStyle(.internationalOrange)
                         .accessibilityIdentifier("review_approve_all")
                     }
                 }
@@ -200,15 +202,15 @@ struct ReviewQueueView: View {
         VStack(spacing: 16) {
             Image(systemName: "tray")
                 .font(.system(size: 60))
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
 
             Text("No items to review")
                 .font(.headline)
-                .foregroundColor(.swissText)
+                .foregroundStyle(.swissText)
 
             Text("Take a photo to get started")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .padding()
     }
@@ -240,16 +242,16 @@ struct ProcessingItemRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.progressMessage ?? "Processing...")
                     .font(.headline)
-                    .foregroundColor(.swissText)
+                    .foregroundStyle(.swissText)
 
                 Text(statusDescription(for: item.state))
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
 
                 if let error = item.errorMessage {
                     Text(error)
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundStyle(.red)
                         .lineLimit(2)
                 }
             }
@@ -277,15 +279,15 @@ struct ProcessingItemRow: View {
                 .tint(.internationalOrange)
         case .done:
             Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
+                .foregroundStyle(.green)
                 .font(.title2)
         case .error:
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.red)
+                .foregroundStyle(.red)
                 .font(.title2)
         case .offline:
             Image(systemName: "icloud.slash")
-                .foregroundColor(.gray)
+                .foregroundStyle(.gray)
                 .font(.title2)
         }
     }
@@ -323,15 +325,15 @@ struct ProcessingItemDetailPlaceholder: View {
                 VStack(spacing: 20) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 60))
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
 
                     Text("Detail View")
                         .font(.title2.weight(.semibold))
-                        .foregroundColor(.swissText)
+                        .foregroundStyle(.swissText)
 
                     Text("Sprint 2 will implement book detail editing here")
                         .font(.body)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                 }
@@ -354,11 +356,11 @@ struct SectionHeader: View {
         HStack {
             Text(title)
                 .font(.headline.bold())
-                .foregroundColor(color)
+                .foregroundStyle(color)
 
             Text("(\(count))")
                 .font(.subheadline)
-                .foregroundColor(color.opacity(0.7))
+                .foregroundStyle(color.opacity(0.7))
 
             Spacer()
 
@@ -367,7 +369,7 @@ struct SectionHeader: View {
                     action()
                 }
                 .font(.subheadline.bold())
-                .foregroundColor(.internationalOrange)
+                .foregroundStyle(.internationalOrange)
             }
         }
         .padding(.horizontal, 16)
@@ -395,36 +397,36 @@ struct ScanBatchHeaderView: View {
                     .frame(width: 48, height: 48)
                     .overlay(
                         Image(systemName: "camera.fill")
-                            .foregroundColor(.internationalOrange)
+                            .foregroundStyle(.internationalOrange)
                     )
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Last Scan")
                     .font(.headline)
-                    .foregroundColor(.swissText)
+                    .foregroundStyle(.swissText)
 
                 HStack(spacing: 8) {
                     Text("\(batch.totalBooks) book\(batch.totalBooks == 1 ? "" : "s")")
                         .font(.subheadline.bold())
-                        .foregroundColor(.internationalOrange)
+                        .foregroundStyle(.internationalOrange)
 
                     if batch.highConfidenceCount > 0 {
                         Label("\(batch.highConfidenceCount) ready", systemImage: "checkmark.circle.fill")
                             .font(.caption)
-                            .foregroundColor(.green)
+                            .foregroundStyle(.green)
                     }
 
                     if batch.lowConfidenceCount > 0 {
                         Label("\(batch.lowConfidenceCount) review", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
-                            .foregroundColor(.red)
+                            .foregroundStyle(.red)
                     }
                 }
 
                 Text(batch.timestamp.formatted(.relative(presentation: .named)))
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundStyle(.gray)
             }
 
             Spacer()

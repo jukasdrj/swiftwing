@@ -31,7 +31,8 @@ enum DuplicateDetection {
             book.isbn == isbn
         }
 
-        let descriptor = FetchDescriptor<Book>(predicate: predicate)
+        var descriptor = FetchDescriptor<Book>(predicate: predicate)
+        descriptor.fetchLimit = 1
 
         do {
             let results = try context.fetch(descriptor)

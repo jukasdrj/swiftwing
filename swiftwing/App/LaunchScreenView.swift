@@ -14,18 +14,18 @@ struct LaunchScreenView: View {
                 Text("SwiftWing")
                     .font(.jetBrainsMono)
                     .font(.system(size: 48, weight: .bold, design: .monospaced))
-                    .foregroundColor(.swissText)
+                    .foregroundStyle(.swissText)
                     .tracking(2)
 
                 // Tagline with orange accent
                 HStack(spacing: 4) {
                     Text("AI-Powered")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.swissText.opacity(0.7))
+                        .foregroundStyle(.swissText.opacity(0.7))
 
                     Text("Book Scanner")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.internationalOrange)
+                        .foregroundStyle(.internationalOrange)
                 }
             }
         }

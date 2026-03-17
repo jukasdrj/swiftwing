@@ -18,12 +18,12 @@ struct CameraPermissionPrimerView: View {
                 VStack(spacing: 16) {
                     Text(wasPreviouslyDenied ? "Camera Access Required" : "SwiftWing Needs Camera Access")
                         .font(.title.bold())
-                        .foregroundColor(.swissText)
+                        .foregroundStyle(.swissText)
                         .multilineTextAlignment(.center)
 
                     Text(wasPreviouslyDenied ? "Camera access was denied. Please enable it in Settings to scan book spines." : "We use your camera to scan book spines. Images are processed and deleted immediately.")
                         .font(.body)
-                        .foregroundColor(.swissText.opacity(0.8))
+                        .foregroundStyle(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
                 }
@@ -41,13 +41,13 @@ struct CameraPermissionPrimerView: View {
                 } label: {
                     Text(wasPreviouslyDenied ? "Open Settings" : "Continue")
                         .font(.body.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                 }
                 .padding(.vertical, 16)
                 .background(Color.internationalOrange)
-                .cornerRadius(12)
+                .clipShape(.rect(cornerRadius: 12))
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
                 .accessibilityIdentifier("permission_continue")

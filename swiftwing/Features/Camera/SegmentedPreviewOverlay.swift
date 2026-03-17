@@ -17,7 +17,7 @@ struct SegmentedPreviewOverlay: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFit()
-                    .cornerRadius(12)
+                    .clipShape(.rect(cornerRadius: 12))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .strokeBorder(Color.internationalOrange.opacity(0.5), lineWidth: 2)
@@ -32,7 +32,7 @@ struct SegmentedPreviewOverlay: View {
                 Text("\(totalBooks) books detected")
                     .font(.body.bold())
             }
-            .foregroundColor(.swissText)
+            .foregroundStyle(.swissText)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .swissGlassOverlay()
@@ -47,7 +47,7 @@ struct SegmentedPreviewOverlay: View {
 
                     Text("Processing book \(currentBook)/\(totalBooks)")
                         .font(.caption)
-                        .foregroundColor(.swissText.opacity(0.8))
+                        .foregroundStyle(.swissText.opacity(0.8))
                 }
             }
         }

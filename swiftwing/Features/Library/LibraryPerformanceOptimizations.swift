@@ -68,7 +68,7 @@ struct OptimizedAsyncImage: View {
             VStack(spacing: 8) {
                 Image(systemName: "photo.badge.exclamationmark")
                     .font(.title2)
-                    .foregroundColor(.gray)
+                    .foregroundStyle(.gray)
 
                 Button {
                     retryLoad()
@@ -79,12 +79,12 @@ struct OptimizedAsyncImage: View {
                         Text("Retry")
                             .font(.caption2)
                     }
-                    .foregroundColor(Color.swissText)
+                    .foregroundStyle(Color.swissText)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .frame(minHeight: 28)
                     .background(.ultraThinMaterial)
-                    .cornerRadius(6)
+                    .clipShape(.rect(cornerRadius: 6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
                             .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)

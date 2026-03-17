@@ -39,7 +39,7 @@ struct ReviewCardView: View {
                         if onShowOverlay != nil {
                             Image(systemName: "magnifyingglass")
                                 .font(.caption2.bold())
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                                 .padding(4)
                                 .background(Color.internationalOrange)
                                 .clipShape(Circle())
@@ -61,8 +61,9 @@ struct ReviewCardView: View {
                     }) {
                         Image(systemName: isEditing ? "checkmark.circle.fill" : "pencil.circle")
                             .font(.title3)
-                            .foregroundColor(.internationalOrange)
+                            .foregroundStyle(.internationalOrange)
                     }
+                    .accessibilityLabel(isEditing ? "Done editing" : "Edit book details")
                 }
 
                 ReviewEditForm(
@@ -77,7 +78,7 @@ struct ReviewCardView: View {
                 if let isbn = book.metadata.isbn {
                     Text("ISBN: \(isbn)")
                         .font(.custom("JetBrainsMono-Regular", size: 12))
-                        .foregroundColor(.swissText.opacity(0.6))
+                        .foregroundStyle(.swissText.opacity(0.6))
                 }
 
                 // Action Buttons
@@ -86,11 +87,11 @@ struct ReviewCardView: View {
                     Button(action: onApprove) {
                         Text("Approve")
                             .font(.body.bold())
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(Color.internationalOrange)
-                            .cornerRadius(8)
+                            .clipShape(.rect(cornerRadius: 8))
                     }
                     .accessibilityIdentifier("review_approve_button")
 
@@ -98,7 +99,7 @@ struct ReviewCardView: View {
                     Button(action: onReject) {
                         Text("Reject")
                             .font(.body.bold())
-                            .foregroundColor(.swissText)
+                            .foregroundStyle(.swissText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .overlay(
@@ -124,11 +125,11 @@ struct ReviewCardView: View {
             Text(label)
                 .font(.caption.bold())
         }
-        .foregroundColor(color)
+        .foregroundStyle(color)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(color.opacity(0.15))
-        .cornerRadius(6)
+        .clipShape(.rect(cornerRadius: 6))
     }
 
     private func confidenceDisplay(_ confidence: Double) -> (String, Color, String) {

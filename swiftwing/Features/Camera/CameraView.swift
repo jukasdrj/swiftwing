@@ -62,7 +62,7 @@ struct CameraView: View {
                         showProcessingFeedback = true
 
                         // Auto-dismiss after 2 seconds
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        try? await Task.sleep(for: .seconds(2))
                         showProcessingFeedback = false
                     }
                 } label: {
@@ -252,16 +252,16 @@ struct ScanCompleteBannerView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(bookCount) book\(bookCount == 1 ? "" : "s") found")
                         .font(.headline)
-                        .foregroundColor(.swissText)
+                        .foregroundStyle(.swissText)
                     Text("Tap to review")
                         .font(.caption)
-                        .foregroundColor(.internationalOrange)
+                        .foregroundStyle(.internationalOrange)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.internationalOrange)
+                    .foregroundStyle(.internationalOrange)
             }
             .padding(16)
             .swissGlassCard()

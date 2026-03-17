@@ -429,10 +429,8 @@ final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
 
     override init() {
         // Initialize the stream with BufferingNewest(1) to drop old frames if processing lags
-        var continuation: AsyncStream<VideoFrame>.Continuation!
-        self.frameStream = AsyncStream(bufferingPolicy: .bufferingNewest(1)) {
-            continuation = $0
-        }
+        let (stream, continuation) = AsyncStream.makeStream(of: VideoFrame.self, bufferingPolicy: .bufferingNewest(1))
+        self.frameStream = stream
         self.continuation = continuation
         super.init()
     }

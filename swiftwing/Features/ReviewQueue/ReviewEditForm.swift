@@ -22,7 +22,7 @@ struct ReviewEditForm: View {
             } else {
                 Text(book.resolvedTitle)
                     .font(.title3.bold())
-                    .foregroundColor(.swissText)
+                    .foregroundStyle(.swissText)
             }
 
             // Author (editable if in edit mode)
@@ -36,7 +36,7 @@ struct ReviewEditForm: View {
             } else {
                 Text(book.resolvedAuthor)
                     .font(.body)
-                    .foregroundColor(.swissText.opacity(0.8))
+                    .foregroundStyle(.swissText.opacity(0.8))
             }
         }
     }

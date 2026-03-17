@@ -30,25 +30,27 @@ struct LibraryGridView: View {
                 // Book Grid
                 LazyVGrid(columns: adaptiveColumns, spacing: 20) {
                     ForEach(books, id: \.id) { book in
-                        BookGridCell(
-                            book: book,
-                            isSelectionMode: isSelectionMode,
-                            isSelected: selectedBookIDs.contains(book.id),
-                            onDelete: {
-                                bookToDelete = book
-                                showDeleteConfirmation = true
-                            }
-                        )
-                        .accessibilityIdentifier("book_cell_\(book.isbn)")
-                        .accessibilityLabel("\(book.title) by \(book.author)")
-                        .transition(.asymmetric(insertion: .scale, removal: .opacity))
-                        .onTapGesture {
+                        Button {
                             if isSelectionMode {
                                 onToggleSelection(book)
                             } else {
                                 selectedBook = book
                             }
+                        } label: {
+                            BookGridCell(
+                                book: book,
+                                isSelectionMode: isSelectionMode,
+                                isSelected: selectedBookIDs.contains(book.id),
+                                onDelete: {
+                                    bookToDelete = book
+                                    showDeleteConfirmation = true
+                                }
+                            )
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("book_cell_\(book.isbn)")
+                        .accessibilityLabel("\(book.title) by \(book.author)")
+                        .transition(.asymmetric(insertion: .scale, removal: .opacity))
                         .contextMenu {
                             if !isSelectionMode {
                                 Button(role: .destructive) {
@@ -147,17 +149,17 @@ struct StatCard: View {
             Image(systemName: icon)
                 .font(.title2)
                 .imageScale(.medium)
-                .foregroundColor(.internationalOrange)
+                .foregroundStyle(.internationalOrange)
 
             Text(value)
                 .font(.title2.bold())
-                .foregroundColor(.swissText)
+                .foregroundStyle(.swissText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
             Text(title)
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundStyle(.gray)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
