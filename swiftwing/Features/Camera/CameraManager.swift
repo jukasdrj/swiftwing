@@ -13,10 +13,11 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "ca
 /// Camera session manager for SwiftUI
 /// AVCaptureSession must be managed on main thread per Apple documentation
 @MainActor
-class CameraManager: ObservableObject {
-    @Published private(set) var captureSession: AVCaptureSession?
-    @Published var currentZoomFactor: CGFloat = 1.0
-    @Published var resolution: CGSize = .zero
+@Observable
+final class CameraManager {
+    private(set) var captureSession: AVCaptureSession?
+    var currentZoomFactor: CGFloat = 1.0
+    var resolution: CGSize = .zero
     private var photoOutput: AVCapturePhotoOutput?
     private var videoOutput: AVCaptureVideoDataOutput?
     private(set) var videoDevice: AVCaptureDevice?  // Exposed for RotationCoordinator
@@ -31,7 +32,7 @@ class CameraManager: ObservableObject {
     private weak var previewLayer: AVCaptureVideoPreviewLayer?
 
     // Interruption handling
-    @Published var isInterrupted = false
+    var isInterrupted = false
     private var notificationTasks: [Task<Void, Never>] = []
 
     // Vision processing (Modernized)
@@ -47,7 +48,9 @@ class CameraManager: ObservableObject {
 
     /// Update Vision processing rate
     func setProcessingRate(active: Bool) {
-        visionService.setProcessingRate(active: active)
+        Task {
+            await visionService.setProcessingRate(active: active)
+        }
     }
 
     /// Configures AVCaptureSession
@@ -137,31 +140,33 @@ class CameraManager: ObservableObject {
         logger.info("Camera session configured in \(String(format: "%.3f", duration), privacy: .public)s")
     }
 
-    /// Consumes the AsyncStream of frames from FrameProcessor
+    /// Consumes the AsyncStream of frames from FrameProcessor.
+    /// Vision processing runs on the VisionService actor (off MainActor) to avoid
+    /// blocking the UI. CVPixelBuffer is retained before dispatch since AVFoundation
+    /// recycles buffers and the original may be overwritten by the next frame.
     private func startVisionTask() {
         visionTask?.cancel()
 
         visionTask = Task { [weak self] in
             guard let self = self else { return }
 
-            // Iterate over the async stream of frames
-            // bufferingNewest(1) ensures we only process the latest frame and drop backpressure
             for await frame in self.frameProcessor.frameStream {
                 if Task.isCancelled { break }
 
-                // Process with VisionService (sync call, effectively running on MainActor here if not detached)
-                // Note: VisionService is thread-safe/reentrant-safe enough as a class?
-                // VisionService logic is purely functional on the input buffer.
-                // However, running this on MainActor might block UI if slow.
-                // Better to run detached?
-                // But CameraManager is @MainActor.
+                // Hold a strong reference to the pixel buffer so ARC keeps it alive
+                // while the VisionService actor processes it. AVFoundation may recycle
+                // the underlying buffer on the next frame callback, but our strong
+                // reference prevents deallocation until processing completes.
+                let retainedBuffer = frame.pixelBuffer
+                let orientation = frame.orientation
 
-                // Process vision result in structured concurrency (non-detached)
-                // This maintains proper actor isolation while allowing async work
-                let result = self.visionService.processFrame(
-                    frame.pixelBuffer, orientation: frame.orientation)
+                // Process on VisionService actor (off MainActor)
+                let result = await self.visionService.processFrame(
+                    retainedBuffer, orientation: orientation)
 
-                // Update UI state (already on MainActor)
+                // retainedBuffer released by ARC when it goes out of scope
+
+                // Hop back to MainActor for UI update (already on MainActor via self)
                 self.onVisionResult?(result)
             }
         }

@@ -23,9 +23,8 @@ struct DuplicateDetectionTests {
         context.insert(book)
         try context.save()
 
-        let result = try DuplicateDetection.findDuplicate(isbn: "9780000000001", in: context)
-        #expect(result != nil)
-        #expect(result?.title == "Test")
+        let result = try #require(try DuplicateDetection.findDuplicate(isbn: "9780000000001", in: context))
+        #expect(result.title == "Test")
     }
 
     @Test func findDuplicateReturnsNilForDifferentISBN() throws {
@@ -46,10 +45,10 @@ struct DuplicateDetectionTests {
         context.insert(book2)
         try context.save()
 
-        let result = try DuplicateDetection.findDuplicate(isbn: "9780000000010", in: context)
-        #expect(result?.title == "Book One")
+        let result = try #require(try DuplicateDetection.findDuplicate(isbn: "9780000000010", in: context))
+        #expect(result.title == "Book One")
 
-        let result2 = try DuplicateDetection.findDuplicate(isbn: "9780000000020", in: context)
-        #expect(result2?.title == "Book Two")
+        let result2 = try #require(try DuplicateDetection.findDuplicate(isbn: "9780000000020", in: context))
+        #expect(result2.title == "Book Two")
     }
 }

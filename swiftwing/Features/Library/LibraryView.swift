@@ -24,6 +24,8 @@ struct LibraryView: View {
                     } else {
                         LibraryGridView(
                             books: filtered,
+                            uniqueAuthorsCount: viewModel.uniqueAuthorsCount,
+                            mostCommonFormatText: viewModel.mostCommonFormatText,
                             selectedBook: $viewModel.selectedBook,
                             bookToDelete: $viewModel.bookToDelete,
                             showDeleteConfirmation: $viewModel.showDeleteConfirmation,
@@ -335,7 +337,7 @@ struct BookDetailSheet: View {
                                 Text("Reading Status")
                                     .font(.caption)
                                     .foregroundStyle(.gray)
-                                Text(status)
+                                Text(status.rawValue)
                                     .font(.body)
                                     .foregroundStyle(.swissText)
                             }
@@ -456,7 +458,11 @@ struct BookDetailSheet: View {
         book.publishedDate = editedPublishedDate
         book.notes = editedNotes.isEmpty ? nil : editedNotes
         book.pageCount = Int(editedPageCount)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            logger.error("Failed to save book edits: \(error.localizedDescription, privacy: .public)")
+        }
         isEditing = false
     }
 

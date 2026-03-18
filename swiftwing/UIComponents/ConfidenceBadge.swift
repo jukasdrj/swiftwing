@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ConfidenceBadge: View {
-    let confidence: Float
+    let confidence: Double
     var size: Size = .small
 
     enum Size {

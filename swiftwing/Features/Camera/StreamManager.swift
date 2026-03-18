@@ -73,13 +73,27 @@ actor StreamManager {
         if activeStreams < maxConcurrentStreams {
             grantStreamSlot(scanId: scanId)
         } else {
-            // Queue and wait for slot
-            await withCheckedContinuation { continuation in
-                pendingScans.append(scanId)
-                waitingContinuations[scanId] = continuation
+            // Queue and wait for slot; handle cancellation so the task never hangs
+            await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    pendingScans.append(scanId)
+                    waitingContinuations[scanId] = continuation
 
-                logger.debug("StreamManager Scan \(scanId.uuidString.prefix(8), privacy: .public): Queued (Active: \(self.activeStreams, privacy: .public)/\(self.maxConcurrentStreams, privacy: .public), Queue: \(self.pendingScans.count, privacy: .public))")
+                    logger.debug("StreamManager Scan \(scanId.uuidString.prefix(8), privacy: .public): Queued (Active: \(self.activeStreams, privacy: .public)/\(self.maxConcurrentStreams, privacy: .public), Queue: \(self.pendingScans.count, privacy: .public))")
+                }
+            } onCancel: {
+                Task { [scanId] in
+                    await self.cancelWaiting(scanId: scanId)
+                }
             }
+        }
+    }
+
+    /// Resume and discard a waiting continuation when its task is cancelled.
+    private func cancelWaiting(scanId: UUID) {
+        pendingScans.removeAll { $0 == scanId }
+        if let continuation = waitingContinuations.removeValue(forKey: scanId) {
+            continuation.resume()
         }
     }
 

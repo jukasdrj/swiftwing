@@ -102,6 +102,7 @@ struct DuplicateBookAlert: View {
                     .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
             )
         }
+        .accessibilityAddTraits(.isModal)
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
     }
 }

@@ -97,7 +97,7 @@ struct Slide1Welcome: View {
         VStack(spacing: 32) {
             Spacer()
 
-            // Hero icon: Book spine with orange stripe
+            // Hero icon: Book spine with orange stripe (decorative)
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.white)
@@ -108,6 +108,7 @@ struct Slide1Welcome: View {
                     .frame(width: 24, height: 180)
                     .offset(x: -48)
             }
+            .accessibilityHidden(true)
 
             VStack(spacing: 16) {
                 Text("Welcome to SwiftWing")

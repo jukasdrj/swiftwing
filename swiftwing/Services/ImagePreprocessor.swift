@@ -293,15 +293,14 @@ actor ImagePreprocessor {
 
     /// Full pipeline: preprocess (enhance) then resize/compress and write to a temp file.
     /// Replaces the former `CameraViewModel.processImage` static method.
-    /// - Parameter imageData: Raw captured image data
+    /// The caller (CameraViewModel) is responsible for calling `preprocess()` first.
+    /// Calling `preprocess()` here would apply contrast/brightness/noise reduction twice.
+    /// - Parameter imageData: Already-preprocessed image data (output of `preprocess()`)
     /// - Returns: URL of a temp JPEG file (auto-cleaned after 30 minutes)
     /// - Throws: ImageProcessingError on failure
     func processImageForUpload(_ imageData: Data) async throws -> URL {
-        // Enhance first (contrast, brightness, noise reduction, rotation)
-        let preprocessed = await preprocess(imageData)
-
-        // Resize and compress using ImageIO
-        let finalData = try resizeAndCompress(preprocessed.processedData)
+        // Resize and compress using ImageIO (preprocessing already done by caller)
+        let finalData = try resizeAndCompress(imageData)
 
         // Write to temp file
         let filename = "\(UUID().uuidString).jpg"

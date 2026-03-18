@@ -3,6 +3,8 @@ import SwiftUI
 // MARK: - Library Grid View
 struct LibraryGridView: View {
     let books: [Book]
+    let uniqueAuthorsCount: Int
+    let mostCommonFormatText: String
     @Binding var selectedBook: Book?
     @Binding var bookToDelete: Book?
     @Binding var showDeleteConfirmation: Bool
@@ -23,9 +25,13 @@ struct LibraryGridView: View {
         ScrollView {
             VStack(spacing: 16) {
                 // Library Stats Header
-                LibraryStatsHeader(books: books)
-                    .padding(.horizontal)
-                    .padding(.top)
+                LibraryStatsHeader(
+                    bookCount: books.count,
+                    uniqueAuthorsCount: uniqueAuthorsCount,
+                    mostCommonFormatText: mostCommonFormatText
+                )
+                .padding(.horizontal)
+                .padding(.top)
 
                 // Book Grid
                 LazyVGrid(columns: adaptiveColumns, spacing: 20) {
@@ -91,32 +97,15 @@ struct LibraryGridView: View {
 
 // MARK: - Library Stats Header
 struct LibraryStatsHeader: View {
-    let books: [Book]
-
-    // Stats are passed in as a computed snapshot — caller owns the cache
-    var uniqueAuthorsCount: Int
-    var mostCommonFormatText: String
-
-    init(books: [Book]) {
-        self.books = books
-        // Compute inline; LibraryViewModel owns the cached version used externally
-        uniqueAuthorsCount = Set(books.map { $0.author }).count
-
-        let formatCounts = Dictionary(grouping: books.compactMap { $0.format }, by: { $0 })
-            .mapValues { $0.count }
-        if let mostCommon = formatCounts.max(by: { $0.value < $1.value }), !books.isEmpty {
-            let percentage = Int((Double(mostCommon.value) / Double(books.count)) * 100)
-            mostCommonFormatText = "\(mostCommon.key): \(percentage)%"
-        } else {
-            mostCommonFormatText = "N/A"
-        }
-    }
+    let bookCount: Int
+    let uniqueAuthorsCount: Int
+    let mostCommonFormatText: String
 
     var body: some View {
         HStack(spacing: 12) {
             StatCard(
                 title: "Books",
-                value: "\(books.count)",
+                value: "\(bookCount)",
                 icon: "book.fill"
             )
             .accessibilityIdentifier("library_stats_books")

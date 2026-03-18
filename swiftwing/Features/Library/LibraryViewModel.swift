@@ -189,7 +189,11 @@ final class LibraryViewModel {
     func deleteBook(_ book: Book, context: ModelContext) {
         withAnimation(.spring(duration: 0.2)) {
             context.delete(book)
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                logger.error("Failed to save after delete: \(error.localizedDescription, privacy: .public)")
+            }
         }
         bookToDelete = nil
     }
@@ -201,7 +205,11 @@ final class LibraryViewModel {
                     context.delete(book)
                 }
             }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                logger.error("Failed to save after bulk delete: \(error.localizedDescription, privacy: .public)")
+            }
             exitSelectionMode()
         }
     }
@@ -257,7 +265,11 @@ final class LibraryViewModel {
         )
         withAnimation(.swissSpring) {
             context.insert(sampleBook)
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                logger.error("Failed to save sample book: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -313,7 +325,11 @@ final class LibraryViewModel {
                     isbn: testISBN
                 )
                 context.insert(testBook)
-                try? context.save()
+                do {
+                    try context.save()
+                } catch {
+                    logger.error("Failed to save test book: \(error.localizedDescription, privacy: .public)")
+                }
                 logger.info("US-311 Test 1: Test book added with ISBN: \(testISBN, privacy: .public)")
             }
 

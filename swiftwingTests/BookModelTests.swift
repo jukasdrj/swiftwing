@@ -68,8 +68,8 @@ struct BookModelTests {
         #expect(book.needsReview == false, "Nil confidence should default to 1.0 (no review)")
     }
 
-    @Test(arguments: ["to_read", "reading", "completed", "did_not_finish"])
-    func readingStatusValues(status: String) {
+    @Test(arguments: [ReadingStatus.toRead, .reading, .completed, .dnf])
+    func readingStatusValues(status: ReadingStatus) {
         let book = Book(title: "Book", author: "Author", isbn: "1234567890", readingStatus: status)
         #expect(book.readingStatus == status)
     }
@@ -79,12 +79,12 @@ struct BookModelTests {
             title: "Completed Book",
             author: "Author",
             isbn: "1234567890",
-            readingStatus: "completed",
+            readingStatus: .completed,
             dateRead: Date(),
             userRating: 5,
             notes: "Great book!"
         )
-        #expect(book.readingStatus == "completed")
+        #expect(book.readingStatus == .completed)
         #expect(book.dateRead != nil)
         #expect(book.userRating == 5)
         #expect(book.notes == "Great book!")

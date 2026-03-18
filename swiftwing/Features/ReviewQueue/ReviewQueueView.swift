@@ -108,7 +108,7 @@ struct ReviewQueueView: View {
                     .refreshable {
                         // US-B3: Pull-to-refresh updates processing states
                         // Note: processingQueue is reactive via @Observable
-                        try? await Task.sleep(nanoseconds: 100_000_000)  // Minimal delay for animation
+                        try? await Task.sleep(for: .milliseconds(100))  // Minimal delay for animation
                     }
                 }
             }

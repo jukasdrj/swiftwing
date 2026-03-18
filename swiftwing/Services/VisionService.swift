@@ -23,10 +23,11 @@ enum VisionError: Error {
 /// Service for processing image frames with Vision framework.
 /// Performs text recognition and barcode detection on video frames.
 ///
-/// **Design Note:** VisionService is a plain class (not an actor, not @MainActor).
-/// It is queue-agnostic and designed to be called synchronously from the AVFoundation
-/// delegate queue. Results are published via an AsyncStream that the ViewModel consumes on @MainActor.
-final class VisionService: @unchecked Sendable {
+/// **Design Note:** VisionService is an actor to protect mutable throttling state
+/// (`lastProcessedTime`, `processingInterval`) from data races. Vision framework calls
+/// are synchronous but run on the actor's serial executor, which is safe since callers
+/// already operate in async contexts (CameraManager's vision Task).
+actor VisionService {
     // MARK: - Private Properties
 
     private let textRequest = VNRecognizeTextRequest()

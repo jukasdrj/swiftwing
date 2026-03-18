@@ -90,20 +90,18 @@ struct PerformanceTestData {
     ) async {
         logger.info("US-321: Generating \(count, privacy: .public) test books for performance testing...")
 
-        // Run on detached task to unblock MainActor
-        await Task.detached(priority: .userInitiated) {
-            let startTime = CFAbsoluteTimeGetCurrent()
-            let context = ModelContext(container)
-            context.autosaveEnabled = false // Optimization: Disable autosave
+        let startTime = CFAbsoluteTimeGetCurrent()
+        let context = ModelContext(container)
+        context.autosaveEnabled = false // Optimization: Disable autosave
 
-            for i in 0..<count {
-            let title = sampleTitles[i % sampleTitles.count]
-            let author = sampleAuthors[i % sampleAuthors.count]
-            let format = formats[i % formats.count]
-            let publisher = publishers[i % publishers.count]
+        for i in 0..<count {
+            let title = Self.sampleTitles[i % Self.sampleTitles.count]
+            let author = Self.sampleAuthors[i % Self.sampleAuthors.count]
+            let format = Self.formats[i % Self.formats.count]
+            let publisher = Self.publishers[i % Self.publishers.count]
 
             // Generate unique ISBN (add index to base ISBN)
-            let baseISBN = sampleISBNs[i % sampleISBNs.count]
+            let baseISBN = Self.sampleISBNs[i % Self.sampleISBNs.count]
             let prefix = String(baseISBN.prefix(9))
             let uniqueISBN = String(format: "%@%04d", prefix, i)
 
@@ -133,7 +131,7 @@ struct PerformanceTestData {
             // Create book with full metadata
             let book = Book(
                 id: UUID(),
-                title: "\(title) (Vol. \(i / sampleTitles.count + 1))",
+                title: "\(title) (Vol. \(i / Self.sampleTitles.count + 1))",
                 author: author,
                 isbn: uniqueISBN,
                 coverUrl: coverUrl,
@@ -158,17 +156,16 @@ struct PerformanceTestData {
             }
         }
 
-            // Final save
-            do {
-                try context.save()
-            } catch {
-                logger.warning("Failed to save final batch: \(error.localizedDescription, privacy: .public)")
-            }
+        // Final save
+        do {
+            try context.save()
+        } catch {
+            logger.warning("Failed to save final batch: \(error.localizedDescription, privacy: .public)")
+        }
 
-            let duration = CFAbsoluteTimeGetCurrent() - startTime
-            logger.info("Generated \(count, privacy: .public) test books in \(String(format: "%.2f", duration * 1000), privacy: .public)ms")
-            logger.info("Average: \(String(format: "%.2f", (duration * 1000) / Double(count)), privacy: .public)ms per book")
-        }.value
+        let duration = CFAbsoluteTimeGetCurrent() - startTime
+        logger.info("Generated \(count, privacy: .public) test books in \(String(format: "%.2f", duration * 1000), privacy: .public)ms")
+        logger.info("Average: \(String(format: "%.2f", (duration * 1000) / Double(count)), privacy: .public)ms per book")
     }
 
     /// Clear all test data from the context
@@ -177,15 +174,13 @@ struct PerformanceTestData {
     static func clearTestData(container: ModelContainer) async {
         logger.info("Clearing test data...")
 
-        await Task.detached {
-            let context = ModelContext(container)
-            do {
-                // Efficient batch delete
-                try context.delete(model: Book.self)
-                logger.info("Cleared all books")
-            } catch {
-                logger.warning("Failed to clear test data: \(error.localizedDescription, privacy: .public)")
-            }
-        }.value
+        let context = ModelContext(container)
+        do {
+            // Efficient batch delete
+            try context.delete(model: Book.self)
+            logger.info("Cleared all books")
+        } catch {
+            logger.warning("Failed to clear test data: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }

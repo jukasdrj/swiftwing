@@ -5,7 +5,7 @@ import OSLog
 @main
 struct SwiftwingApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema(versionedSchema: BookSchemaV1.self)
+        let schema = Schema(versionedSchema: BookSchemaV2.self)
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {

@@ -12,8 +12,7 @@ struct LaunchScreenView: View {
             VStack(spacing: 16) {
                 // "SwiftWing" wordmark
                 Text("SwiftWing")
-                    .font(.jetBrainsMono)
-                    .font(.system(size: 48, weight: .bold, design: .monospaced))
+                    .font(.custom("JetBrainsMono-Bold", size: 48))
                     .foregroundStyle(.swissText)
                     .tracking(2)
 

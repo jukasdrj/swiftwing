@@ -90,16 +90,23 @@ enum AppTab: Int, Hashable {
 /// TabView with Library, Review, and Camera tabs
 /// Review tab shows pending book count badge
 struct MainTabView: View {
-    @Query private var books: [Book]
+    @Environment(\.modelContext) private var modelContext
     @State private var viewModel = CameraViewModel()
     @State private var selectedTab: AppTab = ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") ? .camera : .library
+    /// Cached book count refreshed via fetchCount — avoids loading full Book objects into memory.
+    @State private var bookCount: Int = 0
+
+    private func refreshBookCount() {
+        bookCount = (try? modelContext.fetchCount(FetchDescriptor<Book>())) ?? 0
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Library", systemImage: "books.vertical", value: AppTab.library) {
                 LibraryView()
+                    .onAppear { refreshBookCount() }
             }
-            .badge(books.count > 0 ? Text("\(books.count)") : nil)
+            .badge(bookCount > 0 ? Text("\(bookCount)") : nil)
 
             Tab("Review", systemImage: "checklist", value: AppTab.review) {
                 ReviewQueueView(viewModel: viewModel)
@@ -108,9 +115,11 @@ struct MainTabView: View {
 
             Tab("Camera", systemImage: "camera", value: AppTab.camera) {
                 CameraView(viewModel: viewModel)
+                    .onDisappear { refreshBookCount() }
             }
         }
         .tint(.internationalOrange)  // Swiss Glass accent color for selected tab
+        .onAppear { refreshBookCount() }
         .onChange(of: viewModel.requestedTab) { _, newTab in
             if let tab = newTab {
                 selectedTab = AppTab(rawValue: tab) ?? .library

@@ -119,8 +119,9 @@ final class CameraViewModel {
     func setupCamera() async {
         coldStartTime = CFAbsoluteTimeGetCurrent()
 
-        // Show loading spinner only if setup takes > 200ms
-        Task {
+        // Show loading spinner only if setup takes > 200ms.
+        // Store the handle so we can cancel it if setup finishes first.
+        let loadingTask = Task {
             try? await Task.sleep(for: .milliseconds(200)) // 200ms
             if cameraManager.captureSession == nil {
                 isLoading = true
@@ -152,6 +153,9 @@ final class CameraViewModel {
 
             // Start session on background thread (non-blocking)
             cameraManager.startSession()
+
+            // Cancel the deferred loading task — setup finished before it could fire
+            loadingTask.cancel()
 
             // Update UI
             isLoading = false
@@ -349,6 +353,10 @@ final class CameraViewModel {
             // Auto-remove from queue after 5 seconds
             await removeQueueItemAfterDelay(id: capturedItemId, delay: 5.0)
 
+        } catch is CancellationError {
+            // Task was cancelled (e.g. user navigated away) — not a user-visible error
+            e2eLogger.debug("processCaptureWithImageData: task cancelled")
+            return
         } catch {
             e2eLogger.error("❌ processCaptureWithImageData error: \(error.localizedDescription)")
             #if DEBUG
@@ -447,24 +455,26 @@ final class CameraViewModel {
         // US-410: Performance optimization - limit concurrent SSE streams to 5
         await streamManager.acquireStreamSlot(scanId: itemId)
 
-        // Ensure we release the stream slot when done (even on error)
-        defer {
-            Task {
-                await streamManager.releaseStreamSlot(scanId: itemId)
-            }
+        // Note: slot release is explicit at each exit point below (success and error).
+        // A fire-and-forget Task in defer is not guaranteed to execute before the caller
+        // resumes, so we release directly with await instead.
+        do {
+            updateQueueItemProgress(id: item.id, message: "Uploading...")
+
+            let uploadStart = CFAbsoluteTimeGetCurrent()
+            let uploadResult = try await scanCoordinator.uploadScan(imageData: uploadData, deviceId: self.deviceId)
+            let uploadDuration = (CFAbsoluteTimeGetCurrent() - uploadStart) * 1000 // Convert to ms
+            e2eLogger.info("Upload took \(Int(uploadDuration))ms, jobId: \(uploadResult.jobId)")
+
+            // Store temp file URL and job ID for cleanup (US-406)
+            updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResult.jobId)
+
+            await streamManager.releaseStreamSlot(scanId: itemId)
+            return uploadResult
+        } catch {
+            await streamManager.releaseStreamSlot(scanId: itemId)
+            throw error
         }
-
-        updateQueueItemProgress(id: item.id, message: "Uploading...")
-
-        let uploadStart = CFAbsoluteTimeGetCurrent()
-        let uploadResult = try await scanCoordinator.uploadScan(imageData: uploadData, deviceId: self.deviceId)
-        let uploadDuration = (CFAbsoluteTimeGetCurrent() - uploadStart) * 1000 // Convert to ms
-        e2eLogger.info("Upload took \(Int(uploadDuration))ms, jobId: \(uploadResult.jobId)")
-
-        // Store temp file URL and job ID for cleanup (US-406)
-        updateQueueItemCleanupInfo(id: item.id, tempFileURL: fileURL, jobId: uploadResult.jobId)
-
-        return uploadResult
     }
 
     /// Build the full set of SSE streaming callbacks for a scan job.

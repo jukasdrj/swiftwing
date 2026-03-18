@@ -11,7 +11,7 @@ public enum ReadingStatus: String, Codable {
 
 @Model
 public final class Book {
-    #Index<Book>([\.isbn], [\.addedDate])
+    #Index<Book>([\.isbn], [\.addedDate], [\.title], [\.author])
 
     @Attribute(.unique) var isbn: String
     public var id: UUID
@@ -31,8 +31,8 @@ public final class Book {
     // Tracking
     var addedDate: Date
 
-    // Epic 5: Reading status tracking (UI deferred to Epic 5)
-    var readingStatus: String? // Stores ReadingStatus rawValue
+    // Epic 5: Reading status tracking
+    var readingStatus: ReadingStatus?
     var dateRead: Date?
     var userRating: Int? // 1-5 stars
 
@@ -67,7 +67,7 @@ public final class Book {
         pageCount: Int? = nil,
         spineConfidence: Double? = nil,
         addedDate: Date = Date(),
-        readingStatus: String? = nil,
+        readingStatus: ReadingStatus? = nil,
         dateRead: Date? = nil,
         userRating: Int? = nil,
         notes: String? = nil,

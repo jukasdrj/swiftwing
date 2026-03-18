@@ -14,6 +14,7 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "da
 /// ```swift
 /// DataSeeder.seedLibrary(context: modelContext)
 /// ```
+@MainActor
 struct DataSeeder {
     /// Seeds the SwiftData store with a diverse collection of 20+ books
     ///

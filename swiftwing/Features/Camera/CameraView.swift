@@ -9,6 +9,7 @@ private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: 
 /// Performance target: < 0.5s cold start to live feed
 struct CameraView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     var viewModel: CameraViewModel
 
     // US-B2: Processing feedback overlay state
@@ -158,10 +159,10 @@ struct CameraView: View {
         .onDisappear {
             viewModel.stopCamera()
         }
-        .onReceive(
-            NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
-        ) { _ in
-            viewModel.cancelAllStreamingTasks()
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .background {
+                viewModel.cancelAllStreamingTasks()
+            }
         }
         .onChange(of: viewModel.networkMonitor.isConnected) { oldValue, newValue in
             viewModel.handleNetworkChange(oldValue: oldValue, newValue: newValue)

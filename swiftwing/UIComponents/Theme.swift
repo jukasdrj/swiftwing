@@ -109,9 +109,7 @@ extension Font {
 struct SwissGlassCard: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(.black)
-            .background(.ultraThinMaterial)
-            .clipShape(.rect(cornerRadius: 12))
+            .glassEffect(.regular, in: .rect(cornerRadius: 12))
     }
 }
 
@@ -127,8 +125,7 @@ struct SwissGlassOverlay: ViewModifier {
         content
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(.ultraThinMaterial)
-            .clipShape(.rect(cornerRadius: 8))
+            .glassEffect(.regular, in: .rect(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
@@ -148,8 +145,7 @@ struct SwissGlassButton: ViewModifier {
         content
             .padding(.vertical, 16)
             .padding(.horizontal, 24)
-            .background(.ultraThinMaterial)
-            .clipShape(.rect(cornerRadius: 12))
+            .glassEffect(.regular, in: .rect(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)

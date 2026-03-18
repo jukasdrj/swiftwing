@@ -204,7 +204,7 @@ actor TalariaService {
     nonisolated func streamEvents(streamUrl: URL, deviceId: String, authToken: String? = nil, maxAttempts: Int = 3) -> AsyncThrowingStream<SSEEvent, Error> {
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: SSEEvent.self)
 
-        Task {
+        let task = Task {
             // Create session once before retry loop
             let sessionConfig = URLSessionConfiguration.default
             sessionConfig.timeoutIntervalForRequest = 300 // 5 minutes
@@ -387,6 +387,10 @@ actor TalariaService {
                 }
             }
         }
+
+        // Bridge stream lifecycle to task lifecycle — when the consumer drops the
+        // stream (e.g. navigates away), cancel the background SSE task to free resources.
+        continuation.onTermination = { @Sendable _ in task.cancel() }
 
         return stream
     }

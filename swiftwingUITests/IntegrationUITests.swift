@@ -35,9 +35,6 @@ final class IntegrationUITests: SwiftwingUITestCase {
         if hasApproveAll {
             approveAllButton.tap()
 
-            // Give SwiftData a moment to persist
-            sleep(2)
-
             // Switch to Library tab and verify books were saved
             switchToTab("Library")
 

@@ -17,10 +17,7 @@ final class OnboardingUITests: XCTestCase {
         app.launch()
 
         let skipButton = app.buttons["onboarding_skip"]
-        // If onboarding doesn't show (already completed), skip this test
-        guard skipButton.waitForExistence(timeout: 3) else {
-            return
-        }
+        try XCTSkipUnless(skipButton.waitForExistence(timeout: 3), "Onboarding not shown")
 
         skipButton.tap()
 
@@ -37,9 +34,7 @@ final class OnboardingUITests: XCTestCase {
         app.launch()
 
         let nextButton = app.buttons["onboarding_next"]
-        guard nextButton.waitForExistence(timeout: 3) else {
-            return // Onboarding already completed
-        }
+        try XCTSkipUnless(nextButton.waitForExistence(timeout: 3), "Onboarding not shown")
 
         // Tap Next twice (slide 0 → 1 → 2)
         nextButton.tap()
