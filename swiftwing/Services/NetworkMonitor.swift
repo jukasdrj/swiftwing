@@ -4,6 +4,11 @@ import os
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "network-monitor")
 
+/// Holds a Task reference so it can be accessed from nonisolated contexts (e.g. deinit)
+private final class TaskBox: @unchecked Sendable {
+    var task: Task<Void, Never>?
+}
+
 /// Monitors network connectivity using NWPathMonitor
 /// Adaptable to Swift Concurrency via AsyncStream
 @MainActor
@@ -19,6 +24,8 @@ final class NetworkMonitor: Sendable {
     // MARK: - Private Properties
 
     private let monitor = NWPathMonitor()
+    // Stored as a nonisolated let so deinit (nonisolated) can cancel without actor hop
+    private let taskBox = TaskBox()
 
     // MARK: - Initialization
 
@@ -43,8 +50,8 @@ final class NetworkMonitor: Sendable {
             monitor?.cancel()
         }
 
-        // Consume the stream
-        Task {
+        // Consume the stream — stored so it can be cancelled on deinit
+        taskBox.task = Task {
             for await status in statusStream {
                 updateStatus(status)
             }
@@ -65,6 +72,7 @@ final class NetworkMonitor: Sendable {
     }
 
     deinit {
+        taskBox.task?.cancel()
         monitor.cancel()
     }
 }

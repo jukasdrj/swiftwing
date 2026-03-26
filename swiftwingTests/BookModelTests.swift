@@ -3,6 +3,7 @@ import Testing
 @testable import swiftwing
 
 /// Unit tests for Book SwiftData model
+@Suite("BookModel")
 struct BookModelTests {
 
     @Test func bookInitializationWithAllFields() {

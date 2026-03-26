@@ -57,20 +57,6 @@ final class ReviewQueueManager {
     func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil, modelContext: ModelContext) {
         logger.debug("handleBookResult called for: \(metadata.resolvedTitle)")
 
-        // Debug logging for integration test
-        if ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") {
-            let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
-            let timestamp = ISO8601DateFormatter().string(from: Date())
-            let line = "[\(timestamp)] handleBookResult: title='\(metadata.title ?? "nil")' author='\(metadata.author ?? "nil")' isbn='\(metadata.isbn ?? "nil")'\n"
-            if let data = line.data(using: .utf8) {
-                if let handle = try? FileHandle(forWritingTo: logFile) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
-                    handle.closeFile()
-                }
-            }
-        }
-
         guard validateBookMetadata(metadata) else { return }
 
         if isDuplicateResult(metadata) {
@@ -245,14 +231,7 @@ final class ReviewQueueManager {
         let count = pendingReviewBooks.count
         let photoURLs = Set(pendingReviewBooks.compactMap { $0.originalPhotoURL })
         for book in pendingReviewBooks {
-            addBookToLibrary(
-                title: book.resolvedTitle,
-                author: book.resolvedAuthor,
-                metadata: book.metadata,
-                rawJSON: book.rawJSON,
-                preScannedISBN: book.preScannedISBN,
-                modelContext: modelContext
-            )
+            addBookToLibraryIfNotDuplicate(pendingBook: book, modelContext: modelContext)
         }
 
         withAnimation(.swissSpring) {
@@ -272,14 +251,7 @@ final class ReviewQueueManager {
 
         let photoURLs = Set(highConfidence.compactMap { $0.originalPhotoURL })
         for book in highConfidence {
-            addBookToLibrary(
-                title: book.resolvedTitle,
-                author: book.resolvedAuthor,
-                metadata: book.metadata,
-                rawJSON: book.rawJSON,
-                preScannedISBN: book.preScannedISBN,
-                modelContext: modelContext
-            )
+            addBookToLibraryIfNotDuplicate(pendingBook: book, modelContext: modelContext)
         }
 
         let approvedIds = Set(highConfidence.map { $0.id })
@@ -305,41 +277,58 @@ final class ReviewQueueManager {
             return
         }
 
-        let publishedDate: Date?
-        if let dateString = metadata.publishedDate {
-            let formatter = ISO8601DateFormatter()
-            publishedDate = formatter.date(from: dateString)
-        } else {
-            publishedDate = nil
-        }
-
-        let newBook = Book(
+        // Build a synthetic PendingBookResult so DataSyncActor can handle construction + persistence.
+        let syntheticMetadata = BookMetadata(
             title: resolvedTitle,
             author: resolvedAuthor,
-            isbn: metadata.isbn ?? preScannedISBN ?? "UNKNOWN-\(UUID().uuidString)",
+            isbn: metadata.isbn,
             coverUrl: metadata.coverUrl,
-            format: metadata.format,
             publisher: metadata.publisher,
-            publishedDate: publishedDate,
+            publishedDate: metadata.publishedDate,
             pageCount: metadata.pageCount,
-            spineConfidence: metadata.confidence,
-            addedDate: Date(),
+            format: metadata.format,
+            confidence: metadata.confidence,
+            boundingBox: metadata.boundingBox,
+            enrichmentStatus: metadata.enrichmentStatus
+        )
+        let pendingBook = PendingBookResult(
+            metadata: syntheticMetadata,
             rawJSON: rawJSON,
-            enrichmentStatus: metadata.enrichmentStatus?.rawValue
+            preScannedISBN: preScannedISBN
         )
 
-        modelContext.insert(newBook)
-
         do {
-            try modelContext.save()
+            try DataSyncActor.shared.save(book: pendingBook, in: modelContext)
             logger.info("Book added to library: \(resolvedTitle)")
 
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
-
         } catch {
             logger.error("Failed to save book: \(error)")
         }
+    }
+
+    /// Adds book to library only if no duplicate exists. Silent (no UI alert) — for bulk operations.
+    /// Returns true if added, false if skipped as duplicate.
+    @discardableResult
+    private func addBookToLibraryIfNotDuplicate(
+        pendingBook: PendingBookResult,
+        modelContext: ModelContext
+    ) -> Bool {
+        let isbn = pendingBook.resolvedISBN
+        if let _ = try? DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
+            logger.info("Bulk approve: skipping duplicate '\(pendingBook.resolvedTitle)'")
+            return false
+        }
+        addBookToLibrary(
+            title: pendingBook.resolvedTitle,
+            author: pendingBook.resolvedAuthor,
+            metadata: pendingBook.metadata,
+            rawJSON: pendingBook.rawJSON,
+            preScannedISBN: pendingBook.preScannedISBN,
+            modelContext: modelContext
+        )
+        return true
     }
 
     // MARK: - Pending Book Edits

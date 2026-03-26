@@ -2,6 +2,7 @@ import Testing
 import SwiftData
 @testable import swiftwing
 
+@Suite("DuplicateDetection")
 @MainActor
 struct DuplicateDetectionTests {
 
@@ -50,5 +51,37 @@ struct DuplicateDetectionTests {
 
         let result2 = try #require(try DuplicateDetection.findDuplicate(isbn: "9780000000020", in: context))
         #expect(result2.title == "Book Two")
+    }
+
+    // MARK: - Error Path Tests
+
+    @Test func findDuplicate_collisionPath_detectedSuccessfully() throws {
+        let context = try makeContext()
+        let existingBook = Book(title: "Existing Book", author: "Author", isbn: "9780000000099")
+        context.insert(existingBook)
+        try context.save()
+
+        // Attempt to find the same ISBN that exists in the database
+        let duplicateISBN = "9780000000099"
+        let result = try DuplicateDetection.findDuplicate(isbn: duplicateISBN, in: context)
+
+        // Should detect collision and return the existing book
+        #expect(result != nil)
+        #expect(result?.title == "Existing Book")
+    }
+
+    @Test func findDuplicate_fetchErrorPath_throwsDuplicateDetectionError() {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(for: Book.self, configurations: config)
+        let context = container.mainContext
+
+        // Create a closed context to trigger a fetch error
+        try! context.save()
+        context.delete(context)  // This invalidates the context
+
+        // Attempting to fetch with an invalid context should throw DuplicateDetectionError.fetchFailed
+        #expect(throws: DuplicateDetection.DuplicateDetectionError.fetchFailed) {
+            _ = try DuplicateDetection.findDuplicate(isbn: "9780000000001", in: context)
+        }
     }
 }

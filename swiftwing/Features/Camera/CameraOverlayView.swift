@@ -60,12 +60,14 @@ struct CameraOverlayView: View {
                 Text("Camera Error")
                     .font(.title3.bold())
                     .foregroundStyle(.swissText)
+                    .dynamicTypeSize(.xSmall ... .accessibility3)
 
                 Text(error)
                     .font(.body)
                     .foregroundStyle(.swissText.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
+                    .dynamicTypeSize(.xSmall ... .accessibility3)
             }
             .padding()
             .swissGlassCard()
@@ -108,12 +110,14 @@ struct CameraOverlayView: View {
                 Text("Processing Failed")
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.swissText)
+                    .dynamicTypeSize(.xSmall ... .accessibility3)
 
                 Text(error)
                     .font(.subheadline)
                     .foregroundStyle(.swissText.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
+                    .dynamicTypeSize(.xSmall ... .accessibility3)
             }
             .padding(24)
             .swissGlassCard()
@@ -132,11 +136,13 @@ struct CameraOverlayView: View {
                     Text("Camera Interrupted")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.swissText)
+                        .dynamicTypeSize(.xSmall ... .accessibility3)
 
                     Text("Phone call or FaceTime in progress")
                         .font(.subheadline)
                         .foregroundStyle(.swissText.opacity(0.8))
                         .multilineTextAlignment(.center)
+                        .dynamicTypeSize(.xSmall ... .accessibility3)
                 }
             }
             .padding(24)
@@ -159,6 +165,7 @@ struct CameraOverlayView: View {
                     Text("Some books may not have been detected")
                         .font(.subheadline)
                         .foregroundStyle(.swissText)
+                        .dynamicTypeSize(.xSmall ... .accessibility3)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -168,12 +175,10 @@ struct CameraOverlayView: View {
             .padding(.top, 60)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .transition(.move(edge: .top).combined(with: .opacity))
-            .onAppear {
-                Task {
-                    try? await Task.sleep(for: .seconds(6))
-                    withAnimation(.swissSpring) {
-                        viewModel.showTruncationBanner = false
-                    }
+            .task {
+                try? await Task.sleep(for: .seconds(6))
+                withAnimation(.swissSpring) {
+                    viewModel.showTruncationBanner = false
                 }
             }
         }
@@ -230,6 +235,7 @@ struct CameraOverlayView: View {
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.swissText)
                         .lineLimit(1)
+                        .dynamicTypeSize(.xSmall ... .accessibility3)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -270,6 +276,7 @@ struct CameraOverlayView: View {
                 Text(String(format: "%.1fx", viewModel.cameraManager.currentZoomFactor))
                     .font(.jetBrainsMono)
                     .foregroundStyle(.white)
+                    .dynamicTypeSize(.xSmall ... .accessibility3)
                     .swissGlassOverlay()
                     .padding(.top, 60)
                     .padding(.trailing, 16)

@@ -5,25 +5,6 @@ import os
 import UIKit
 #endif
 
-#if DEBUG
-private func integrationLog(_ msg: String) {
-    guard ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") else { return }
-    let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
-    let timestamp = ISO8601DateFormatter().string(from: Date())
-    let line = "[\(timestamp)] \(msg)\n"
-    guard let data = line.data(using: .utf8) else { return }
-    if FileManager.default.fileExists(atPath: logFile.path) {
-        if let handle = try? FileHandle(forWritingTo: logFile) {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            handle.closeFile()
-        }
-    } else {
-        try? data.write(to: logFile)
-    }
-}
-#endif
-
 private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "scan-coordinator")
 
 /// Callbacks from ScanJobCoordinator back to the UI layer (CameraViewModel).

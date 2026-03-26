@@ -46,16 +46,19 @@ struct LibraryView: View {
                 }
             }
             .searchable(text: $viewModel.searchText, prompt: "Search title or author")
-            .onChange(of: viewModel.searchText) { viewModel.updateFilteredBooks(from: books) }
-            .onChange(of: viewModel.showReviewNeeded) { viewModel.updateFilteredBooks(from: books) }
-            .onChange(of: viewModel.sortOptionRaw) { viewModel.updateFilteredBooks(from: books) }
-            .onChange(of: books) {
-                viewModel.updateFilteredBooks(from: books)
+            .onChange(of: viewModel.searchText) { _, _ in viewModel.updateFilteredBooks(context: modelContext) }
+            .onChange(of: viewModel.showReviewNeeded) { _, _ in viewModel.updateFilteredBooks(context: modelContext) }
+            .onChange(of: viewModel.sortOptionRaw) { _, _ in viewModel.updateFilteredBooks(context: modelContext) }
+            .onChange(of: books) { _, _ in
+                viewModel.updateFilteredBooks(context: modelContext)
                 viewModel.updateLibraryStats(from: books)
             }
             .onAppear {
-                viewModel.updateFilteredBooks(from: books)
+                viewModel.updateFilteredBooks(context: modelContext)
                 viewModel.updateLibraryStats(from: books)
+            }
+            .onDisappear {
+                viewModel.cancelLoading()
             }
             .toolbar {
                 LibraryToolbarContent(
@@ -458,11 +461,6 @@ struct BookDetailSheet: View {
         book.publishedDate = editedPublishedDate
         book.notes = editedNotes.isEmpty ? nil : editedNotes
         book.pageCount = Int(editedPageCount)
-        do {
-            try modelContext.save()
-        } catch {
-            logger.error("Failed to save book edits: \(error.localizedDescription, privacy: .public)")
-        }
         isEditing = false
     }
 

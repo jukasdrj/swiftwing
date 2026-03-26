@@ -288,7 +288,8 @@ actor TalariaService {
                                 currentEvent = String(line.dropFirst(6).trimmingCharacters(in: .whitespaces))
                                 e2eLogger.debug("SSE: Received event type: \(currentEvent ?? "nil", privacy: .public)")
                             } else if line.hasPrefix("data:") {
-                                currentData = String(line.dropFirst(5).trimmingCharacters(in: .whitespaces))
+                                let newChunk = String(line.dropFirst(5).trimmingCharacters(in: .whitespaces))
+                                currentData = currentData.map { $0 + "\n" + newChunk } ?? newChunk
                                 e2eLogger.debug("SSE: Received data: \(currentData?.prefix(100) ?? "nil", privacy: .public)")
                             } else if line.hasPrefix("id:") {
                                 currentId = String(line.dropFirst(3).trimmingCharacters(in: .whitespaces))
@@ -376,6 +377,8 @@ actor TalariaService {
                         continuation.finish(throwing: SSEError.maxRetriesExceeded)
                         return
                     }
+                } catch is CancellationError {
+                    throw CancellationError()
                 } catch {
                     #if DEBUG
                     sseLog("CATCH generic error: \(error) - type=\(type(of: error)) - cancelled=\(Task.isCancelled)")

@@ -295,9 +295,12 @@ final class CameraManager {
         settings.maxPhotoDimensions = photoOutput.maxPhotoDimensions
 
         return try await withCheckedThrowingContinuation { continuation in
-            let delegate = PhotoCaptureDelegate { [weak self] result in
+            let uniqueID = settings.uniqueID
+            let delegate = PhotoCaptureDelegate { @Sendable [weak self] result in
                 continuation.resume(with: result)
-                self?.activeDelegates[settings.uniqueID] = nil
+                Task { @MainActor [weak self] in
+                    self?.activeDelegates[uniqueID] = nil
+                }
             }
             activeDelegates[settings.uniqueID] = delegate
             photoOutput.capturePhoto(with: settings, delegate: delegate)
@@ -395,8 +398,8 @@ final class CameraManager {
 
 // MARK: - Photo Capture Delegate
 private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
-    private let completion: (Result<Data, Error>) -> Void
-    init(completion: @escaping (Result<Data, Error>) -> Void) { self.completion = completion }
+    private let completion: @Sendable (Result<Data, Error>) -> Void
+    init(completion: @escaping @Sendable (Result<Data, Error>) -> Void) { self.completion = completion }
     func photoOutput(
         _ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?

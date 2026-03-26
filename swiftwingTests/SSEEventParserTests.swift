@@ -8,6 +8,7 @@ private enum SSETestError: Error {
     case unexpectedEvent
 }
 
+@Suite("SSEEventParser")
 struct SSEEventParserTests {
     let parser = SSEEventParser()
 
@@ -276,5 +277,22 @@ struct SSEEventParserTests {
         #expect(throws: SSEError.invalidEventFormat) {
             try parser.parse(event: "enrichment_degraded", data: "not json {{{")
         }
+    }
+
+    // MARK: - 4C: Rate Limit Error Path Test
+
+    @Test func parseErrorEventRateLimitPath() throws {
+        // Test error path: rate limit (429) with retry information
+        let data = """
+        {"message": "Too many requests", "code": "RATE_LIMITED", "retryable": true, "retryAfterMs": 5000}
+        """
+        let event = try parser.parse(event: "error", data: data)
+        guard case .error(let errorInfo) = event else {
+            Issue.record("Expected error event with rate limit info")
+            return
+        }
+        #expect(errorInfo.message == "Too many requests")
+        #expect(errorInfo.code == "RATE_LIMITED")
+        #expect(errorInfo.retryable == true)
     }
 }

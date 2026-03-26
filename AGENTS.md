@@ -59,6 +59,7 @@ swiftwing/
 ├── 🔧 SERVICES & NETWORK
 │   ├── Services/
 │   │   ├── TalariaService.swift         # AI backend (22KB, actor-based)
+│   │   ├── DataSyncActor.swift          # SwiftData writes (@MainActor class)
 │   │   ├── NetworkTypes.swift           # Domain models (2.6KB)
 │   │   ├── NetworkMonitor.swift         # Network status tracking
 │   │   ├── OfflineQueueManager.swift    # Offline sync queue
@@ -313,11 +314,11 @@ Scripts/update-api-spec.sh --force # Force override
 ┌──────────────────────────────────────────────────────────────┐
 │            Actor Services (Thread-Safe)                       │
 │                                                               │
-│  TalariaService (actor)        - Network + SSE streaming      │
-│  CameraManager (actor)         - AVFoundation isolation       │
-│  NetworkMonitor (class)        - Network status tracking      │
-│  OfflineQueueManager (actor)   - Offline sync                │
-│  DataSyncActor (future)        - SwiftData writes             │
+│  TalariaService (actor)              - Network + SSE streaming      │
+│  CameraManager (actor)               - AVFoundation isolation       │
+│  NetworkMonitor (class)              - Network status tracking      │
+│  OfflineQueueManager (actor)         - Offline sync                │
+│  DataSyncActor (@MainActor class)    - SwiftData writes (all saves routed here) │
 └──────────────────┬───────────────────────────────────────────┘
                    │
                    │ File I/O, Network, Device APIs
@@ -346,16 +347,17 @@ Scripts/update-api-spec.sh --force # Force override
 - Handles app logic (camera → process → save)
 - ModelContext injection via view lifecycle
 
-**Service Layer (Actors):**
-- `TalariaService` - Network calls, SSE streaming, rate limiting
-- `CameraManager` - AVFoundation session management
-- `NetworkMonitor` - Network status tracking
+**Service Layer:**
+- `TalariaService` (actor) - Network calls, SSE streaming, rate limiting
+- `CameraManager` (actor) - AVFoundation session management
+- `NetworkMonitor` (class) - Network status tracking
+- `DataSyncActor` (@MainActor class) - All SwiftData writes centralised here
 - Isolated mutable state (prevents data races)
 
 **Data Layer:**
 - `@Model` classes with `@Attribute(.unique)` constraints
 - SwiftData for local persistence
-- Actor-coordinated writes (future)
+- All writes routed through `DataSyncActor` (duplicate-safe)
 
 ### Vertical Slice Development (Epic-Based)
 
@@ -560,13 +562,6 @@ When using Task agents for parallel work, assign these roles:
 - ❌ `\.modelContainer` does not exist (common mistake)
 - ✅ Access container via `modelContext.container`
 
-### Build Warnings
-
-**Current:** 1 warning in TalariaService.swift (SSE async expression)
-- Non-blocking
-- Can be addressed in future cleanup
-- Does not prevent shipping
-
 ---
 
 ## Critical Success Criteria
@@ -685,10 +680,8 @@ docs/                           ← API docs, guides
 
 ## Last Updated
 
-**January 30, 2026, 11:53 AM UTC**
+**March 26, 2026**
 By: Claude Code (AI Agent Orchestration)
-
-**Next Review:** After Epic 5 Phase 3A completion (XCTest infrastructure)
 
 ---
 

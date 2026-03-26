@@ -22,7 +22,7 @@ actor TalariaService {
 - ✅ Use `@MainActor` for all UI updates
 - ✅ Use structured concurrency (`TaskGroup`, `async let`)
 - ❌ Never use `DispatchQueue` with async/await (deadlock risk)
-- ❌ Never use `Task.detached` (breaks actor isolation)
+- ⚠️ Avoid `Task.detached` — permitted only for CPU-bound work that must run off the actor (e.g. `ImagePreprocessor` CIFilter pipeline). Never use for actor state mutation.
 
 ## Architecture Patterns
 
@@ -273,16 +273,23 @@ func updateUI() {
 }
 ```
 
-❌ **Don't use Task.detached**:
+⚠️ **Use Task.detached only for CPU-bound work off the actor**:
 ```swift
-// BAD - breaks actor isolation
+// BAD - breaks actor isolation for actor state mutation
 Task.detached {
     await someActorMethod()  // Actor isolation broken
 }
 
-// GOOD - use structured concurrency
+// GOOD - use structured concurrency for actor calls
 Task {
     await someActorMethod()  // Actor isolation maintained
+}
+
+// OK - detach for CPU-bound work that must not block the actor executor
+func preprocess(_ image: UIImage) async throws -> Data {
+    let result = await Task.detached(priority: .userInitiated) {
+        // pure CPU work, Sendable types only
+    }.value
 }
 ```
 

@@ -17,6 +17,12 @@
             "command": "echo '📱 SwiftWing iOS 26 | Epic-based development'",
             "timeout": 3000,
             "description": "Session startup reminder"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/zep-session-start.sh",
+            "timeout": 5000,
+            "description": "Warm Zep memory graph for swiftwing user"
           }
         ]
       }
@@ -38,7 +44,16 @@
       "mcp__pal__analyze",
       "mcp__pal__thinkdeep",
       "mcp__pal__chat",
-      "mcp__pal__consensus"
+      "mcp__pal__consensus",
+      "mcp__zep-memory__zep_get_context",
+      "mcp__zep-memory__zep_search",
+      "mcp__zep-memory__zep_add_fact",
+      "mcp__zep-memory__zep_add_messages",
+      "mcp__zep-memory__zep_get_nodes",
+      "mcp__zep-memory__zep_get_edges",
+      "mcp__zep-memory__zep_warm_cache",
+      "mcp__zep-memory__zep_create_thread",
+      "mcp__zep-memory__zep_list_threads"
     ]
   }
 }

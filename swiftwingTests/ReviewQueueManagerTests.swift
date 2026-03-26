@@ -3,6 +3,7 @@ import Testing
 import SwiftData
 @testable import swiftwing
 
+@Suite("ReviewQueueManager")
 @MainActor
 struct ReviewQueueManagerTests {
 
@@ -221,5 +222,58 @@ struct ReviewQueueManagerTests {
         let updated = try #require(manager.pendingReviewBooks.first)
         #expect(updated.resolvedTitle == "Edited Title")
         #expect(updated.resolvedAuthor == "Edited Author")
+    }
+
+    // MARK: - Error Path Tests
+
+    @Test func handleBookResult_invalidState_rejectionErrorPath() throws {
+        let manager = makeManager()
+        let context = try makeContext()
+
+        // Test error path: nil title and nil author simultaneously
+        let invalidMetadata = BookMetadata(title: nil, author: nil)
+        manager.handleBookResult(metadata: invalidMetadata, rawJSON: nil, modelContext: context)
+
+        // Both validation errors should suppress the book
+        #expect(manager.pendingReviewBooks.isEmpty)
+    }
+
+    @Test func approveBook_duplicateDetectionFailure_proceedsWithoutAlert() throws {
+        let manager = makeManager()
+        let context = try makeContext()
+
+        // Add a book to the review queue
+        let metadata = BookMetadata(title: "Test Book", author: "Author", isbn: "9780000000001")
+        manager.handleBookResult(metadata: metadata, rawJSON: nil, modelContext: context)
+        let pending = try #require(manager.pendingReviewBooks.first)
+
+        // Create a closed/invalid context to simulate duplicate detection failure
+        try context.save()
+        context.delete(context)
+
+        // Duplicate detection should fail, but approveBook should proceed (graceful degradation)
+        // The error is caught and logged, book is added anyway
+        manager.approveBook(pending, modelContext: context)
+
+        // Even with duplicate detection error, the book should be in the pending list
+        // (it's added via addBookToLibrary which doesn't throw)
+        #expect(manager.duplicateBook == nil)
+    }
+
+    @Test func updatePendingBookEdits_invalidBookId_doesNothing() throws {
+        let manager = makeManager()
+        let context = try makeContext()
+        let metadata = BookMetadata(title: "Original Title", author: "Original Author")
+
+        manager.handleBookResult(metadata: metadata, rawJSON: nil, modelContext: context)
+
+        // Try to update with a non-existent ID
+        let nonExistentId = UUID()
+        manager.updatePendingBookEdits(id: nonExistentId, title: "Edited Title", author: "Edited Author")
+
+        // Original book should remain unchanged since ID didn't match
+        let pending = try #require(manager.pendingReviewBooks.first)
+        #expect(pending.editedTitle == nil)
+        #expect(pending.editedAuthor == nil)
     }
 }

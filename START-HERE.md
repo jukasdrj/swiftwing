@@ -57,12 +57,14 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 
 | File | Role |
 |------|------|
-| `swiftwing/RootView.swift` | Tab container (Camera / Library) |
-| `swiftwing/CameraView.swift` | Camera UI (~250 lines) |
-| `swiftwing/CameraViewModel.swift` | Camera business logic (~550 lines) |
-| `swiftwing/Services/TalariaService.swift` | Network + SSE actor (~680 lines) |
-| `swiftwing/ReviewQueueView.swift` | Book review/approve UI (~575 lines) |
-| `swiftwing/LibraryView.swift` | Library grid |
+| `swiftwing/App/RootView.swift` | Tab container (Camera / Library) |
+| `swiftwing/Features/Camera/CameraView.swift` | Camera UI (~250 lines) |
+| `swiftwing/Features/Camera/CameraViewModel.swift` | Camera business logic |
+| `swiftwing/Features/Library/LibraryView.swift` | Library grid |
+| `swiftwing/Features/Library/LibraryViewModel.swift` | Library business logic (FetchDescriptor-based filtering) |
+| `swiftwing/Features/ReviewQueue/ReviewQueueView.swift` | Book review/approve UI |
+| `swiftwing/Services/TalariaService.swift` | Network + SSE actor |
+| `swiftwing/Services/DataSyncActor.swift` | All SwiftData writes (@MainActor class) |
 | `swiftwing/Models/Book.swift` | SwiftData model |
 
 **Concurrency:** Swift 6.2 strict concurrency. Actors for all mutable shared state. No DispatchQueue with async/await.
@@ -142,4 +144,4 @@ See `CLAUDE.md` for the full Talaria integration reference.
 
 **Bundle ID:** `com.ooheynerds.swiftwing`
 **Min Deployment:** iOS 26.0
-**Last Updated:** 2026-02-19
+**Last Updated:** 2026-03-26

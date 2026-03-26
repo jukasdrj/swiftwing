@@ -174,7 +174,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      books:
+                      results:
                         type: array
                         items:
                           $ref: '#/components/schemas/BookMetadata'
@@ -302,15 +302,17 @@ components:
           example: 0.95
         enrichmentStatus:
           type: string
-          enum: [complete, partial, degraded, failed]
+          enum: [pending, success, not_found, error, circuit_open, review_needed]
           nullable: true
           description: |
             Status of AI enrichment process.
-            - complete: All fields populated successfully
-            - partial: Some fields enriched, others empty
-            - degraded: Enrichment succeeded with reduced confidence
-            - failed: Enrichment process failed entirely
-          example: "complete"
+            - pending: Enrichment queued but not started
+            - success: Enrichment completed with data
+            - not_found: Book found but enrichment data unavailable
+            - error: Enrichment failed
+            - circuit_open: Enrichment endpoint down, skipped
+            - review_needed: Book flagged for manual review
+          example: "success"
 
     SSEProgressEvent:
       type: object
@@ -392,26 +394,25 @@ components:
     SSEEnrichmentDegradedEvent:
       type: object
       required:
-        - message
-        - severity
+        - jobId
+        - isbn
+        - title
+        - reason
+        - fallbackSource
+        - timestamp
       properties:
-        message:
+        jobId:
           type: string
-          description: Human-readable description of degradation
-          example: "Cover image not available; proceeding with partial metadata"
-        severity:
+        isbn:
           type: string
-          enum: [warning, error]
-          description: |
-            warning: Enrichment partially successful, app should continue
-            error: Enrichment failed, metadata may be incomplete
-        failedFields:
-          type: array
-          items:
-            type: string
-          nullable: true
-          description: List of fields that failed to enrich (coverUrl, format, etc.)
-          example: ["coverUrl", "format"]
+        title:
+          type: string
+        reason:
+          type: string
+        fallbackSource:
+          type: string
+        timestamp:
+          type: string
 
     SSEErrorEvent:
       type: object
@@ -478,11 +479,11 @@ components:
           nullable: true
           description: Machine-readable error code
           example: "INVALID_IMAGE_FORMAT"
-        retryAfter:
+        retryAfterMs:
           type: integer
           nullable: true
-          description: Seconds to wait before retrying (for 429/503 errors)
-          example: 60
+          description: Milliseconds to wait before retrying (for 429/503 errors)
+          example: 60000
 
     ErrorResponse:
       $ref: '#/components/schemas/ProblemDetails'

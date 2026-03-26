@@ -7,6 +7,11 @@ struct ReviewCardView: View {
     let onEdit: (String?, String?) -> Void
     var onShowOverlay: (() -> Void)?
 
+    private let shadowColor = Color.black.opacity(0.15)
+    private let shadowRadius: CGFloat = 8
+    private let shadowX: CGFloat = 0
+    private let shadowY: CGFloat = 4
+
     @State private var isEditing = false
     @State private var editedTitle: String
     @State private var editedAuthor: String
@@ -113,6 +118,7 @@ struct ReviewCardView: View {
         }
         .padding(16)
         .swissGlassCard()
+        .shadow(color: shadowColor, radius: shadowRadius, x: shadowX, y: shadowY)
     }
 
     private var confidenceBadge: some View {

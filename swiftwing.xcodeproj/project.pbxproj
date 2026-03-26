@@ -24,9 +24,11 @@
 		49035047F4804AC18FE3316B /* ConfidenceBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52E4313BB7F44F7A6879536 /* ConfidenceBadge.swift */; };
 		4C8BFD6DFA4841D9A50BE0EF /* SegmentedPreviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */; };
 		4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */; };
+		DA75C3E1F2A04B8C9D6E01234 /* DataSyncActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA75C3E1F2A04B8C9D6E05678 /* DataSyncActor.swift */; };
 		4ED9283B69C74BA2B6452ADF /* VisionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */; };
 		5BBE000C15164F08B85C9DC8 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */; };
 		671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90075E8758F64E3095FAE717 /* PerformanceTestData.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* IntegrationTestLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */; };
 		6F97989D8D79A34FDE104ECA /* ProcessingQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */; };
 		701775C4C08E1E2D4E1ADD3C /* DeviceIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BA20FB7ADAAF0E0DECA8307 /* DeviceIdentifier.swift */; };
 		73KE6WVAWL51SGLD8AHCZGA1 /* FeatureFlagsDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = YUJ3QP10K9BZB6ONRHQFTP3K /* FeatureFlagsDebugView.swift */; };
@@ -138,7 +140,9 @@
 		AA40FR010000000000000CV0 /* CameraOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraOverlayView.swift; sourceTree = "<group>"; };
 		8WLTL0KJ4WWES3DZQVWGV20V /* ProcessingFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessingFeedbackView.swift; sourceTree = "<group>"; };
 		90075E8758F64E3095FAE717 /* PerformanceTestData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTestData.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTestLogger.swift; sourceTree = "<group>"; };
 		A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		DA75C3E1F2A04B8C9D6E05678 /* DataSyncActor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DataSyncActor.swift; sourceTree = "<group>"; };
 		A52E4313BB7F44F7A6879536 /* ConfidenceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceBadge.swift; sourceTree = "<group>"; };
 		A58930792F268AA000629770 /* swiftwingTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swiftwingTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A589308A2F26D83900629770 /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
@@ -374,6 +378,7 @@
 				51482BF923E8B4E6C0098A07 /* VisionTypes.swift */,
 				86C66A86208C88BD40ABC070 /* BoundingBox+CGRect.swift */,
 				A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */,
+				DA75C3E1F2A04B8C9D6E05678 /* DataSyncActor.swift */,
 				05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */,
 				A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */,
 				6CABBB6D46005235B0EE24D0 /* OfflineQueueManager.swift */,
@@ -386,6 +391,7 @@
 			isa = PBXGroup;
 			children = (
 				90075E8758F64E3095FAE717 /* PerformanceTestData.swift */,
+				B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -596,6 +602,7 @@
 				7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */,
 				C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */,
 				4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */,
+				DA75C3E1F2A04B8C9D6E01234 /* DataSyncActor.swift in Sources */,
 				ACBEEDDC92CAE5BFB17A2AFB /* OfflineQueueManager.swift in Sources */,
 				DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */,
 				A5A480382F23CF0D006CD05C /* ImageCacheManager.swift in Sources */,
@@ -611,6 +618,7 @@
 				7B2A93E4D8FF47B0A02715CD /* DuplicateDetection.swift in Sources */,
 				AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */,
 				671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* IntegrationTestLogger.swift in Sources */,
 				E45C07BB1B11437EBD3E70CF /* ReviewQueueManager.swift in Sources */,
 				DE27FC4955CE4E1BB2B3100C /* ScanJobCoordinator.swift in Sources */,
 				A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */,

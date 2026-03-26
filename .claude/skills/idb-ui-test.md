@@ -1,3 +1,9 @@
+---
+name: idb-ui-test
+description: iOS UI/UX testing with Facebook IDB — device interaction, screenshot capture, UI inspection, and accessibility validation
+allowed-tools: Bash, Read, Grep, Write
+---
+
 # idb-ui-test Skill
 
 ## Purpose

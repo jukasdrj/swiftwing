@@ -70,7 +70,7 @@ swiftwing/
 │   ├── Onboarding/       # First-run onboarding
 │   └── Settings/         # Debug feature flags
 ├── UIComponents/         # Theme, shared views (AsyncImage, ConfidenceBadge)
-├── Services/             # TalariaService, network, caching, vision (12 files)
+├── Services/             # TalariaService, network, caching, vision (13 files)
 ├── Models/               # SwiftData @Model classes (6 files)
 ├── Utilities/            # Performance test data
 ├── OpenAPI/              # Committed Talaria API spec
@@ -84,9 +84,10 @@ swiftwing/
 
 - `TalariaService` (actor) — network + SSE streams
 - `CameraManager` (actor) — AVCaptureSession
-- `ImagePreprocessor` (actor) — image processing
+- `ImagePreprocessor` (actor) — image processing; CIFilter pipeline offloaded via `Task.detached`
+- `DataSyncActor` (@MainActor class) — centralises all SwiftData writes; uses `@MainActor` rather than `actor` because `ModelContext` and `DuplicateDetection` are both `@MainActor`-bound
 
-**Rules:** Use actors only for mutable shared state. No `DispatchSemaphore`/`DispatchGroup` with async/await (deadlock risk). Use structured concurrency (`TaskGroup`, `async let`). No `Task.detached` (breaks priority inheritance).
+**Rules:** Use actors only for mutable shared state. No `DispatchSemaphore`/`DispatchGroup` with async/await (deadlock risk). Use structured concurrency (`TaskGroup`, `async let`). `Task.detached` is permitted only for CPU-bound work that must run off the actor (e.g. image processing pipelines); avoid it for general async coordination.
 
 ### SwiftData
 
@@ -250,4 +251,39 @@ See `docs/testing/TESTING-CHECKLIST.md` for regression checklist.
 
 ---
 
-**Last Updated:** February 20, 2026
+## Zep Memory (Knowledge Graph)
+
+SwiftWing has a Zep knowledge graph seeded with project architecture, conventions, Talaria API details, and development history.
+
+**User:** `swiftwing` | **Thread:** `swiftwing-dev-main`
+
+**When to use Zep:**
+- **Session start:** Cache is warmed automatically via hook (`.claude/hooks/zep-session-start.sh`)
+- **Need project context:** Use `zep_search(user_id="swiftwing", query="...")` to find specific facts
+- **After significant decisions:** Use `zep_add_fact(user_id="swiftwing", fact="...")` to record architectural decisions, bug discoveries, or convention changes that aren't in code
+- **Conversation history:** Use `zep_add_messages(thread_id="swiftwing-dev-main", ...)` to record significant exchanges for graph enrichment
+
+**Tool selection:**
+| Need | Tool |
+|------|------|
+| Specific question about project | `zep_search` with `scope="edges"` |
+| Entity lookup (service, person, concept) | `zep_search` with `scope="nodes"` |
+| Record new fact/decision | `zep_add_fact` |
+| Explore graph entities | `zep_get_nodes` |
+| Explore graph relationships | `zep_get_edges` |
+
+**What to store in Zep (not in code/git):**
+- Architectural decisions and their rationale
+- Bug patterns and root causes discovered during debugging
+- Talaria API behavioral quirks found empirically
+- Performance regression findings
+- Convention changes agreed with the user
+
+**What NOT to store (use git/code instead):**
+- File paths, function names, current code state
+- Build commands, test commands
+- Anything already in CLAUDE.md or .claude/rules/
+
+---
+
+**Last Updated:** March 26, 2026

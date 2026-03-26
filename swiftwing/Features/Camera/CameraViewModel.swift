@@ -9,26 +9,6 @@ private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: 
 import UIKit
 #endif
 
-#if DEBUG
-/// File-based debug logger for integration test diagnosis
-private func integrationLog(_ msg: String) {
-    guard ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") else { return }
-    let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
-    let timestamp = ISO8601DateFormatter().string(from: Date())
-    let line = "[\(timestamp)] \(msg)\n"
-    guard let data = line.data(using: .utf8) else { return }
-    if FileManager.default.fileExists(atPath: logFile.path) {
-        if let handle = try? FileHandle(forWritingTo: logFile) {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            handle.closeFile()
-        }
-    } else {
-        try? data.write(to: logFile)
-    }
-}
-#endif
-
 /// ViewModel for CameraView with @Observable for reactive state management
 /// Extracted from CameraView.swift (Phase 2A refactoring)
 /// Manages all camera state, processing queue, and business logic
@@ -824,20 +804,40 @@ final class CameraViewModel {
                 return
             }
 
-            for (metadata, imageData) in queuedScans {
-                let itemId = UUID()
-                let task = Task {
-                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: metadata.preScannedISBN)
+            await withTaskGroup(of: Result<Void, Error>.self) { group in
+                for (metadata, imageData) in queuedScans {
+                    let itemId = UUID()
+                    let task = Task {
+                        await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: metadata.preScannedISBN)
+                    }
+                    await scanCoordinator.trackJob(id: itemId, task: task)
+
+                    group.addTask {
+                        await task.value
+                        do {
+                            try await self.offlineQueueManager.removeQueuedScan(scanId: metadata.id)
+                            return .success(())
+                        } catch {
+                            return .failure(error)
+                        }
+                    }
                 }
-                await scanCoordinator.trackJob(id: itemId, task: task)
 
-                await task.value
-
-                try? await offlineQueueManager.removeQueuedScan(scanId: metadata.id)
-
-                let count = try await offlineQueueManager.getQueuedScanCount()
-                offlineQueuedCount = count
+                // Collect partial failures — individual upload errors don't abort the group
+                var failureCount = 0
+                for await result in group {
+                    if case .failure(let error) = result {
+                        failureCount += 1
+                        e2eLogger.warning("Offline upload removal failed: \(error.localizedDescription)")
+                    }
+                }
+                if failureCount > 0 {
+                    e2eLogger.warning("Some offline scan removals failed: \(failureCount) error(s)")
+                }
             }
+
+            let finalCount = try await offlineQueueManager.getQueuedScanCount()
+            offlineQueuedCount = finalCount
 
             e2eLogger.info("All queued scans uploaded")
         } catch {
@@ -881,6 +881,15 @@ final class CameraViewModel {
 
                 // Process all books
                 for book in books {
+                    // Skip if already in library (e.g., auto-approved during original scan)
+                    let isbn = book.isbn ?? ""
+                    if !isbn.isEmpty && !isbn.hasPrefix("UNKNOWN-") {
+                        if let _ = try? DuplicateDetection.findDuplicate(isbn: isbn, in: ctx) {
+                            e2eLogger.info("Retry dedup: skipping '\(book.resolvedTitle)' — already in library")
+                            continue
+                        }
+                    }
+
                     let rawJSON: String?
                     if let jsonData = try? JSONEncoder().encode(book),
                        let jsonString = String(data: jsonData, encoding: .utf8) {

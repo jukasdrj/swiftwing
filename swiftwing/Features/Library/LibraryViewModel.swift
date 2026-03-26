@@ -80,6 +80,15 @@ final class LibraryViewModel {
     // MARK: - Refresh State
     var isRefreshing: Bool = false
 
+    // MARK: - Loading Task Lifecycle
+    @ObservationIgnored
+    private var loadingTask: Task<Void, Never>?
+
+    func cancelLoading() {
+        loadingTask?.cancel()
+        loadingTask = nil
+    }
+
     // MARK: - Performance (US-321)
     var prefetchCoordinator = LibraryPrefetchCoordinator()
     var renderStartTime: CFAbsoluteTime?
@@ -120,21 +129,40 @@ final class LibraryViewModel {
 
     // MARK: - Filter / Stats Updates
 
-    func updateFilteredBooks(from books: [Book]) {
-        var result = sortedBooks(from: books)
+    func updateFilteredBooks(context: ModelContext) {
+        do {
+            cachedFilteredBooks = try fetchFilteredBooks(context: context)
+        } catch {
+            logger.error("FetchDescriptor filter failed: \(error.localizedDescription, privacy: .public)")
+            cachedFilteredBooks = []
+        }
+    }
 
-        if !searchText.isEmpty {
-            result = result.filter { book in
-                book.title.localizedStandardContains(searchText) ||
-                book.author.localizedStandardContains(searchText)
+    private func fetchFilteredBooks(context: ModelContext) throws -> [Book] {
+        let searchQuery = searchText
+        let reviewOnly = showReviewNeeded
+
+        var descriptor = FetchDescriptor<Book>()
+
+        if !searchQuery.isEmpty && reviewOnly {
+            descriptor.predicate = #Predicate<Book> { book in
+                (book.title.localizedStandardContains(searchQuery) ||
+                 book.author.localizedStandardContains(searchQuery)) &&
+                (book.spineConfidence ?? 1.0) < 0.8
+            }
+        } else if !searchQuery.isEmpty {
+            descriptor.predicate = #Predicate<Book> { book in
+                book.title.localizedStandardContains(searchQuery) ||
+                book.author.localizedStandardContains(searchQuery)
+            }
+        } else if reviewOnly {
+            descriptor.predicate = #Predicate<Book> { book in
+                (book.spineConfidence ?? 1.0) < 0.8
             }
         }
 
-        if showReviewNeeded {
-            result = result.filter { ($0.spineConfidence ?? 1.0) < 0.8 }
-        }
-
-        cachedFilteredBooks = result
+        descriptor.sortBy = sortOption.sortDescriptors
+        return try context.fetch(descriptor)
     }
 
     func updateLibraryStats(from books: [Book]) {
@@ -189,11 +217,6 @@ final class LibraryViewModel {
     func deleteBook(_ book: Book, context: ModelContext) {
         withAnimation(.spring(duration: 0.2)) {
             context.delete(book)
-            do {
-                try context.save()
-            } catch {
-                logger.error("Failed to save after delete: \(error.localizedDescription, privacy: .public)")
-            }
         }
         bookToDelete = nil
     }
@@ -204,11 +227,6 @@ final class LibraryViewModel {
                 if let book = books.first(where: { $0.id == bookID }) {
                     context.delete(book)
                 }
-            }
-            do {
-                try context.save()
-            } catch {
-                logger.error("Failed to save after bulk delete: \(error.localizedDescription, privacy: .public)")
             }
             exitSelectionMode()
         }
@@ -265,11 +283,6 @@ final class LibraryViewModel {
         )
         withAnimation(.swissSpring) {
             context.insert(sampleBook)
-            do {
-                try context.save()
-            } catch {
-                logger.error("Failed to save sample book: \(error.localizedDescription, privacy: .public)")
-            }
         }
     }
 
@@ -325,11 +338,6 @@ final class LibraryViewModel {
                     isbn: testISBN
                 )
                 context.insert(testBook)
-                do {
-                    try context.save()
-                } catch {
-                    logger.error("Failed to save test book: \(error.localizedDescription, privacy: .public)")
-                }
                 logger.info("US-311 Test 1: Test book added with ISBN: \(testISBN, privacy: .public)")
             }
 

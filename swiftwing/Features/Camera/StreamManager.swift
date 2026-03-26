@@ -104,6 +104,10 @@ actor StreamManager {
     /// - Parameter scanId: Unique identifier for the completed scan
     func releaseStreamSlot(scanId: UUID) {
         // Decrement active stream count
+        guard activeStreams > 0 else {
+            logger.warning("StreamManager: releaseStreamSlot called with no active streams (scanId: \(scanId.uuidString.prefix(8)))")
+            return
+        }
         activeStreams -= 1
 
         // Calculate and log performance metrics

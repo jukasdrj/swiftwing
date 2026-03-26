@@ -42,6 +42,7 @@ actor ImagePreprocessor {
     }
 
     /// Full preprocessing pipeline
+    /// CPU-bound CIFilter work runs in a detached task to avoid blocking the actor executor.
     func preprocess(_ imageData: Data) async -> PreprocessingResult {
         let startTime = CFAbsoluteTimeGetCurrent()
 
@@ -55,22 +56,29 @@ actor ImagePreprocessor {
             )
         }
 
-        var ciImage = CIImage(cgImage: cgImage)
+        // Capture context before entering the detached task (CIContext is thread-safe)
+        let context = ciContext
 
-        // Step 1: Rotation detection and correction
-        let wasRotated = detectAndCorrectRotation(&ciImage)
+        let (outputData, wasRotated, brightnessAdj) = await Task.detached(priority: .userInitiated) {
+            var ciImage = CIImage(cgImage: cgImage)
 
-        // Step 2: Contrast enhancement (1.5x)
-        applyContrastEnhancement(&ciImage, factor: 1.5)
+            // Step 1: Rotation detection and correction
+            let wasRotated = ImagePreprocessor.detectAndCorrectRotation(&ciImage)
 
-        // Step 3: Adaptive brightness adjustment
-        let brightnessAdj = applyAdaptiveBrightness(&ciImage)
+            // Step 2: Contrast enhancement (1.5x)
+            ImagePreprocessor.applyContrastEnhancement(&ciImage, factor: 1.5)
 
-        // Step 4: Noise reduction
-        applyNoiseReduction(&ciImage)
+            // Step 3: Adaptive brightness adjustment
+            let brightnessAdj = ImagePreprocessor.applyAdaptiveBrightness(&ciImage, context: context)
 
-        // Render to Data (JPEG, 0.85 quality)
-        let outputData = renderToJPEG(ciImage, quality: 0.85) ?? imageData
+            // Step 4: Noise reduction
+            ImagePreprocessor.applyNoiseReduction(&ciImage)
+
+            // Render to Data (JPEG, 0.85 quality)
+            let outputData = ImagePreprocessor.renderToJPEG(ciImage, context: context, quality: 0.85) ?? imageData
+
+            return (outputData, wasRotated, brightnessAdj)
+        }.value
 
         let duration = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
 
@@ -82,11 +90,11 @@ actor ImagePreprocessor {
         )
     }
 
-    // MARK: - Private Filter Methods
+    // MARK: - Private Filter Methods (nonisolated static — safe to call from detached tasks)
 
     /// Detect vertical bookshelf orientation and rotate 90° CCW if needed
     /// Returns true if rotation was applied
-    private func detectAndCorrectRotation(_ image: inout CIImage) -> Bool {
+    private static func detectAndCorrectRotation(_ image: inout CIImage) -> Bool {
         let aspectRatio = image.extent.height / image.extent.width
 
         // Tall narrow image (aspect > 2.0) indicates vertical bookshelf
@@ -106,7 +114,7 @@ actor ImagePreprocessor {
     }
 
     /// Apply contrast enhancement using CIColorControls filter
-    private func applyContrastEnhancement(_ image: inout CIImage, factor: Float) {
+    private static func applyContrastEnhancement(_ image: inout CIImage, factor: Float) {
         guard let filter = CIFilter(name: "CIColorControls") else {
             logger.error("CIColorControls filter unavailable")
             return
@@ -125,9 +133,9 @@ actor ImagePreprocessor {
 
     /// Apply adaptive brightness adjustment based on image luminance
     /// Returns the brightness adjustment value applied
-    private func applyAdaptiveBrightness(_ image: inout CIImage) -> Float {
+    private static func applyAdaptiveBrightness(_ image: inout CIImage, context: CIContext) -> Float {
         // Calculate average luminance by downscaling to 64x64
-        let avgLuminance = calculateAverageLuminance(image)
+        let avgLuminance = calculateAverageLuminance(image, context: context)
 
         // Determine brightness adjustment (target: mid-gray ~128)
         var brightnessAdjustment: Float = 0.0
@@ -164,7 +172,7 @@ actor ImagePreprocessor {
     }
 
     /// Calculate average luminance by sampling a downscaled version
-    private func calculateAverageLuminance(_ image: CIImage) -> Float {
+    private static func calculateAverageLuminance(_ image: CIImage, context: CIContext) -> Float {
         // Downscale to 64x64 for performance
         let extent = image.extent
         let scaleX = 64.0 / extent.width
@@ -190,12 +198,12 @@ actor ImagePreprocessor {
 
         // Render single pixel to bitmap
         var bitmap = [UInt8](repeating: 0, count: 4)
-        ciContext.render(outputImage,
-                        toBitmap: &bitmap,
-                        rowBytes: 4,
-                        bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-                        format: .RGBA8,
-                        colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
+        context.render(outputImage,
+                       toBitmap: &bitmap,
+                       rowBytes: 4,
+                       bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                       format: .RGBA8,
+                       colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
 
         // Calculate luminance: 0.299*R + 0.587*G + 0.114*B
         let r = Float(bitmap[0])
@@ -207,7 +215,7 @@ actor ImagePreprocessor {
     }
 
     /// Apply light noise reduction while preserving text detail
-    private func applyNoiseReduction(_ image: inout CIImage) {
+    private static func applyNoiseReduction(_ image: inout CIImage) {
         guard let filter = CIFilter(name: "CINoiseReduction") else {
             logger.error("CINoiseReduction filter unavailable")
             return
@@ -323,10 +331,10 @@ actor ImagePreprocessor {
     }
 
     /// Render CIImage to JPEG Data with specified quality
-    private func renderToJPEG(_ image: CIImage, quality: CGFloat) -> Data? {
+    private static func renderToJPEG(_ image: CIImage, context: CIContext, quality: CGFloat) -> Data? {
         // Primary method: Use CIContext JPEG representation
         let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
-        if let jpegData = ciContext.jpegRepresentation(
+        if let jpegData = context.jpegRepresentation(
             of: image,
             colorSpace: colorSpace,
             options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality]
@@ -335,7 +343,7 @@ actor ImagePreprocessor {
         }
 
         // Fallback: Render to CGImage then UIImage JPEG
-        guard let cgImage = ciContext.createCGImage(image, from: image.extent) else {
+        guard let cgImage = context.createCGImage(image, from: image.extent) else {
             logger.error("Failed to create CGImage from CIImage")
             return nil
         }
