@@ -15,19 +15,17 @@
 - When targeting iOS 26 and later, SwiftUI has a native `WebView` view type that replaces almost all uses of hand-wrapped `WKWebView` inside `UIViewRepresentable`. To use it, make sure to include `import WebKit`.
 - `ForEach` over an `enumerated()` sequence should not convert to an array first. Use `ForEach(items.enumerated(), id: \.element.id)` directly.
 - When hiding scroll indicators, use `.scrollIndicators(.hidden)` rather than `showsIndicators: false` in the initializer.
-- Never use `Text` concatenation with `+`.
+- Prefer string interpolation over `+` concatenation for `Text` views when localization matters. The `+` operator is still fully supported and valid for combining styled `Text` views, but string interpolation (`Text("\(styledPart1)\(styledPart2)")`) is generally preferred for localizability.
 
-For example, the usage of `+` here is bad and deprecated:
+For example, both of these are valid:
 
 ```swift
+// Valid: + concatenation for styled Text
 Text("Hello").foregroundStyle(.red)
 +
 Text("World").foregroundStyle(.blue)
-```
 
-Instead, use text interpolation like this:
-
-```swift
+// Preferred: interpolation (more localization-friendly)
 let red = Text("Hello").foregroundStyle(.red)
 let blue = Text("World").foregroundStyle(.blue)
 Text("\(red)\(blue)")
