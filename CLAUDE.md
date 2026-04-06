@@ -49,8 +49,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 | `Features/Camera/CameraViewModel.swift` | Camera business logic |
 | `Features/Camera/CameraOverlayView.swift` | Camera overlay composition |
 | `Features/Camera/CameraHapticsManager.swift` | Haptic feedback coordinator |
-| `Features/Camera/CameraVisionCoordinator.swift` | Vision state management |
-| `Features/Library/LibraryView.swift` | Library shell (~280 lines) |
+| `Features/Library/LibraryView.swift` |
 | `Features/Library/LibraryViewModel.swift` | Library business logic |
 | `Features/Library/LibraryGridView.swift` | Library grid display |
 | `Features/ReviewQueue/ReviewQueueView.swift` | Review queue container (~220 lines) |
@@ -64,13 +63,13 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 swiftwing/
 ├── App/                  # SwiftwingApp.swift, RootView, LaunchScreen
 ├── Features/
-│   ├── Camera/           # Camera capture, preview, overlays, vision (20 files)
+│   ├── Camera/           # Camera capture, preview, overlays (14 files)
 │   ├── Library/          # Book library grid, search, filtering (8 files)
 │   ├── ReviewQueue/      # Book review/approve workflow (5 files)
 │   ├── Onboarding/       # First-run onboarding
 │   └── Settings/         # Debug feature flags
 ├── UIComponents/         # Theme, shared views (AsyncImage, ConfidenceBadge)
-├── Services/             # TalariaService, network, caching, vision (13 files)
+├── Services/             # TalariaService, network, caching (11 files)
 ├── Models/               # SwiftData @Model classes (6 files)
 ├── Utilities/            # Performance test data
 ├── OpenAPI/              # Committed Talaria API spec

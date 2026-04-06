@@ -12,33 +12,9 @@ struct CameraOverlayView: View {
 
     var body: some View {
         ZStack {
-            visionOverlays
             feedbackOverlays
             bannerOverlays
             statusOverlays
-        }
-    }
-
-    // MARK: - Vision Framework Overlays
-
-    @ViewBuilder
-    private var visionOverlays: some View {
-        if viewModel.isVisionEnabled {
-            VisionOverlayView(
-                textRegions: viewModel.detectedText,
-                convertRect: viewModel.cameraManager.convertVisionRect
-            )
-            .allowsHitTesting(false)
-
-            ObjectBoundingBoxView(
-                detectedObjects: viewModel.detectedObjects,
-                imageSize: viewModel.cameraManager.resolution,
-                convertRect: viewModel.cameraManager.convertVisionRect
-            )
-            .allowsHitTesting(false)
-
-            CaptureGuidanceView(guidance: viewModel.captureGuidance)
-                .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 
