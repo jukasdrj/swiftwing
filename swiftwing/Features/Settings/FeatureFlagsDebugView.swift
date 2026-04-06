@@ -3,18 +3,10 @@ import SwiftUI
 /// Debug view for toggling feature flags
 /// DEVELOPMENT ONLY - not included in production builds
 struct FeatureFlagsDebugView: View {
-    @AppStorage("isVisionEnabled") private var showVisionOverlays = true
     @State private var autoApproveSettings = AutoApproveSettings()
 
     var body: some View {
         List {
-            Section("Camera Overlays") {
-                Toggle("Vision Overlay (Rectangle Detection)", isOn: $showVisionOverlays)
-                Text("Show green bounding boxes for detected rectangles")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Section("Auto-Approve") {
                 Toggle("Auto-approve high confidence books", isOn: Binding(
                     get: { autoApproveSettings.isEnabled },
@@ -48,7 +40,6 @@ struct FeatureFlagsDebugView: View {
 
             Section {
                 Button("Reset All Flags") {
-                    showVisionOverlays = true
                     autoApproveSettings.isEnabled = true
                     autoApproveSettings.confidenceThreshold = 0.90
                     autoApproveSettings.showAutoApproveToast = true

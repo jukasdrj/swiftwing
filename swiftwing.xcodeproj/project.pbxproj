@@ -13,7 +13,6 @@
 		297CACB39DDD705A8166A4A6 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */; };
 		2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B42B677D75020B244722F76 /* CameraPreviewView.swift */; };
 		2F881DDD1F304669B5B0F6A8 /* PendingBookResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592CF225879D432E9A26F387 /* PendingBookResult.swift */; };
-		32F4A5B6C7D8E9F0A1B2C3D4 /* CaptureGuidanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */; };
 		34846D91B93457BE0416BE8F /* SSEEventParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED950344DCECA589A004461 /* SSEEventParser.swift */; };
 		369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5FA190CF9E5B8B778E942 /* CameraView.swift */; };
 		AA40BF010000000000000CV0 /* CameraOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA40FR010000000000000CV0 /* CameraOverlayView.swift */; };
@@ -25,7 +24,6 @@
 		4C8BFD6DFA4841D9A50BE0EF /* SegmentedPreviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */; };
 		4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */; };
 		DA75C3E1F2A04B8C9D6E01234 /* DataSyncActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA75C3E1F2A04B8C9D6E05678 /* DataSyncActor.swift */; };
-		4ED9283B69C74BA2B6452ADF /* VisionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */; };
 		5BBE000C15164F08B85C9DC8 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */; };
 		671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90075E8758F64E3095FAE717 /* PerformanceTestData.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* IntegrationTestLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */; };
@@ -50,8 +48,6 @@
 		7F00002A0000000000000001 /* OpenAPIURLSession in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000250000000000000001 /* OpenAPIURLSession */; };
 		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
 		9210946CD99CD733FA6B4412 /* BoundingBoxOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D0145EB45628F7B43F5D6F2 /* BoundingBoxOverlay.swift */; };
-		92F6E063027BB1606D340CF6 /* VisionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCC3A90A3E43A15C862A285 /* VisionOverlayView.swift */; };
-		95FB8FCAEBE2CD1FC9961AE8 /* ObjectBoundingBoxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329BC1FAC62E46C122D2E635 /* ObjectBoundingBoxView.swift */; };
 		9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */; };
 		A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */; };
 		A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A589308A2F26D83900629770 /* CameraViewModel.swift */; };
@@ -67,7 +63,6 @@
 		C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */; };
 		C4D5F032A82E62917C7B51A5 /* NetworkTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */; };
 		C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */; };
-		DABC14EAB6449A528531BAEE /* VisionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51482BF923E8B4E6C0098A07 /* VisionTypes.swift */; };
 		DD2F515C3B491533FA6F45D5 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733AF8F390562E0E6977AD18 /* CameraManager.swift */; };
 		DE27FC4955CE4E1BB2B3100C /* ScanJobCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49C8108C2BC84A87B0BEBBC8 /* ScanJobCoordinator.swift */; };
 		DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */; };
@@ -75,7 +70,6 @@
 		F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBAB4A6B0846BA3231888A50 /* TalariaService.swift */; };
 		NGSJ4CCSZTID46QJZTIZ1FGL /* ProcessingFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8WLTL0KJ4WWES3DZQVWGV20V /* ProcessingFeedbackView.swift */; };
 		AA20BF0100000000000000001 /* CameraHapticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20FR0100000000000000001 /* CameraHapticsManager.swift */; };
-		AA20BF0200000000000000002 /* CameraVisionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20FR0200000000000000002 /* CameraVisionCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,15 +96,11 @@
 		2B42B677D75020B244722F76 /* CameraPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		2BA20FB7ADAAF0E0DECA8307 /* DeviceIdentifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceIdentifier.swift; sourceTree = "<group>"; };
 		2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
-		329BC1FAC62E46C122D2E635 /* ObjectBoundingBoxView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ObjectBoundingBoxView.swift; sourceTree = "<group>"; };
 		348655348F0B4268945B43D2 /* BookDetailSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDetailSheetView.swift; sourceTree = "<group>"; };
-		3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureGuidanceView.swift; sourceTree = "<group>"; };
 		4213E4CF87C7BB46283EB591 /* ReviewQueueView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewQueueView.swift; sourceTree = "<group>"; };
 		AA30FR0100000000000000001 /* ReviewCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewCardView.swift; sourceTree = "<group>"; };
 		AA30FR0100000000000000002 /* ReviewEditForm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewEditForm.swift; sourceTree = "<group>"; };
 		49C8108C2BC84A87B0BEBBC8 /* ScanJobCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScanJobCoordinator.swift; sourceTree = "<group>"; };
-		4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VisionService.swift; sourceTree = "<group>"; };
-		51482BF923E8B4E6C0098A07 /* VisionTypes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VisionTypes.swift; sourceTree = "<group>"; };
 		518C6845C092FC50A655B339 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProcessingQueueView.swift; sourceTree = "<group>"; };
 		592CF225879D432E9A26F387 /* PendingBookResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingBookResult.swift; sourceTree = "<group>"; };
@@ -151,7 +141,6 @@
 		A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCacheManager.swift; sourceTree = "<group>"; };
 		A77334C1AFF23F057B4627DC /* StreamManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StreamManager.swift; sourceTree = "<group>"; };
 		A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProcessingItem.swift; sourceTree = "<group>"; };
-		ACCC3A90A3E43A15C862A285 /* VisionOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VisionOverlayView.swift; sourceTree = "<group>"; };
 		BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreprocessor.swift; sourceTree = "<group>"; };
 		BBAB4A6B0846BA3231888A50 /* TalariaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalariaService.swift; sourceTree = "<group>"; };
 		BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedPreviewOverlay.swift; sourceTree = "<group>"; };
@@ -166,7 +155,6 @@
 		UI00000200000000000000001 /* swiftwingUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swiftwingUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		YUJ3QP10K9BZB6ONRHQFTP3K /* FeatureFlagsDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagsDebugView.swift; sourceTree = "<group>"; };
 		AA20FR0100000000000000001 /* CameraHapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraHapticsManager.swift; sourceTree = "<group>"; };
-		AA20FR0200000000000000002 /* CameraVisionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraVisionCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -279,16 +267,12 @@
 				AA40FR010000000000000CV0 /* CameraOverlayView.swift */,
 				A589308A2F26D83900629770 /* CameraViewModel.swift */,
 				AA20FR0100000000000000001 /* CameraHapticsManager.swift */,
-				AA20FR0200000000000000002 /* CameraVisionCoordinator.swift */,
 				733AF8F390562E0E6977AD18 /* CameraManager.swift */,
 				2B42B677D75020B244722F76 /* CameraPreviewView.swift */,
 				7F0000210000000000000001 /* CameraPermissionPrimerView.swift */,
 				49C8108C2BC84A87B0BEBBC8 /* ScanJobCoordinator.swift */,
 				A77334C1AFF23F057B4627DC /* StreamManager.swift */,
-				ACCC3A90A3E43A15C862A285 /* VisionOverlayView.swift */,
-				329BC1FAC62E46C122D2E635 /* ObjectBoundingBoxView.swift */,
 				6D0145EB45628F7B43F5D6F2 /* BoundingBoxOverlay.swift */,
-				3A1B2C4D5E6F7A8B9C0D1E2F /* CaptureGuidanceView.swift */,
 				55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */,
 				8WLTL0KJ4WWES3DZQVWGV20V /* ProcessingFeedbackView.swift */,
 				BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */,
@@ -374,8 +358,6 @@
 				C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */,
 				BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */,
 				FED950344DCECA589A004461 /* SSEEventParser.swift */,
-				4B96FA1D2851B9E6A44B4A51 /* VisionService.swift */,
-				51482BF923E8B4E6C0098A07 /* VisionTypes.swift */,
 				86C66A86208C88BD40ABC070 /* BoundingBox+CGRect.swift */,
 				A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */,
 				DA75C3E1F2A04B8C9D6E05678 /* DataSyncActor.swift */,
@@ -609,7 +591,6 @@
 				2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */,
 				369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */,
 				AA40BF010000000000000CV0 /* CameraOverlayView.swift in Sources */,
-				32F4A5B6C7D8E9F0A1B2C3D4 /* CaptureGuidanceView.swift in Sources */,
 				BBFC697E2E23D044AC8EF131 /* ProcessingItem.swift in Sources */,
 				6F97989D8D79A34FDE104ECA /* ProcessingQueueView.swift in Sources */,
 				4C8BFD6DFA4841D9A50BE0EF /* SegmentedPreviewOverlay.swift in Sources */,
@@ -624,7 +605,6 @@
 				A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */,
 				A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */,
 				AA20BF0100000000000000001 /* CameraHapticsManager.swift in Sources */,
-				AA20BF0200000000000000002 /* CameraVisionCoordinator.swift in Sources */,
 				DF526BC6E5DA4567A1DFEF80 /* PerformanceLogger.swift in Sources */,
 				F6160EAA1D7539CA137F91D9 /* TalariaService.swift in Sources */,
 				B5FC60E62832460294054400 /* ImagePreprocessor.swift in Sources */,
@@ -634,13 +614,9 @@
 				073C5F55E358DC2A27012703 /* StreamManager.swift in Sources */,
 				420A170E7A7CA72194C885D9 /* LaunchScreenView.swift in Sources */,
 				B2484F92C9D489D1C6BC5394 /* OnboardingView.swift in Sources */,
-				92F6E063027BB1606D340CF6 /* VisionOverlayView.swift in Sources */,
-				DABC14EAB6449A528531BAEE /* VisionTypes.swift in Sources */,
-				4ED9283B69C74BA2B6452ADF /* VisionService.swift in Sources */,
 				47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */,
 				AA30BF0100000000000000001 /* ReviewCardView.swift in Sources */,
 				AA30BF0100000000000000002 /* ReviewEditForm.swift in Sources */,
-				95FB8FCAEBE2CD1FC9961AE8 /* ObjectBoundingBoxView.swift in Sources */,
 				34846D91B93457BE0416BE8F /* SSEEventParser.swift in Sources */,
 				701775C4C08E1E2D4E1ADD3C /* DeviceIdentifier.swift in Sources */,
 				NGSJ4CCSZTID46QJZTIZ1FGL /* ProcessingFeedbackView.swift in Sources */,

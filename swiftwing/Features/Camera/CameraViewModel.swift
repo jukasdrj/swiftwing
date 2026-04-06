@@ -58,15 +58,6 @@ final class CameraViewModel {
     // MARK: - US-410: Stream Concurrency Manager
     let streamManager: StreamManager = StreamManager()
 
-    // MARK: - Vision Framework State (delegated to CameraVisionCoordinator)
-    let visionCoordinator = CameraVisionCoordinator()
-
-    var isVisionEnabled: Bool { visionCoordinator.isVisionEnabled }
-    var detectedText: [TextRegion] { visionCoordinator.detectedText }
-    var detectedISBN: String? { visionCoordinator.detectedISBN }
-    var captureGuidance: CaptureGuidance { visionCoordinator.captureGuidance }
-    var detectedObjects: [DetectedObject] { visionCoordinator.detectedObjects }
-
     // MARK: - Camera Interruption State
     var isInterrupted: Bool {
         cameraManager.isInterrupted
@@ -115,22 +106,6 @@ final class CameraViewModel {
             // Prepare haptic generators for faster response
             haptics.prepare()
 
-            // Wire Vision processing callback
-            cameraManager.onVisionResult = { [weak self] result in
-                Task { @MainActor in
-                    guard let self else { return }
-
-                    let spineDetected = self.visionCoordinator.handle(result: result)
-                    if spineDetected {
-                        self.haptics.spineDetected()
-                    }
-
-                    // TODO 6.1: Adaptive throttling based on activity
-                    // Adjust VisionService processing rate based on guidance
-                    self.cameraManager.setProcessingRate(active: self.visionCoordinator.isActivelyScanning)
-                }
-            }
-
             // Start session on background thread (non-blocking)
             cameraManager.startSession()
 
@@ -157,11 +132,6 @@ final class CameraViewModel {
 
     func stopCamera() {
         cameraManager.stopSession()
-    }
-
-    func toggleVision() {
-        visionCoordinator.setVisionEnabled(!isVisionEnabled)
-        // Note: Vision is now always enabled in iOS 26, this is just for UI state
     }
 
     /// Configure rotation coordinator after preview layer is available
@@ -234,8 +204,8 @@ final class CameraViewModel {
         var tempFileURL: URL?
         var jobId: String?
         var authToken: String?
-        // Snapshot the Vision-detected ISBN at capture time (caller may pass explicit value, or we read current)
-        let capturedISBN = preScannedISBN ?? detectedISBN
+        // Use caller-supplied pre-scanned ISBN if provided (e.g. from offline queue retry)
+        let capturedISBN = preScannedISBN
 
         // Cleanup task tracker when done
         defer {

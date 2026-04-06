@@ -1,8 +1,6 @@
 import AVFoundation
 import OSLog
 import QuartzCore
-// Import Vision framework types and service
-import Vision
 
 #if canImport(UIKit)
     import UIKit
@@ -35,23 +33,8 @@ final class CameraManager {
     var isInterrupted = false
     private var notificationTasks: [Task<Void, Never>] = []
 
-    // Vision processing (Modernized)
-    let frameProcessor = FrameProcessor()
-    private let visionService = VisionService()
-    var onVisionResult: ((VisionResult) -> Void)?
-
-    // Task to consume video frames
-    private var visionTask: Task<Void, Never>?
-
     /// Session preset
     var sessionPreset: AVCaptureSession.Preset = .high
-
-    /// Update Vision processing rate
-    func setProcessingRate(active: Bool) {
-        Task {
-            await visionService.setProcessingRate(active: active)
-        }
-    }
 
     /// Configures AVCaptureSession
     func setupSession() throws {
@@ -105,27 +88,6 @@ final class CameraManager {
             throw CameraError.cannotAddOutput
         }
 
-        // Configure Video Output with AsyncStream Bridge
-        let videoOutput = AVCaptureVideoDataOutput()
-        videoOutput.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String:
-                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-        ]
-        videoOutput.alwaysDiscardsLateVideoFrames = true
-
-        // Use FrameProcessor as delegate
-        // Note: AVFoundation still requires a serial queue for the delegate callback
-        let videoQueue = DispatchQueue(label: "com.swiftwing.videoprocessing", qos: .userInitiated)
-        videoOutput.setSampleBufferDelegate(frameProcessor, queue: videoQueue)
-
-        if session.canAddOutput(videoOutput) {
-            session.addOutput(videoOutput)
-            self.videoOutput = videoOutput
-        }
-
-        // Start consuming frames
-        startVisionTask()
-
         session.commitConfiguration()
         self.captureSession = session
         self.isConfigured = true
@@ -140,38 +102,6 @@ final class CameraManager {
         logger.info("Camera session configured in \(String(format: "%.3f", duration), privacy: .public)s")
     }
 
-    /// Consumes the AsyncStream of frames from FrameProcessor.
-    /// Vision processing runs on the VisionService actor (off MainActor) to avoid
-    /// blocking the UI. CVPixelBuffer is retained before dispatch since AVFoundation
-    /// recycles buffers and the original may be overwritten by the next frame.
-    private func startVisionTask() {
-        visionTask?.cancel()
-
-        visionTask = Task { [weak self] in
-            guard let self = self else { return }
-
-            for await frame in self.frameProcessor.frameStream {
-                if Task.isCancelled { break }
-
-                // Hold a strong reference to the pixel buffer so ARC keeps it alive
-                // while the VisionService actor processes it. AVFoundation may recycle
-                // the underlying buffer on the next frame callback, but our strong
-                // reference prevents deallocation until processing completes.
-                let retainedBuffer = frame.pixelBuffer
-                let orientation = frame.orientation
-
-                // Process on VisionService actor (off MainActor)
-                let result = await self.visionService.processFrame(
-                    retainedBuffer, orientation: orientation)
-
-                // retainedBuffer released by ARC when it goes out of scope
-
-                // Hop back to MainActor for UI update (already on MainActor via self)
-                self.onVisionResult?(result)
-            }
-        }
-    }
-
     func startSession() {
         guard let session = captureSession else { return }
         nonisolated(unsafe) let unsafeSession = session
@@ -184,7 +114,6 @@ final class CameraManager {
 
     func stopSession() {
         guard let session = captureSession else { return }
-        visionTask?.cancel()  // Stop processing frames
 
         rotationObservers.removeAll()
         rotationCoordinator = nil
@@ -249,41 +178,6 @@ final class CameraManager {
             }
         }
         rotationObservers.append(captureObserver)
-    }
-
-    /// Convert Vision normalized rect to preview layer view coordinates.
-    /// Uses AVCaptureVideoPreviewLayer's native conversion which handles
-    /// aspect-fill, rotation, and coordinate system differences automatically.
-    ///
-    /// - Parameter visionRect: Normalized CGRect from Vision (0-1, bottom-left origin)
-    /// - Returns: CGRect in preview layer view coordinates, or nil if previewLayer unavailable
-    func convertVisionRect(_ visionRect: CGRect) -> CGRect? {
-        guard let previewLayer else { return nil }
-
-        // Vision uses bottom-left origin, AVFoundation uses top-left
-        // Flip Y: convert from bottom-left to top-left normalized space
-        let flippedRect = CGRect(
-            x: visionRect.origin.x,
-            y: 1.0 - visionRect.origin.y - visionRect.height,
-            width: visionRect.width,
-            height: visionRect.height
-        )
-
-        // Use native conversion for each corner point
-        // layerPointConverted handles aspect-fill scaling and rotation automatically
-        let topLeft = previewLayer.layerPointConverted(
-            fromCaptureDevicePoint: CGPoint(x: flippedRect.minX, y: flippedRect.minY)
-        )
-        let bottomRight = previewLayer.layerPointConverted(
-            fromCaptureDevicePoint: CGPoint(x: flippedRect.maxX, y: flippedRect.maxY)
-        )
-
-        return CGRect(
-            x: topLeft.x,
-            y: topLeft.y,
-            width: bottomRight.x - topLeft.x,
-            height: bottomRight.y - topLeft.y
-        )
     }
 
     func capturePhoto() async throws -> Data {
@@ -397,6 +291,7 @@ final class CameraManager {
 }
 
 // MARK: - Photo Capture Delegate
+
 private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     private let completion: @Sendable (Result<Data, Error>) -> Void
     init(completion: @escaping @Sendable (Result<Data, Error>) -> Void) { self.completion = completion }
@@ -416,70 +311,9 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     }
 }
 
-// MARK: - Frame Processor Delegate (Concurrency Bridge)
-
-/// Sendable wrapper for video frame data
-/// CVPixelBuffer is thread-safe for read-only access, so @unchecked Sendable is appropriate
-struct VideoFrame: @unchecked Sendable {
-    let pixelBuffer: CVPixelBuffer
-    let orientation: CGImagePropertyOrientation
-}
-
-/// Bridge between AVCaptureVideoDataOutput and AsyncStream
-/// Captures frames and yields them to the stream
-final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate,
-    @unchecked Sendable
-{
-
-    // Stream of video frames (PixelBuffer + Orientation)
-    let frameStream: AsyncStream<VideoFrame>
-    private let continuation: AsyncStream<VideoFrame>.Continuation
-
-    override init() {
-        // Initialize the stream with BufferingNewest(1) to drop old frames if processing lags
-        let (stream, continuation) = AsyncStream.makeStream(of: VideoFrame.self, bufferingPolicy: .bufferingNewest(1))
-        self.frameStream = stream
-        self.continuation = continuation
-        super.init()
-    }
-
-    nonisolated func captureOutput(
-        _ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
-        from connection: AVCaptureConnection
-    ) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        let orientation = CGImagePropertyOrientation(from: connection.videoRotationAngle)
-
-        // Yield to stream - this is non-blocking
-        // Wrap in Sendable struct to satisfy Swift 6.2 concurrency
-        continuation.yield(VideoFrame(pixelBuffer: pixelBuffer, orientation: orientation))
-    }
-
-    func captureOutput(
-        _ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer,
-        from connection: AVCaptureConnection
-    ) {
-        // No-op
-    }
-}
-
-// MARK: - Orientation Conversion (Unchanged)
-extension CGImagePropertyOrientation {
-    init(from videoRotationAngle: CGFloat) {
-        switch videoRotationAngle {
-        case 0: self = .right
-        case 90: self = .up
-        case 180: self = .left
-        case 270: self = .down
-        default: self = .up
-        }
-    }
-}
-
-// MARK: - Errors (Unchanged)
+// MARK: - Errors
 enum CameraError: LocalizedError {
-    case noCameraAvailable, cannotAddInput, cannotAddOutput, photoOutputNotConfigured,
-        visionProcessingFailed
+    case noCameraAvailable, cannotAddInput, cannotAddOutput, photoOutputNotConfigured
 
     var errorDescription: String? {
         switch self {
@@ -487,7 +321,6 @@ enum CameraError: LocalizedError {
         case .cannotAddInput: return "Cannot add camera input to session"
         case .cannotAddOutput: return "Cannot add photo output to session"
         case .photoOutputNotConfigured: return "Photo output not configured"
-        case .visionProcessingFailed: return "Vision framework processing failed"
         }
     }
 }
