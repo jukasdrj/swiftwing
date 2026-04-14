@@ -113,11 +113,13 @@ struct LibraryView: View {
     // MARK: - Empty State
     private var emptyStateView: some View {
         VStack(spacing: 24) {
-            Image(systemName: "books.vertical")
-                .font(.system(size: 80))
-                .foregroundStyle(.swissText)
-                .shadow(color: .white.opacity(0.3), radius: 12)
-                .accessibilityHidden(true)
+Image(systemName: "books.vertical")
+    .font(.system(size: 80))
+    .foregroundStyle(.swissText)
+    .shadow(color: .white.opacity(0.4), radius: 20, x: 0, y: 8)
+    .background(.ultraThinMaterial)
+    .clipShape(Circle())
+    .accessibilityHidden(true)
 
             Text("No Books Yet")
                 .font(.title2.bold())

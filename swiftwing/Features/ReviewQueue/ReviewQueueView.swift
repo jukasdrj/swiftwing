@@ -228,15 +228,16 @@ struct ProcessingItemRow: View {
         HStack(spacing: 12) {
             // Thumbnail with border color indicating status
             if let thumbnail = UIImage(data: item.thumbnailData) {
-                Image(uiImage: thumbnail)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(item.state.borderColor, lineWidth: 2)
-                    )
+Image(uiImage: thumbnail)
+    .resizable()
+    .aspectRatio(contentMode: .fill)
+    .frame(width: 60, height: 80)
+    .clipped()
+    .clipShape(RoundedRectangle(cornerRadius: 6))
+    .overlay(
+        RoundedRectangle(cornerRadius: 6)
+            .stroke(item.state.borderColor, lineWidth: 2)
+    )
             }
 
             VStack(alignment: .leading, spacing: 4) {

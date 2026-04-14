@@ -14,6 +14,7 @@ struct CameraView: View {
 
     // US-B2: Processing feedback overlay state
     @State private var showProcessingFeedback = false
+    @State private var isShutterPressed = false
 
     var body: some View {
         ZStack {
@@ -54,28 +55,35 @@ struct CameraView: View {
                 // US-408: Disabled during rate limit cooldown
                 // Task 2.2: Disable when camera is interrupted
                 // US-B2: Enhanced with processing feedback overlay
-                Button {
-                    // Trigger capture
-                    viewModel.captureImage()
+Button {
+    // Trigger capture
+    viewModel.captureImage()
 
-                    // US-B2: Show processing feedback (count derived from live queue)
-                    Task {
-                        showProcessingFeedback = true
+    // US-B2: Show processing feedback (count derived from live queue)
+    Task {
+        showProcessingFeedback = true
 
-                        // Auto-dismiss after 2 seconds
-                        try? await Task.sleep(for: .seconds(2))
-                        showProcessingFeedback = false
-                    }
-                } label: {
-                    Circle()
-                        .strokeBorder(
-                            viewModel.isRateLimited || viewModel.isInterrupted ? .gray : .white,
-                            lineWidth: 4
-                        )
-                        .frame(width: 80, height: 80)
-                        .contentShape(Circle())
-                        .opacity(viewModel.isRateLimited || viewModel.isInterrupted ? 0.3 : 1.0)
-                }
+        // Auto-dismiss after 2 seconds
+        try? await Task.sleep(for: .seconds(2))
+        showProcessingFeedback = false
+    }
+} label: {
+    Circle()
+        .strokeBorder(
+            viewModel.isRateLimited || viewModel.isInterrupted ? .gray : .white,
+            lineWidth: 4
+        )
+        .frame(width: 80, height: 80)
+        .contentShape(Circle())
+        .opacity(viewModel.isRateLimited || viewModel.isInterrupted ? 0.3 : 1.0)
+        .scaleEffect(isShutterPressed ? 0.95 : 1.0)
+        .animation(.spring(duration: 0.15), value: isShutterPressed)
+}
+.simultaneousGesture(
+    DragGesture(minimumDistance: 0)
+        .onChanged { _ in isShutterPressed = true }
+        .onEnded { _ in isShutterPressed = false }
+)
                 .accessibilityIdentifier("camera_shutter")
                 .accessibilityLabel("Capture")
                 .disabled(viewModel.isRateLimited || viewModel.isInterrupted)
