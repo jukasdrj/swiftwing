@@ -1,0 +1,25 @@
+# Build outputs
+build/
+DerivedData/
+*.xcarchive
+*.ipa
+*.dSYM
+
+# Xcode
+*.xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+flutter-legacy/
+
+# Screenshots / test assets
+e2e_screenshots/
+test_book_stack.jpg
+test_talaria_backend.swift
+
+# CocoaPods
+Pods/

@@ -202,7 +202,7 @@ public struct SSEEventParser: Sendable {
             guard let jsonData = data.data(using: .utf8) else {
                 throw SSEError.invalidEventFormat
             }
-            let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
             guard let imageBase64 = json?["image"] as? String,
                   let imageData = Data(base64Encoded: imageBase64),
                   let totalBooks = json?["totalBooks"] as? Int else {
@@ -213,7 +213,7 @@ public struct SSEEventParser: Sendable {
         case "book_progress":
             // NEW: Per-book processing progress
             guard let jsonData = data.data(using: .utf8),
-                  let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
                   let current = json["current"] as? Int,
                   let total = json["total"] as? Int else {
                 throw SSEError.invalidEventFormat
@@ -228,7 +228,7 @@ public struct SSEEventParser: Sendable {
         case "enrichment_degraded":
             // Enrichment degradation event
             guard let jsonData = data.data(using: .utf8),
-                  let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
                 throw SSEError.invalidEventFormat
             }
             let jobId = json["jobId"] as? String

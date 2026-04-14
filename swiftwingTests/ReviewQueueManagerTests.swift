@@ -8,9 +8,7 @@ import SwiftData
 struct ReviewQueueManagerTests {
 
     private func makeContext() throws -> ModelContext {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Book.self, configurations: config)
-        return container.mainContext
+        try makeSwiftDataContext()
     }
 
     private func makeManager() -> ReviewQueueManager {

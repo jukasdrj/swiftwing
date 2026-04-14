@@ -99,11 +99,12 @@ struct BookMetadataTests {
     }
 
     @Test func coverUrlIsNilForMalformedURL() throws {
-        // Malformed URL should not crash — resilient decoding returns nil
-        let json = #"{"title": "Test", "coverUrl": "not a valid url %%"}"#
+        // An unclosed IPv6 bracket is definitively unparseable by Foundation's URL(string:)
+        // and tests that BookMetadata's resilient try? decoding returns nil without crashing.
+        let json = #"{"title": "Test", "coverUrl": "http://[invalid"}"#
         let data = try #require(json.data(using: .utf8))
         let metadata = try JSONDecoder().decode(BookMetadata.self, from: data)
-        #expect(metadata.coverUrl == nil)
+        #expect(metadata.coverUrl == nil, "Unclosed IPv6 bracket should fail URL parsing")
     }
 
     @Test func coverUrlIsNilWhenFieldMissing() throws {
