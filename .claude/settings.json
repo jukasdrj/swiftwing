@@ -38,7 +38,9 @@
       "mcp__pal__analyze",
       "mcp__pal__thinkdeep",
       "mcp__pal__chat",
-      "mcp__pal__consensus"
+      "mcp__pal__consensus",
+      "WebFetch(*)",
+      "WebSearch(*)"
     ]
   }
 }

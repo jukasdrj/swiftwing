@@ -68,7 +68,7 @@ struct CameraOverlayView: View {
         if showProcessingFeedback {
             GeometryReader { geometry in
                 ProcessingFeedbackView(
-                    processingCount: viewModel.processingQueue.count,
+                    processingCount: viewModel.queueStateManager.processingQueue.count,
                     isVisible: $showProcessingFeedback
                 )
                 .position(x: geometry.size.width / 2, y: 200)
@@ -133,7 +133,7 @@ struct CameraOverlayView: View {
     @ViewBuilder
     private var bannerOverlays: some View {
         // Truncation Warning Banner
-        if viewModel.showTruncationBanner {
+        if viewModel.queueStateManager.showTruncationBanner {
             VStack {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
@@ -243,7 +243,7 @@ struct CameraOverlayView: View {
                 Spacer()
 
                 if !viewModel.networkMonitor.isConnected {
-                    OfflineIndicatorView(offlineQueuedCount: viewModel.offlineQueuedCount)
+                    OfflineIndicatorView(offlineQueuedCount: viewModel.queueStateManager.offlineQueuedCount)
                         .padding(.top, 60)
                         .padding(.trailing, 8)
                         .transition(.opacity)

@@ -47,7 +47,7 @@ struct CameraView: View {
 
                 // Processing queue (40px height above shutter)
                 ProcessingQueueView(
-                    items: viewModel.processingQueue, onRetry: viewModel.retryFailedItem
+                    items: viewModel.queueStateManager.processingQueue, onRetry: viewModel.retryFailedItem
                 )
                 .padding(.bottom, 8)
 
@@ -151,7 +151,7 @@ Button {
                         )
                         debugLog("INJECT_TEST_IMAGE: processCaptureWithImageData completed")
                         debugLog("INJECT_TEST_IMAGE: pendingReviewBooks.count = \(viewModel.reviewQueueManager.pendingReviewBooks.count)")
-                        debugLog("INJECT_TEST_IMAGE: processingQueue.count = \(viewModel.processingQueue.count)")
+                        debugLog("INJECT_TEST_IMAGE: processingQueue.count = \(viewModel.queueStateManager.processingQueue.count)")
                         for (i, book) in viewModel.reviewQueueManager.pendingReviewBooks.enumerated() {
                             debugLog("INJECT_TEST_IMAGE: pendingBook[\(i)] = '\(book.metadata.resolvedTitle)' by '\(book.metadata.resolvedAuthor)'")
                         }

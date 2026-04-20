@@ -2,7 +2,6 @@ import os
 import SwiftUI
 import AVFoundation
 import SwiftData
-import Observation
 
 private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "e2e-vm")
 
@@ -22,8 +21,14 @@ final class CameraViewModel {
     var errorMessage: String?
     var coldStartTime: CFAbsoluteTime = 0
     var showFlash = false
+    var processingQueue: [ProcessingItem] = []
     var focusPoint: CGPoint?
     var showFocusIndicator = false
+    var processingErrorMessage: String?
+    var showProcessingError = false
+    var enrichmentDegradedMessage: String?
+    var showEnrichmentDegradedBanner = false
+    var showTruncationBanner = false
 
     // MARK: - Review Queue Manager (extracted Phase 1A)
     let reviewQueueManager = ReviewQueueManager()
@@ -34,54 +39,17 @@ final class CameraViewModel {
     // MARK: - Scan Job Coordinator (extracted Phase 1B)
     let scanCoordinator: ScanJobCoordinator
 
-    // MARK: - Queue State Manager (extracted Phase 2B)
-    let queueStateManager: QueueStateManager
-    
-    // MARK: - Forwarding properties for backward compatibility with views
-    var processingQueue: [ProcessingItem] { queueStateManager.processingQueue }
-    var isRateLimited: Bool {
-        get { queueStateManager.isRateLimited }
-        set { queueStateManager.isRateLimited = newValue }
-    }
-    var rateLimitCountdown: Int {
-        get { queueStateManager.rateLimitCountdown }
-        set { queueStateManager.rateLimitCountdown = newValue }
-    }
-    var queuedScansCount: Int {
-        get { queueStateManager.queuedScansCount }
-        set { queueStateManager.queuedScansCount = newValue }
-    }
-    var offlineQueuedCount: Int {
-        get { queueStateManager.offlineQueuedCount }
-        set { queueStateManager.offlineQueuedCount = newValue }
-    }
-    var processingErrorMessage: String? {
-        get { queueStateManager.processingErrorMessage }
-        set { queueStateManager.processingErrorMessage = newValue }
-    }
-    var showProcessingError: Bool {
-        get { queueStateManager.showProcessingError }
-        set { queueStateManager.showProcessingError = newValue }
-    }
-    var enrichmentDegradedMessage: String? {
-        get { queueStateManager.enrichmentDegradedMessage }
-        set { queueStateManager.enrichmentDegradedMessage = newValue }
-    }
-    var showEnrichmentDegradedBanner: Bool {
-        get { queueStateManager.showEnrichmentDegradedBanner }
-        set { queueStateManager.showEnrichmentDegradedBanner = newValue }
-    }
-    var showTruncationBanner: Bool {
-        get { queueStateManager.showTruncationBanner }
-        set { queueStateManager.showTruncationBanner = newValue }
-    }
-
     // MARK: - US-408: Rate Limit State
     let rateLimitState: RateLimitState = RateLimitState()
+    var isRateLimited = false
+    var rateLimitCountdown: Int = 0
+    var queuedScansCount: Int = 0
+    var countdownTimer: Task<Void, Never>?
 
     // MARK: - US-409: Offline Queue State
     var networkMonitor: NetworkMonitor = NetworkMonitor()
     let offlineQueueManager: OfflineQueueManager = OfflineQueueManager()
+    var offlineQueuedCount: Int = 0
 
     // MARK: - Capture Throttle
     private var activeCaptureCount = 0
@@ -116,7 +84,6 @@ final class CameraViewModel {
         let service = talariaService ?? TalariaService(deviceId: deviceId)
         self.talariaService = service
         self.scanCoordinator = ScanJobCoordinator(talariaService: service)
-        self.queueStateManager = QueueStateManager()
     }
 
     // MARK: - Camera Setup
@@ -176,7 +143,7 @@ final class CameraViewModel {
     // MARK: - Image Capture
     func captureImage() {
         // US-408: Safety check - should not be called when rate limited (button is disabled)
-        guard !queueStateManager.isRateLimited else {
+        guard !isRateLimited else {
             e2eLogger.warning("Capture blocked: rate limited")
             return
         }
@@ -254,8 +221,11 @@ final class CameraViewModel {
                 e2eLogger.warning("Offline mode - queueing scan for later upload")
 
                 // Add to processing queue with offline state
-                let item = queueStateManager.addItem(imageData: imageData, preScannedISBN: capturedISBN)
-                queueStateManager.updateItem(id: item.id, state: .offline, message: "Queued (offline)")
+                var item = ProcessingItem(imageData: imageData, state: .offline, progressMessage: "Queued (offline)")
+                item.preScannedISBN = capturedISBN
+                withAnimation(.swissSpring) {
+                    processingQueue.append(item)
+                }
 
                 // Queue scan in FileManager for persistent storage
                 let queuedId = try await offlineQueueManager.queueScan(imageData: imageData, preScannedISBN: capturedISBN)
@@ -263,14 +233,16 @@ final class CameraViewModel {
 
                 // Update offline queue count
                 let count = try await offlineQueueManager.getQueuedScanCount()
-                queueStateManager.offlineQueuedCount = count
+                offlineQueuedCount = count
 
                 // Keep item in queue indefinitely until uploaded
                 return
             }
 
             // Add to processing queue immediately with thumbnail (preprocessing state)
-            let item = queueStateManager.addItem(imageData: imageData, preScannedISBN: capturedISBN)
+            queueItem = addToQueue(imageData: imageData, preScannedISBN: capturedISBN)
+
+            guard let item = queueItem else { return }
 
             // Steps 1 & 2: Preprocess + process image for upload
             let (uploadData, fileURL) = try await preprocessAndPrepareUpload(
@@ -286,7 +258,7 @@ final class CameraViewModel {
             authToken = uploadResult.authToken
 
             // Switch to analyzing state
-            queueStateManager.updateItem(id: item.id, state: .analyzing, message: "Analyzing...")
+            updateQueueItem(id: item.id, state: .analyzing, message: "Analyzing...")
 
             // Capture item ID and thumbnail for callbacks
             let capturedItemId = item.id
@@ -320,9 +292,9 @@ final class CameraViewModel {
             }
 
             // Success path - mark as done (unless callbacks already handled error/retry)
-            if let index = queueStateManager.processingQueue.firstIndex(where: { $0.id == capturedItemId }),
-               queueStateManager.processingQueue[index].state == .analyzing {
-                queueStateManager.updateItem(id: capturedItemId, state: .done, message: nil)
+            if let index = processingQueue.firstIndex(where: { $0.id == capturedItemId }),
+               processingQueue[index].state == .analyzing {
+                updateQueueItem(id: capturedItemId, state: .done, message: nil)
             }
 
             // Cleanup server resources (non-blocking); temp file deferred until review action
@@ -368,7 +340,9 @@ final class CameraViewModel {
         await startRateLimitCountdown()
 
         if let item = queueItem {
-            queueStateManager.removeItem(id: item.id)
+            withAnimation(.swissSpring) {
+                processingQueue.removeAll { $0.id == item.id }
+            }
         }
 
         if let tempFileURL = tempFileURL {
@@ -388,7 +362,7 @@ final class CameraViewModel {
         await showProcessingErrorOverlay(error.localizedDescription)
 
         if let item = queueItem {
-            queueStateManager.markError(id: item.id, message: error.localizedDescription)
+            updateQueueItemError(id: item.id, errorMessage: error.localizedDescription)
 
             haptics.errorOccurred()
 
@@ -407,7 +381,7 @@ final class CameraViewModel {
     /// Returns the processed image data and temp file URL.
     private func preprocessAndPrepareUpload(itemId: UUID, item: ProcessingItem, imageData: Data, startTime: CFAbsoluteTime) async throws -> (Data, URL) {
         // Step 1: Preprocess image (contrast, brightness, denoising, rotation)
-        queueStateManager.updateItem(id: item.id, state: .preprocessing, message: "Preprocessing...")
+        updateQueueItem(id: item.id, state: .preprocessing, message: "Preprocessing...")
         let preprocessResult = await imagePreprocessor.preprocess(imageData)
         e2eLogger.debug("Preprocessing: \(preprocessResult.processingTimeMs)ms, rotated: \(preprocessResult.wasRotated), brightness adj: \(preprocessResult.brightnessAdjustment)")
 
@@ -435,7 +409,7 @@ final class CameraViewModel {
         // A fire-and-forget Task in defer is not guaranteed to execute before the caller
         // resumes, so we release directly with await instead.
         do {
-            queueStateManager.updateProgress(id: item.id, message: "Uploading...")
+            updateQueueItemProgress(id: item.id, message: "Uploading...")
 
             let uploadStart = CFAbsoluteTimeGetCurrent()
             let uploadResult = try await scanCoordinator.uploadScan(imageData: uploadData, deviceId: self.deviceId)
@@ -459,7 +433,7 @@ final class CameraViewModel {
 
         return ScanJobCallbacks(
             onProgress: { [weak self] message in
-                self?.queueStateManager.updateProgress(id: itemId, message: message)
+                self?.updateQueueItemProgress(id: itemId, message: message)
             },
             onBookResult: { [weak self] metadata, rawJSON, _, _ in
                 self?.reviewQueueManager.handleBookResult(metadata: metadata, rawJSON: rawJSON, thumbnailData: capturedThumbnailData, preScannedISBN: capturedISBN, originalPhotoURL: originalPhotoURL, modelContext: modelContext)
@@ -468,7 +442,7 @@ final class CameraViewModel {
                 self?.reviewQueueManager.showScanComplete(booksAdded: booksAdded, thumbnailData: thumbnailData)
             },
             onError: { [weak self] message in
-                self?.queueStateManager.markError(id: itemId, message: message)
+                self?.updateQueueItemError(id: itemId, errorMessage: message)
                 Task {
                     await self?.showProcessingErrorOverlay(message)
                 }
@@ -476,13 +450,15 @@ final class CameraViewModel {
             },
             onRetryableError: { [weak self] message in
                 guard let self else { return }
-                self.queueStateManager.updateProgress(id: itemId, message: "Retrying...")
+                self.updateQueueItemProgress(id: itemId, message: "Retrying...")
 
                 // Auto-retry once after 2 second delay
                 if let originalImageData = item.originalImageData {
                     Task {
                         try? await Task.sleep(for: .seconds(2))
-                        self.queueStateManager.removeItem(id: itemId)
+                        withAnimation(.swissSpring) {
+                            self.processingQueue.removeAll { $0.id == itemId }
+                        }
 
                         let retryItemId = UUID()
                         let retryTask = Task {
@@ -491,7 +467,7 @@ final class CameraViewModel {
                         await self.scanCoordinator.trackJob(id: retryItemId, task: retryTask)
                     }
                 } else {
-                    self.queueStateManager.markError(id: itemId, message: message)
+                    self.updateQueueItemError(id: itemId, errorMessage: message)
                     Task {
                         await self.showProcessingErrorOverlay(message)
                     }
@@ -504,14 +480,14 @@ final class CameraViewModel {
                 }
             },
             onCanceled: { [weak self] in
-                self?.queueStateManager.updateItem(id: itemId, state: .error, message: "Canceled")
+                self?.updateQueueItem(id: itemId, state: .error, message: "Canceled")
             },
             onQueueProgress: { [weak self] message in
-                self?.queueStateManager.updateProgress(id: itemId, message: message)
+                self?.updateQueueItemProgress(id: itemId, message: message)
             },
             onBookMetadataReceived: { [weak self] metadata in
-                if let index = self?.queueStateManager.processingQueue.firstIndex(where: { $0.id == itemId }) {
-                    self?.queueStateManager.processingQueue[index].bookMetadata = metadata
+                if let index = self?.processingQueue.firstIndex(where: { $0.id == itemId }) {
+                    self?.processingQueue[index].bookMetadata = metadata
                 }
             },
             onSegmented: { [weak self] preview in
@@ -521,9 +497,9 @@ final class CameraViewModel {
                 self?.updateQueueItemBookProgress(id: itemId, current: current, total: total)
             },
             onResultsFetchFailed: { [weak self] url, fetchAuthToken, failedJobId in
-                self?.queueStateManager.markError(id: itemId, message: "Failed to fetch results. Check network and retry.")
-                if let index = self?.queueStateManager.processingQueue.firstIndex(where: { $0.id == itemId }) {
-                    self?.queueStateManager.processingQueue[index].retryContext = ResultsFetchRetryContext(
+                self?.updateQueueItemError(id: itemId, errorMessage: "Failed to fetch results. Check network and retry.")
+                if let index = self?.processingQueue.firstIndex(where: { $0.id == itemId }) {
+                    self?.processingQueue[index].retryContext = ResultsFetchRetryContext(
                         resultsUrl: url,
                         authToken: fetchAuthToken,
                         jobId: failedJobId
@@ -534,41 +510,90 @@ final class CameraViewModel {
             onTruncationSuspected: { [weak self] in
                 guard let self else { return }
                 e2eLogger.warning("Scan results may be truncated (large bookshelf)")
-                self.queueStateManager.showTruncation()
+                self.showTruncationBanner = true
             }
         )
     }
 
     // MARK: - Queue Management
-    
-    private func updateQueueItemSegmented(id: UUID, preview: SegmentedPreview) {
-        if let index = queueStateManager.processingQueue.firstIndex(where: { $0.id == id }) {
+    private func addToQueue(imageData: Data, preScannedISBN: String? = nil) -> ProcessingItem {
+        var item = ProcessingItem(imageData: imageData, state: .preprocessing)
+        item.preScannedISBN = preScannedISBN
+        withAnimation(.swissSpring) {
+            processingQueue.append(item)
+        }
+        return item
+    }
+
+    private func updateQueueItemState(id: UUID, state: ProcessingItem.ProcessingState) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
             withAnimation(.swissSpring) {
-                queueStateManager.processingQueue[index].segmentedPreview = preview.imageData
-                queueStateManager.processingQueue[index].detectedBookCount = preview.totalBooks
+                processingQueue[index].state = state
+            }
+        }
+    }
+
+    private func updateQueueItemProgress(id: UUID, message: String?) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].progressMessage = message
+            }
+        }
+    }
+
+    private func updateQueueItem(id: UUID, state: ProcessingItem.ProcessingState, message: String?) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].state = state
+                processingQueue[index].progressMessage = message
+
+                // Release memory when transitioning to .done
+                if state == .done {
+                    processingQueue[index].segmentedPreview = nil
+                }
+            }
+        }
+    }
+
+    private func updateQueueItemError(id: UUID, errorMessage: String) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].state = .error
+                processingQueue[index].errorMessage = errorMessage
+            }
+        }
+    }
+
+    private func updateQueueItemSegmented(id: UUID, preview: SegmentedPreview) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            withAnimation(.swissSpring) {
+                processingQueue[index].segmentedPreview = preview.imageData
+                processingQueue[index].detectedBookCount = preview.totalBooks
             }
         }
     }
 
     private func updateQueueItemBookProgress(id: UUID, current: Int, total: Int) {
-        if let index = queueStateManager.processingQueue.firstIndex(where: { $0.id == id }) {
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
             withAnimation(.swissSpring) {
-                queueStateManager.processingQueue[index].currentBookIndex = current
-                queueStateManager.processingQueue[index].progressMessage = "Processing book \(current)/\(total)"
+                processingQueue[index].currentBookIndex = current
+                processingQueue[index].progressMessage = "Processing book \(current)/\(total)"
             }
         }
     }
 
     private func updateQueueItemCleanupInfo(id: UUID, tempFileURL: URL, jobId: String) {
-        if let index = queueStateManager.processingQueue.firstIndex(where: { $0.id == id }) {
-            queueStateManager.processingQueue[index].tempFileURL = tempFileURL
-            queueStateManager.processingQueue[index].jobId = jobId
+        if let index = processingQueue.firstIndex(where: { $0.id == id }) {
+            processingQueue[index].tempFileURL = tempFileURL
+            processingQueue[index].jobId = jobId
         }
     }
 
     private func removeQueueItemAfterDelay(id: UUID, delay: TimeInterval) async {
         try? await Task.sleep(for: .seconds(delay))
-        queueStateManager.removeItem(id: id)
+        withAnimation(.swissSpring) {
+            processingQueue.removeAll { $0.id == id }
+        }
     }
 
     // MARK: - US-407: Retry Failed Item
@@ -581,7 +606,9 @@ final class CameraViewModel {
 
         e2eLogger.info("Retrying failed item: \(item.id)")
 
-        queueStateManager.removeItem(id: item.id)
+        withAnimation(.swissSpring) {
+            processingQueue.removeAll { $0.id == item.id }
+        }
 
         haptics.retryTriggered()
 
@@ -599,55 +626,90 @@ final class CameraViewModel {
 
     // MARK: - US-408: Rate Limit Management
     func startRateLimitCountdown() async {
-        let duration = TimeInterval(await rateLimitState.getRemainingSeconds())
-        queueStateManager.startRateLimitCountdown(duration: duration)
+        countdownTimer?.cancel()
 
-        // Process queued scans when rate limit expires
-        while await rateLimitState.isRateLimited {
-            try? await Task.sleep(for: .seconds(1))
-        }
+        rateLimitCountdown = await rateLimitState.getRemainingSeconds()
+        isRateLimited = true
 
-        let queuedScans = await rateLimitState.dequeueAllScans()
-        guard let ctx = modelContext else {
-            e2eLogger.error("ModelContext not injected — cannot process rate-limit queue")
-            return
-        }
-        for scan in queuedScans {
-            let itemId = UUID()
-            let task = Task {
-                await processCaptureWithImageData(itemId: itemId, imageData: scan.imageData, modelContext: ctx, preScannedISBN: scan.preScannedISBN)
+        countdownTimer = Task { @MainActor in
+            while await rateLimitState.isRateLimited {
+                rateLimitCountdown = await rateLimitState.getRemainingSeconds()
+                queuedScansCount = await rateLimitState.queuedScanCount
+
+                if rateLimitCountdown <= 0 {
+                    await rateLimitState.clearRateLimit()
+                    isRateLimited = false
+
+                    let queuedScans = await rateLimitState.dequeueAllScans()
+                    guard let ctx = modelContext else {
+                        e2eLogger.error("ModelContext not injected — cannot process rate-limit queue")
+                        break
+                    }
+                    for scan in queuedScans {
+                        let itemId = UUID()
+                        let task = Task {
+                            await processCaptureWithImageData(itemId: itemId, imageData: scan.imageData, modelContext: ctx, preScannedISBN: scan.preScannedISBN)
+                        }
+                        await scanCoordinator.trackJob(id: itemId, task: task)
+                    }
+
+                    break
+                }
+
+                try? await Task.sleep(for: .seconds(1))
             }
-            await scanCoordinator.trackJob(id: itemId, task: task)
         }
     }
 
     // MARK: - US-406: Stream Cancellation
     func cancelAllStreamingTasks() {
-        let queueSnapshot = queueStateManager.processingQueue
+        let queueSnapshot = processingQueue
         Task {
             await scanCoordinator.cancelAllJobs(processingQueue: queueSnapshot)
         }
 
         // Remove in-progress items from queue with animation
-        queueStateManager.processingQueue.removeAll {
-            $0.state == .uploading || $0.state == .analyzing
+        withAnimation(.swissSpring) {
+            processingQueue.removeAll {
+                $0.state == .uploading || $0.state == .analyzing
+            }
         }
     }
 
     // MARK: - Error Display
     private func showProcessingErrorOverlay(_ message: String) async {
-        queueStateManager.showError(message: message)
+        processingErrorMessage = message
+        withAnimation(.swissSpring) {
+            showProcessingError = true
+        }
 
         try? await Task.sleep(for: .seconds(5))
-        queueStateManager.hideError()
+        withAnimation(.swissSpring) {
+            showProcessingError = false
+        }
+
+        try? await Task.sleep(for: .milliseconds(200))
+        processingErrorMessage = nil
     }
 
     private func showEnrichmentDegradedBanner(reason: String?) async {
-        queueStateManager.showEnrichmentDegradation(reason: reason)
+        enrichmentDegradedMessage = "Some book details may be limited (enrichment service degraded)"
+        if let reason = reason {
+            enrichmentDegradedMessage = (enrichmentDegradedMessage ?? "") + ": \(reason)"
+        }
+
+        withAnimation(.swissSpring) {
+            showEnrichmentDegradedBanner = true
+        }
 
         // Auto-dismiss after 5 seconds
         try? await Task.sleep(for: .seconds(5))
-        queueStateManager.hideEnrichmentDegradation()
+        withAnimation(.swissSpring) {
+            showEnrichmentDegradedBanner = false
+        }
+
+        try? await Task.sleep(for: .milliseconds(200))
+        enrichmentDegradedMessage = nil
     }
 
     // MARK: - Focus Handling
@@ -676,10 +738,11 @@ final class CameraViewModel {
         }
     }
 
+    // MARK: - US-409: Offline Queue Management
     func checkAndUploadQueuedScans() async {
         do {
             let count = try await offlineQueueManager.getQueuedScanCount()
-            queueStateManager.offlineQueuedCount = count
+            offlineQueuedCount = count
 
             if count > 0 && networkMonitor.isConnected {
                 e2eLogger.info("Found \(count) queued scans - uploading now")
@@ -702,7 +765,9 @@ final class CameraViewModel {
 
             e2eLogger.info("Uploading \(queuedScans.count) queued scans")
 
-            queueStateManager.processingQueue.removeAll { $0.state == .offline }
+            withAnimation(.swissSpring) {
+                processingQueue.removeAll { $0.state == .offline }
+            }
 
             guard let ctx = modelContext else {
                 e2eLogger.error("ModelContext not injected — cannot upload queued scans")
@@ -742,7 +807,7 @@ final class CameraViewModel {
             }
 
             let finalCount = try await offlineQueueManager.getQueuedScanCount()
-            queueStateManager.offlineQueuedCount = finalCount
+            offlineQueuedCount = finalCount
 
             e2eLogger.info("All queued scans uploaded")
         } catch {
@@ -768,7 +833,7 @@ final class CameraViewModel {
         e2eLogger.info("Retrying results fetch for job: \(context.jobId)")
 
         // Reset state to analyzing
-        queueStateManager.updateItem(id: item.id, state: .analyzing, message: "Retrying...")
+        updateQueueItem(id: item.id, state: .analyzing, message: "Retrying...")
 
         Task {
             do {
@@ -807,12 +872,12 @@ final class CameraViewModel {
                 }
 
                 // Success - mark as done
-                queueStateManager.updateItem(id: item.id, state: .done, message: nil)
+                updateQueueItem(id: item.id, state: .done, message: nil)
                 await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
 
             } catch {
                 e2eLogger.error("Retry failed: \(error.localizedDescription)")
-                queueStateManager.markError(id: item.id, message: "Retry failed: \(error.localizedDescription)")
+                updateQueueItemError(id: item.id, errorMessage: "Retry failed: \(error.localizedDescription)")
             }
         }
     }

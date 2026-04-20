@@ -41,7 +41,7 @@ struct ReviewQueueView: View {
                 Color.swissBackground.ignoresSafeArea()
 
                 // Content
-                if viewModel.reviewQueueManager.pendingReviewBooks.isEmpty && viewModel.processingQueue.isEmpty {
+                if viewModel.reviewQueueManager.pendingReviewBooks.isEmpty && viewModel.queueStateManager.processingQueue.isEmpty {
                     emptyStateView
                 } else {
                     ScrollView {
@@ -53,11 +53,11 @@ struct ReviewQueueView: View {
                             }
 
                             // US-B3: Processing items section (at top for immediate visibility)
-                            if !viewModel.processingQueue.isEmpty {
+                            if !viewModel.queueStateManager.processingQueue.isEmpty {
                                 SectionHeader(
-                                    title: "Processing", count: viewModel.processingQueue.count,
+                                    title: "Processing", count: viewModel.queueStateManager.processingQueue.count,
                                     color: .internationalOrange)
-                                ForEach(viewModel.processingQueue) { item in
+                                ForEach(viewModel.queueStateManager.processingQueue) { item in
                                     Button {
                                         selectedProcessingItem = item
                                     } label: {
@@ -128,10 +128,10 @@ struct ReviewQueueView: View {
                         rawJSON: nil,
                         modelContext: modelContext
                     )
-                    if let index = viewModel.processingQueue.firstIndex(where: { $0.id == item.id })
+                    if let index = viewModel.queueStateManager.processingQueue.firstIndex(where: { $0.id == item.id })
                     {
                         let _ = withAnimation(.swissSpring) {
-                            viewModel.processingQueue.remove(at: index)
+                            viewModel.queueStateManager.processingQueue.remove(at: index)
                         }
                     }
                 }
