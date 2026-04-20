@@ -354,18 +354,14 @@
 		F5F8FC1FF0A6DBF1A1FBDB2C /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				BBAB4A6B0846BA3231888A50 /* TalariaService.swift */,
-				C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */,
-				BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */,
-				FED950344DCECA589A004461 /* SSEEventParser.swift */,
-				86C66A86208C88BD40ABC070 /* BoundingBox+CGRect.swift */,
-				A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */,
-				DA75C3E1F2A04B8C9D6E05678 /* DataSyncActor.swift */,
-				05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */,
-				A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */,
-				6CABBB6D46005235B0EE24D0 /* OfflineQueueManager.swift */,
-				59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */,
-			);
+
+				81512B071680A61DDE1A989F /* Data */,
+				E953710F8836892BF558D8F2 /* Image */,
+				C9A53BA74ACF48228B6E5147 /* Monitoring */,
+				AFCEFC2CB61C06A8EC48E778 /* Network */,
+				7D478D46F33607B729E90F31 /* Offline */,
+				F7EF444DC81405D903835D6C /* Shared */,
+						);
 			path = Services;
 			sourceTree = "<group>";
 		};
@@ -392,6 +388,59 @@
 				D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */,
 			);
 			path = Fonts;
+			sourceTree = "<group>";
+		};
+		81512B071680A61DDE1A989F /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				DA75C3E1F2A04B8C9D6E05678 /* DataSyncActor.swift */,
+			);
+			name = Data;
+			sourceTree = "<group>";
+		};
+		E953710F8836892BF558D8F2 /* Image */ = {
+			isa = PBXGroup;
+			children = (
+				BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */,
+				A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */,
+			);
+			name = Image;
+			sourceTree = "<group>";
+		};
+		C9A53BA74ACF48228B6E5147 /* Monitoring */ = {
+			isa = PBXGroup;
+			children = (
+				59F317E1876D4A1AA17ED9AD /* PerformanceLogger.swift */,
+			);
+			name = Monitoring;
+			sourceTree = "<group>";
+		};
+		AFCEFC2CB61C06A8EC48E778 /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				BBAB4A6B0846BA3231888A50 /* TalariaService.swift */,
+				A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */,
+				C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */,
+				FED950344DCECA589A004461 /* SSEEventParser.swift */,
+			);
+			name = Network;
+			sourceTree = "<group>";
+		};
+		7D478D46F33607B729E90F31 /* Offline */ = {
+			isa = PBXGroup;
+			children = (
+				6CABBB6D46005235B0EE24D0 /* OfflineQueueManager.swift */,
+			);
+			name = Offline;
+			sourceTree = "<group>";
+		};
+		F7EF444DC81405D903835D6C /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				86C66A86208C88BD40ABC070 /* BoundingBox+CGRect.swift */,
+				05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */,
+			);
+			name = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
