@@ -262,18 +262,42 @@ extension EnrichmentStatus: Codable {
 // MARK: - Upload Response
 
 /// Response from image upload to Talaria API
+///
+/// **API Contract Boundary:**
+/// UploadResponseData directly mirrors the Talaria `JobResponseSchema` returned by POST /v3/jobs/scans.
+/// This is the external API contract (not the internal canonical model).
+///
+/// **Field Mapping (Talaria → Swiftwing):**
+/// - jobId (string UUID) → jobId (String)
+/// - status (JobStatus enum) → status (JobStatus)
+/// - streamUrl (string URL) → streamUrl (URL)
+/// - token (string) → token (String) — for future auth-header use
+///
+/// **Note:** Talaria firehose upload (POST /v3/jobs/scans/firehose) returns additional
+/// fields (uploadUrl, chunkSize, photoCount) not mapped here. Add when firehose is implemented.
 public struct UploadResponse: Codable, Sendable {
     let success: Bool
     let data: UploadResponseData
 }
 
-// NOTE: Talaria firehose upload (POST /v3/jobs/scans/firehose) returns additional
-// fields (uploadUrl, chunkSize, photoCount) not mapped here. Add when firehose is implemented.
+/// Job initialization response data from Talaria API.
+///
+/// **CRITICAL: API Contract vs. Internal Models**
+/// This struct represents the **external API contract** returned by Talaria.
+/// The canonical internal model uses plural fields (e.g., `authors[]`).
+/// Swiftwing's domain models (BookMetadata) may differ slightly for
+/// forward-compatibility and convenience (e.g., joining authors into single string).
+///
+/// **Field Semantics:**
+/// - `jobId`: Unique job identifier for this scan (UUID format)
+/// - `status`: Current job state (initialized, processing, completed, failed, queued)
+/// - `streamUrl`: Server-Sent Events endpoint for real-time progress updates
+/// - `token`: Optional auth token for SSE stream (future use for auth-header setup)
 public struct UploadResponseData: Codable, Sendable {
     let jobId: String
-    let sseUrl: URL
-    let authToken: String?
-    let statusUrl: URL?
+    let status: JobStatus
+    let streamUrl: URL
+    let token: String?
 }
 
 // MARK: - Book Metadata
@@ -288,17 +312,40 @@ public struct BoundingBox: Codable, Sendable, Equatable {
 
 /// Book metadata decoded from Talaria SSE events and results endpoint.
 ///
-/// **SSE `result` event fields (Mar 2026):** title, author, isbn, coverUrl, publisher,
-/// publicationYear, enrichmentStatus, confidence, boundingBox.
-/// **NOT available via SSE:** pageCount, format, publishedDate (results endpoint only).
+/// **CRITICAL: API Contract Boundary**
+/// This struct represents book data returned by the Talaria API (the external contract).
+/// The internal canonical data model uses plural `authors[]`; this API struct uses singular `author`.
 ///
-/// **Note:** `title` and `author` are optional because Talaria can return null
-/// for both when enrichment fails (enrichmentStatus: "review_needed").
-/// Use `resolvedTitle` and `resolvedAuthor` at the UI/display layer.
+/// **API vs. Internal Models:**
+/// - **External (API):** Talaria returns `author: String` (singular)
+/// - **Internal (Canonical):** Canonical BookSchema uses `authors: String[]` (plural)
+/// - **Swiftwing Strategy:** Accept both formats for forward-compatibility (see decoder below)
 ///
-/// **Field mapping (Feb 2026):** Talaria sends `publicationYear` as Int.
-/// Custom decoding converts to `publishedDate` string for backward compatibility.
-/// Fields not in API response (pageCount, format) are kept as optional for future use.
+/// **Field Mapping (Talaria API → Swiftwing Domain):**
+/// - `title: String?` — Book title or null if review_needed
+/// - `author: String?` — Author name(s) as single string OR `authors: String[]` if plural
+/// - `isbn: String?` — 10 or 13 digit ISBN
+/// - `coverUrl: URL?` — Cover image URL (from Google Books or enrichment)
+/// - `publisher: String?` — Publisher name
+/// - `publishedDate: String?` — ISO date (converted from publicationYear: Int)
+/// - `enrichmentStatus: EnrichmentStatus?` — success/review_needed/circuit_open/etc.
+/// - `confidence: Double?` — AI confidence score (0.0-1.0)
+/// - `boundingBox: BoundingBox?` — Pixel coordinates on shelf image
+///
+/// **SSE vs. Results Endpoint:**
+/// - **SSE `result` events:** Includes title, author, isbn, coverUrl, enrichmentStatus, confidence, boundingBox
+/// - **Results endpoint:** Same fields plus optional pageCount, format, publishedDate
+/// - Not all fields are guaranteed; use resolvedTitle/resolvedAuthor for UI display
+///
+/// **Field Semantics:**
+/// - `title` and `author` may be null when enrichmentStatus is "review_needed" (ambiguous spine)
+/// - Use `resolvedTitle` and `resolvedAuthor` getters for display (fallback to "Unknown Title"/"Unknown Author")
+/// - `publishedDate` is constructed from Talaria's `publicationYear` (Int) or passed as String
+///
+/// **Talaria API Inconsistencies:**
+/// - Sends `publicationYear` as Int (converted to YYYY-01-01 string)
+/// - May send both `author` (string) and `authors` (array) — decoder handles both
+/// - Some responses include redundant fields that are ignored
 public struct BookMetadata: Sendable, Equatable {
     let title: String?
     let author: String?
@@ -351,11 +398,31 @@ extension BookMetadata: Codable {
         case pageCount, format, confidence, boundingBox, enrichmentStatus
     }
 
+    /// Custom decoder for BookMetadata to handle API contract variations
+    ///
+    /// **Forward-Compatibility Strategy:**
+    /// This decoder accepts both singular `author` (current API contract)
+    /// and plural `authors[]` (future canonical model) for graceful migration.
+    ///
+    /// **Author Field Handling:**
+    /// 1. Try to decode `author: String` (current API contract)
+    /// 2. If not found, try to decode `authors: [String]` and join with ", "
+    /// 3. If neither found, set to nil (handled by resolvedAuthor fallback)
+    ///
+    /// **Date Field Handling:**
+    /// Talaria sends `publicationYear` as Int; convert to ISO date string YYYY-01-01.
+    /// Fallback to `publishedDate` if available. This ensures backward compatibility
+    /// if Talaria changes the field name in the future.
+    ///
+    /// **Resilient Decoding:**
+    /// Uses `try?` for optional fields to prevent single field corruption
+    /// from failing the entire book decode. This is critical for SSE parsing
+    /// where one malformed book shouldn't kill the entire stream.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         title = try container.decodeIfPresent(String.self, forKey: .title)
-        // Forward-compatible: if Talaria migrates to "authors" array, join into single string.
-        // Current scan surfaces use "author" (string); canonical BookSchema uses "authors" (array).
+        
+        // Forward-compatible: accept both singular author and plural authors[]
         let authorString = try container.decodeIfPresent(String.self, forKey: .author)
         if let a = authorString {
             author = a
@@ -364,6 +431,7 @@ extension BookMetadata: Codable {
         } else {
             author = nil
         }
+        
         isbn = try container.decodeIfPresent(String.self, forKey: .isbn)
         publisher = try container.decodeIfPresent(String.self, forKey: .publisher)
         format = try container.decodeIfPresent(String.self, forKey: .format)

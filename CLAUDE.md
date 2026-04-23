@@ -119,12 +119,85 @@ Use `/planning-with-files` before any task requiring >4 tool calls. This is non-
 
 ### Talaria Backend Integration
 
-**API Endpoints:**
-- `POST /v3/jobs/scans` — upload image, returns `{ jobId, sseUrl, authToken }`
-- `GET {sseUrl}` — SSE stream for real-time progress
+**API Contract & Schema Boundaries (CRITICAL UPDATE — April 2026)**
+
+Talaria v3.5.0+ clarifies the schema boundary between the external API contract and internal canonical models:
+
+**Upload Response (POST /v3/jobs/scans):**
+```swift
+// API Contract (external) — matches JobResponseSchema from Talaria
+{
+  "success": true,
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",    // UUID string
+    "status": "initialized",                              // JobStatus enum
+    "streamUrl": "https://api.oooefam.net/...",          // SSE endpoint
+    "token": "eyJhbGc..."                                // Optional auth token
+  }
+}
+
+// Swiftwing mapping: (jobId: String, streamUrl: URL, status: JobStatus, token: String?)
+```
+
+**BookMetadata from SSE & Results (CRITICAL: API Contract Boundary):**
+- **External API contract:** Uses singular `author: String` (for Swiftwing compatibility)
+- **Internal canonical model:** Uses plural `authors: [String]` (for future enrichment)
+- **Swiftwing strategy:** Accept both formats via custom decoder (forward-compatible)
+
+```swift
+// API Contract (external — current format)
+{
+  "title": "The Great Gatsby",
+  "author": "F. Scott Fitzgerald",      // Singular (API contract)
+  "isbn": "9780743273565",
+  "enrichmentStatus": "success",
+  "confidence": 0.98
+}
+
+// Future format (already supported)
+{
+  "title": "The Great Gatsby",
+  "authors": ["F. Scott Fitzgerald"],   // Plural (canonical)
+  "isbn": "9780743273565",
+  "enrichmentStatus": "success"
+}
+
+// Swiftwing decoder joins plural authors: "F. Scott Fitzgerald, Co-Author"
+// Prefers singular author if both present
+```
+
+**EnrichmentStatus Variations:**
+- `success` — Full enrichment complete
+- `review_needed` — Ambiguous spine; title/author are null; client should prompt review
+- `circuit_open` — Enrichment endpoint down; basic metadata present, covers/reviews missing
+- `not_found` — Book not in database
+- `error` — Enrichment failed; see error details
+- Unknown values default to `pending` (backward-compatible)
+
+**Contract Validation & Testing:**
+- Use `TalariaContractFixtures.swift` for CI-safe testing (no live API dependency)
+- Contract adherence tests in `TalariaContractAdherenceTests.swift`
+- Fixtures include edge cases: missing fields, malformed URLs, unexpected types
+- Resilient decoding: single field corruption doesn't kill entire book parse
+
+**Handling Missing/Malformed Fields:**
+```swift
+// Resilient decoding strategy
+coverUrl = try? container.decodeIfPresent(URL.self, forKey: .coverUrl)  // Malformed URL silently fails
+confidence = try? container.decodeIfPresent(Double.self, forKey: .confidence)  // Type mismatch handled
+enrichmentStatus = try? container.decodeIfPresent(EnrichmentStatus.self, forKey: .enrichmentStatus)  // Unknown values default to pending
+
+// Display-safe fallbacks
+var resolvedTitle: String { title ?? "Unknown Title" }
+var resolvedAuthor: String { author ?? "Unknown Author" }
+```
+
+**API Endpoints (Updated April 2026):**
+- `POST /v3/jobs/scans` — upload image, returns `{ jobId, status, streamUrl, token }`
+- `GET {streamUrl}` — SSE stream for real-time progress
 - `DELETE /v3/jobs/scans/{jobId}/cleanup` — no-op since Feb 2026 (images auto-deleted)
 
-**SSE Event Types:**
+**SSE Event Types** (unchanged):
 ```
 event: progress       // {"message": "...", "progress": 0.35, "processedCount": 1, "totalCount": 3}
 event: result         // {"book": {title, author, isbn, ...}, "processedCount": 1, "totalCount": 7}
@@ -140,10 +213,12 @@ event: error          // {"error": "...", "code": "...", "retryable": true}
 1. `Retry-After` header is seconds; response body `retryAfterMs` is milliseconds
 2. Problem details use camelCase instead of snake_case
 3. Enrichment failures return `circuitOpen` status rather than error
+4. UploadResponse now includes `status` field for job state tracking (initialize, processing, etc.)
 
 **API references:**
 - OpenAPI spec: `swiftwing/OpenAPI/talaria-openapi.yaml` (committed)
-- Integration tests: `swiftwingTests/TalariaIntegrationTests.swift`
+- Contract fixtures: `swiftwingTests/Fixtures/TalariaContractFixtures.swift`
+- Contract adherence tests: `swiftwingTests/Unit/Services/TalariaContractAdherenceTests.swift`
 - Talaria docs: `https://api.oooefam.net/docs`
 
 **OpenAPI spec update:**

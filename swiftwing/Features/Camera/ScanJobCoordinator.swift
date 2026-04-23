@@ -101,19 +101,19 @@ actor ScanJobCoordinator {
         integrationLog("UPLOAD: Starting upload to Talaria...")
         #endif
 
-        let (jobId, streamUrl, authToken) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
+        let (jobId, streamUrl, status, token) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
 
         e2eLogger.info("📤 Upload success! jobId=\(jobId), streamUrl=\(streamUrl.absoluteString)")
         #if DEBUG
         integrationLog("UPLOAD: Success! jobId=\(jobId), streamUrl=\(streamUrl.absoluteString)")
         #endif
 
-        // Store auth token for cleanup
-        if let authToken = authToken {
-            jobAuthTokens[jobId] = authToken
+        // Store auth token for SSE connection
+        if let token = token {
+            storeAuthToken(jobId: jobId, token: token)
         }
 
-        return ScanUploadResult(jobId: jobId, streamUrl: streamUrl, authToken: authToken)
+        return ScanUploadResult(jobId: jobId, streamUrl: streamUrl, authToken: token)
     }
 
     // MARK: - SSE Streaming
