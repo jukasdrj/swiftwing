@@ -1,4 +1,5 @@
 import Foundation
+@testable import swiftwing
 
 /// API contract validation fixtures matching the latest Talaria schema (v3.5.0+)
 /// These fixtures are used to validate Swiftwing's parsing against the Talaria API contract.
@@ -23,7 +24,7 @@ enum TalariaContractFixtures {
       "success": true,
       "data": {
         "jobId": "550e8400-e29b-41d4-a716-446655440000",
-        "status": "initialized",
+        "status": "queued",
         "streamUrl": "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream",
         "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       }

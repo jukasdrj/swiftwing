@@ -78,6 +78,10 @@ struct SwiftwingApp: App {
     private func configureForUITesting() {
         let arguments = ProcessInfo.processInfo.arguments
 
+        if arguments.contains("FORCE_ONBOARDING") {
+            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+        }
+
         guard arguments.contains("UI_TESTING") else { return }
 
         // Skip onboarding for test determinism

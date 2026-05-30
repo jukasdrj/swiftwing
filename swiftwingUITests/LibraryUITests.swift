@@ -50,7 +50,11 @@ final class LibraryUITests: SwiftwingUITestCase {
 
         // Should show no results
         let noResults = app.staticTexts["library_no_results"]
-        XCTAssertTrue(waitForElement(noResults, timeout: 10), "Should show 'No results' for nonsense search")
+        let noResultsTitle = app.staticTexts["No Results"]
+        XCTAssertTrue(
+            waitForElement(noResults, timeout: 10) || waitForElement(noResultsTitle, timeout: 2),
+            "Should show 'No results' for nonsense search"
+        )
     }
 
     func testSortMenuExists() throws {
@@ -82,7 +86,11 @@ final class LibraryUITests: SwiftwingUITestCase {
 
         // With seeded data (all high confidence), should show "No books need review" state
         let noReviewText = app.staticTexts["library_no_review_needed"]
-        XCTAssertTrue(waitForElement(noReviewText, timeout: 10), "Should show 'No books need review' when all seeded books are high confidence")
+        let noReviewTitle = app.staticTexts["No Books Need Review"]
+        XCTAssertTrue(
+            waitForElement(noReviewText, timeout: 10) || waitForElement(noReviewTitle, timeout: 2),
+            "Should show 'No books need review' when all seeded books are high confidence"
+        )
     }
 
     func testBookDetailSheet() throws {

@@ -24,7 +24,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         // Assert
         XCTAssertEqual(response.success, true)
         XCTAssertEqual(response.data.jobId, "550e8400-e29b-41d4-a716-446655440000")
-        XCTAssertEqual(response.data.status, .initialized)
+        XCTAssertEqual(response.data.status, .queued)
         XCTAssertEqual(response.data.streamUrl.absoluteString, "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream")
         XCTAssertNotNil(response.data.token)
     }
@@ -206,6 +206,14 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertEqual(error.code, "EXTERNAL_API_ERROR")
         XCTAssertTrue(error.retryable)
     }
+
+    func test_decodeProblemDetails_invalidRequest() throws {
+        let error = try TalariaContractFixtures.decodeProblemDetails(from: TalariaContractFixtures.errorInvalidRequestJSON)
+
+        XCTAssertEqual(error.status, 422)
+        XCTAssertEqual(error.code, "INVALID_IMAGE_SIZE")
+        XCTAssertFalse(error.retryable)
+    }
     
     // MARK: - Contract Version Detection
     
@@ -235,7 +243,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         // Assert - All fields should map correctly for TalariaService.uploadScan return type
         XCTAssertEqual(jobId, "550e8400-e29b-41d4-a716-446655440000")
         XCTAssertEqual(streamUrl.absoluteString, "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream")
-        XCTAssertEqual(status, .initialized)
+        XCTAssertEqual(status, .queued)
         XCTAssertNotNil(token)
     }
     
@@ -258,10 +266,17 @@ final class TalariaContractAdherenceTests: XCTestCase {
     
     func test_jobStatus_acceptsAllDefinedValues() throws {
         // Arrange
-        let statuses = ["initialized", "processing", "completed", "failed", "canceled", "queued"]
+        let statuses: [(String, JobStatus)] = [
+            ("queued", .queued),
+            ("initialized", .queued),
+            ("processing", .processing),
+            ("completed", .completed),
+            ("failed", .failed),
+            ("canceled", .canceled),
+        ]
         
         // Act & Assert
-        for statusString in statuses {
+        for (statusString, expectedStatus) in statuses {
             let json = """
             {
               "success": true,
@@ -275,7 +290,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
             """
             
             let response = try TalariaContractFixtures.decodeUploadResponse(from: json)
-            XCTAssertNotNil(response.data.status, "Should decode status: \(statusString)")
+            XCTAssertEqual(response.data.status, expectedStatus, "Should decode status: \(statusString)")
         }
     }
 }

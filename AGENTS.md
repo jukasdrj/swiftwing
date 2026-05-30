@@ -129,6 +129,31 @@ swiftwing/
 | **PRD.md** | Product requirements & feature specs | Product, Developers |
 | **US-swift.md** | User stories (Epic 1-6, 50+ stories) | Project planning |
 
+### 🤖 AI Skills & Agent Tools
+
+This repository includes specialized AI skills for Swift/iOS development. See `skills/available.json` for the machine-readable catalog.
+
+| Skill | Purpose | Trigger |
+|-------|---------|---------|
+| `swiftui-pro` | SwiftUI best practices, modern APIs | SwiftUI view changes |
+| `swiftdata-pro` | SwiftData patterns, queries | Model/data changes |
+| `swift-testing-pro` | Modern Swift Testing | Test file changes |
+| `swift-concurrency-pro` | Concurrency correctness | Actor/async changes |
+| `new-feature-slice` | Vertical slice development | New feature/epic |
+| `run-contract-tests` | OpenAPI contract validation | API changes |
+| `planning-with-files` | Complex multi-step task planning | Architecture changes, debugging |
+| `find-docs` | Current library documentation | Version upgrades, API changes |
+
+**Location:** `.claude/skills/`  
+**Manifest:** `skills/available.json` (machine-readable catalog)
+
+### Agent Collaboration
+
+- **Claude Code:** See `CLAUDE.md` + `.claude/rules/`
+- **GitHub Copilot:** See `.github/copilot-instructions.md`
+- **Jules (PR Review):** See `.github/JULES_GUIDE.md`
+- **Opencode:** See `AGENTS.md` (this file)
+
 ### 📊 Planning & Progress
 
 | File | Purpose |

@@ -105,7 +105,7 @@ actor TalariaService {
     /// - Throws: NetworkError on failure
     ///
     /// **API Contract:** Returns fields from JobResponseSchema (status, streamUrl, token).
-    /// The status field indicates job state (initialized, processing, completed, failed, queued).
+    /// The status field indicates job state (queued, processing, completed, failed, canceled).
     /// Use streamUrl with streamEvents() to subscribe to real-time progress updates.
     func uploadScan(image: Data, deviceId: String) async throws -> (jobId: String, streamUrl: URL, status: JobStatus, token: String?) {
         // Construct upload endpoint
@@ -245,6 +245,11 @@ actor TalariaService {
 
                     e2eLogger.debug("SSE Connection attempt \(attempt + 1, privacy: .public): Status=\(httpResponse.statusCode, privacy: .public) URL=\(streamUrl, privacy: .public)")
 
+                    if httpResponse.statusCode == 401 {
+                        e2eLogger.error("SSE: Authorization expired (401)")
+                        throw SSEError.unauthorized
+                    }
+
                     guard httpResponse.statusCode == 200 else {
                         e2eLogger.error("SSE: Expected 200, got \(httpResponse.statusCode, privacy: .public)")
                         throw SSEError.connectionFailed
@@ -375,9 +380,26 @@ actor TalariaService {
                     if attempt < maxAttempts {
                         let delay = pow(2.0, Double(attempt))
                         e2eLogger.debug("SSE retry \(attempt, privacy: .public)/\(maxAttempts - 1, privacy: .public) in \(delay, privacy: .public)s")
-                        try? await Task.sleep(for: .seconds(delay))
+                        try await Task.sleep(for: .seconds(delay))
                     } else {
                         e2eLogger.error("SSE: Max retries exceeded after \(maxAttempts, privacy: .public) attempts")
+                        continuation.finish(throwing: SSEError.maxRetriesExceeded)
+                        return
+                    }
+                } catch let urlError as URLError
+                    where [
+                        .networkConnectionLost,
+                        .timedOut,
+                        .cannotConnectToHost,
+                        .cannotFindHost
+                    ].contains(urlError.code) {
+                    attempt += 1
+                    if attempt < maxAttempts {
+                        let delay = pow(2.0, Double(attempt))
+                        e2eLogger.debug("SSE transport retry \(attempt, privacy: .public)/\(maxAttempts - 1, privacy: .public) in \(delay, privacy: .public)s after \(urlError.code.rawValue, privacy: .public)")
+                        try await Task.sleep(for: .seconds(delay))
+                    } else {
+                        e2eLogger.error("SSE: Max retries exceeded after transport error \(urlError.code.rawValue, privacy: .public)")
                         continuation.finish(throwing: SSEError.maxRetriesExceeded)
                         return
                     }
@@ -585,6 +607,69 @@ actor TalariaService {
             e2eLogger.error("Results fetch: Failed to decode response - \(error, privacy: .public)")
             throw NetworkError.invalidResponse
         }
+    }
+
+    /// Poll job status until completion or failure, then fetch the results
+    func pollScanStatus(jobId: String, interval: TimeInterval = 1.0) async throws -> [BookMetadata] {
+        guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)") else {
+            throw NetworkError.invalidResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+        request.httpMethod = "GET"
+
+        while true {
+            // Check if the current task has been cancelled (e.g. app backgrounded or screen dismissed)
+            if Task.isCancelled {
+                throw CancellationError()
+            }
+
+            let (data, response) = try await urlSession.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw NetworkError.invalidResponse
+            }
+
+            switch httpResponse.statusCode {
+            case 200:
+                let statusResponse = try JSONDecoder().decode(JobStatusResponse.self, from: data)
+                
+                if statusResponse.data.status == .completed {
+                    // Job is completed, fetch full results
+                    return try await fetchPollingResults(jobId: jobId)
+                } else if statusResponse.data.status == .failed {
+                    throw NetworkError.serverError(500)
+                } else if statusResponse.data.status == .canceled {
+                    throw CancellationError()
+                }
+            case 404:
+                throw NetworkError.serverError(404)
+            default:
+                throw NetworkError.serverError(httpResponse.statusCode)
+            }
+
+            // Sleep for the polling interval before checking again
+            try await Task.sleep(for: .seconds(interval))
+        }
+    }
+
+    /// Fetch results for completed job in stateless polling mode
+    private func fetchPollingResults(jobId: String) async throws -> [BookMetadata] {
+        guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)/results?format=lite") else {
+            throw NetworkError.invalidResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+        request.httpMethod = "GET"
+
+        let (data, response) = try await urlSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.invalidResponse
+        }
+
+        let resultsResponse = try JSONDecoder().decode(ScanResultsResponse.self, from: data)
+        return resultsResponse.data.results
     }
 
     // MARK: - Private Helpers

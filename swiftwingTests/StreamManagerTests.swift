@@ -220,4 +220,49 @@ struct StreamManagerTests {
         await manager.releaseStreamSlot(scanId: thirdId)
         #expect(await manager.getActiveStreamCount() == 0)
     }
+
+    @Test func releaseStreamSlot_forInactiveScanId_doesNotDecrementActiveCount() async {
+        let manager = makeManager(maxStreams: 2)
+        let activeId = UUID()
+        let inactiveId = UUID()
+
+        await manager.acquireStreamSlot(scanId: activeId)
+        #expect(await manager.getActiveStreamCount() == 1)
+
+        await manager.releaseStreamSlot(scanId: inactiveId)
+
+        #expect(await manager.getActiveStreamCount() == 1)
+        #expect(await manager.hasActiveSlot(scanId: activeId))
+
+        await manager.releaseStreamSlot(scanId: activeId)
+        #expect(await manager.getActiveStreamCount() == 0)
+    }
+
+    @Test func canceledWaitingAcquire_doesNotOwnOrReleaseSlot() async {
+        let manager = makeManager(maxStreams: 1)
+        let activeId = UUID()
+        let waitingId = UUID()
+
+        await manager.acquireStreamSlot(scanId: activeId)
+
+        let waitingTask = Task {
+            await manager.acquireStreamSlot(scanId: waitingId)
+        }
+
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        #expect(await manager.getQueueDepth() == 1)
+
+        waitingTask.cancel()
+        await waitingTask.value
+
+        #expect(await manager.hasActiveSlot(scanId: waitingId) == false)
+        #expect(await manager.getActiveStreamCount() == 1)
+        #expect(await manager.getQueueDepth() == 0)
+
+        await manager.releaseStreamSlot(scanId: waitingId)
+        #expect(await manager.getActiveStreamCount() == 1)
+
+        await manager.releaseStreamSlot(scanId: activeId)
+        #expect(await manager.getActiveStreamCount() == 0)
+    }
 }

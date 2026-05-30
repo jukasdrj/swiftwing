@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Talaria V3 API
-  version: 3.7.0
+  version: 3.8.0
   description: High-speed bookshelf scanning API with Gemini Vision
   contact:
     name: Talaria API Support

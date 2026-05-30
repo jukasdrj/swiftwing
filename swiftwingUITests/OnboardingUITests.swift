@@ -11,9 +11,7 @@ final class OnboardingUITests: XCTestCase {
     }
 
     func testSkipOnboarding() throws {
-        // Reset onboarding state so it shows
-        app.launchArguments = ["CLEAR_DATA"]
-        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        app.launchArguments = ["FORCE_ONBOARDING"]
         app.launch()
 
         let skipButton = app.buttons["onboarding_skip"]
@@ -23,14 +21,13 @@ final class OnboardingUITests: XCTestCase {
 
         // Should land on permission primer or main tab view
         let permissionButton = app.buttons["permission_continue"]
-        let libraryTab = app.tabBars.buttons["tab_library"]
+        let libraryTab = app.tabBars.buttons["Library"]
         let landed = permissionButton.waitForExistence(timeout: 3) || libraryTab.waitForExistence(timeout: 3)
         XCTAssertTrue(landed, "Should navigate past onboarding after skip")
     }
 
     func testNextThroughAllSlides() throws {
-        app.launchArguments = ["CLEAR_DATA"]
-        UserDefaults.standard.removeObject(forKey: "hasCompletedOnboarding")
+        app.launchArguments = ["FORCE_ONBOARDING"]
         app.launch()
 
         let nextButton = app.buttons["onboarding_next"]
@@ -50,7 +47,7 @@ final class OnboardingUITests: XCTestCase {
 
         // Should navigate past onboarding
         let permissionButton = app.buttons["permission_continue"]
-        let libraryTab = app.tabBars.buttons["tab_library"]
+        let libraryTab = app.tabBars.buttons["Library"]
         let landed = permissionButton.waitForExistence(timeout: 3) || libraryTab.waitForExistence(timeout: 3)
         XCTAssertTrue(landed, "Should navigate past onboarding after Get Started")
     }

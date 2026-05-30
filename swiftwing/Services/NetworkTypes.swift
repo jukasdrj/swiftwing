@@ -153,7 +153,7 @@ public enum NetworkError: Error {
 /// Job processing status
 ///
 /// Represents the overall state of a scan job throughout its lifecycle.
-/// Transitions: initialized → processing → (completed | failed)
+/// Transitions: queued → processing → (completed | failed)
 ///
 /// **Talaria API Note:** API currently returns status in mixed formats
 /// - SSE events use ScanStage (detailed processing stages)
@@ -161,17 +161,37 @@ public enum NetworkError: Error {
 /// - Not always synchronized - check both for complete picture
 ///
 /// **Handling:**
-/// - `initialized`: Job queued, not yet started
+/// - `queued`: Job accepted but not yet started
 /// - `processing`: Job actively running
 /// - `completed`: Job finished successfully (check individual book results)
 /// - `failed`: Job failed completely (see error details in response)
 /// - `canceled`: Job explicitly cancelled by user or system
 public enum JobStatus: String, Codable, Sendable {
-    case initialized
+    case queued
     case processing
     case completed
     case failed
     case canceled
+}
+
+extension JobStatus {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+
+        switch rawValue {
+        case "initialized":
+            self = .queued
+        default:
+            guard let status = JobStatus(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Cannot initialize JobStatus from invalid String value \(rawValue)"
+                )
+            }
+            self = status
+        }
+    }
 }
 
 /// Scan processing stage
@@ -290,7 +310,7 @@ public struct UploadResponse: Codable, Sendable {
 ///
 /// **Field Semantics:**
 /// - `jobId`: Unique job identifier for this scan (UUID format)
-/// - `status`: Current job state (initialized, processing, completed, failed, queued)
+/// - `status`: Current job state (queued, processing, completed, failed, canceled)
 /// - `streamUrl`: Server-Sent Events endpoint for real-time progress updates
 /// - `token`: Optional auth token for SSE stream (future use for auth-header setup)
 public struct UploadResponseData: Codable, Sendable {
@@ -438,7 +458,15 @@ extension BookMetadata: Codable {
 
         // Resilient decoding: use try? for fields where Talaria may send unexpected types.
         // This prevents a single malformed field from killing the entire book decode.
-        coverUrl = try? container.decodeIfPresent(URL.self, forKey: .coverUrl)
+        if let coverUrlString = try? container.decodeIfPresent(String.self, forKey: .coverUrl),
+           let candidateURL = URL(string: coverUrlString),
+           let scheme = candidateURL.scheme?.lowercased(),
+           ["http", "https"].contains(scheme),
+           candidateURL.host != nil {
+            coverUrl = candidateURL
+        } else {
+            coverUrl = nil
+        }
         pageCount = try? container.decodeIfPresent(Int.self, forKey: .pageCount)
         confidence = try? container.decodeIfPresent(Double.self, forKey: .confidence)
         boundingBox = try? container.decodeIfPresent(BoundingBox.self, forKey: .boundingBox)
@@ -562,6 +590,7 @@ public enum SSEError: Error, Equatable {
     case streamTimeout
     case invalidEventFormat
     case connectionFailed
+    case unauthorized
     case maxRetriesExceeded
     case unknownEvent(String)   // Forward-compatibility: unknown event type from server
 
@@ -573,6 +602,8 @@ public enum SSEError: Error, Equatable {
             return "Invalid SSE event format"
         case .connectionFailed:
             return "Failed to establish SSE connection"
+        case .unauthorized:
+            return "SSE stream authorization expired"
         case .maxRetriesExceeded:
             return "Maximum reconnection attempts exceeded"
         case .unknownEvent(let name):
@@ -580,3 +611,28 @@ public enum SSEError: Error, Equatable {
         }
     }
 }
+
+// MARK: - HTTP Polling Models
+
+public struct JobStatusResponse: Codable, Sendable {
+    public let success: Bool
+    public let data: JobStatusData
+}
+
+public struct JobStatusData: Codable, Sendable {
+    public let jobId: String
+    public let status: JobStatus
+    public let progress: Double
+}
+
+public struct ScanResultsResponse: Codable, Sendable {
+    public let success: Bool
+    public let data: ScanResultsData
+}
+
+public struct ScanResultsData: Codable, Sendable {
+    public let jobId: String
+    public let status: JobStatus
+    public let results: [BookMetadata]
+}
+

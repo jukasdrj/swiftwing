@@ -20,6 +20,32 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'talaria-openapi.yaml'; then echo 'WARNING: Editing committed API spec. Use ./Scripts/update-api-spec.sh instead.' >&2; fi",
+            "timeout": 3000,
+            "description": "Guard against accidental edits to committed OpenAPI spec"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\\.swift'; then echo '🔨 Swift file changed — run /build-sim to verify 0 errors, 0 warnings' >&2; fi",
+            "timeout": 3000,
+            "description": "Remind to build-verify after Swift edits"
+          }
+        ]
+      }
     ]
   },
   "permissions": {

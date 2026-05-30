@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "skills": [
+    {
+      "name": "swiftui-pro",
+      "description": "Comprehensively reviews SwiftUI code for best practices on modern APIs, maintainability, and performance",
+      "location": ".claude/skills/swiftui-pro/SKILL.md",
+      "triggers": ["swiftui", "ui", "view", "swift"]
+    },
+    {
+      "name": "swiftdata-pro",
+      "description": "Writes, reviews, and improves SwiftData code using modern APIs and best practices",
+      "location": ".claude/skills/swiftdata-pro/SKILL.md",
+      "triggers": ["swiftdata", "data", "model", "database", "swift"]
+    },
+    {
+      "name": "swift-testing-pro",
+      "description": "Writes, reviews, and improves Swift Testing code using modern APIs and best practices",
+      "location": ".claude/skills/swift-testing-pro/SKILL.md",
+      "triggers": ["swift testing", "test", "xctest", "swift"]
+    },
+    {
+      "name": "swift-concurrency-pro",
+      "description": "Reviews Swift code for concurrency correctness, modern API usage, and common async/await pitfalls",
+      "location": ".claude/skills/swift-concurrency-pro/SKILL.md",
+      "triggers": ["concurrency", "async", "await", "actor", "swift"]
+    },
+    {
+      "name": "new-feature-slice",
+      "description": "Guides vertical slice development — implementing a complete feature across all layers (UI, logic, service, data)",
+      "location": ".claude/skills/new-feature-slice.md",
+      "triggers": ["feature", "slice", "epic", "vertical"]
+    },
+    {
+      "name": "run-contract-tests",
+      "description": "Validates OpenAPI contract compliance between SwiftWing client and Talaria API",
+      "location": ".claude/skills/run-contract-tests.md",
+      "triggers": ["contract", "openapi", "api", "talaria", "test"]
+    },
+    {
+      "name": "planning-with-files",
+      "description": "Implements Manus-style file-based planning for complex tasks. Creates task_plan.md, findings.md, and progress.md",
+      "location": "system-provided",
+      "triggers": ["plan", "complex", "multi-step", "debug", "investigate"]
+    },
+    {
+      "name": "find-docs",
+      "description": "Retrieves up-to-date documentation, API references, and code examples for any developer technology",
+      "location": "system-provided",
+      "triggers": ["documentation", "docs", "library", "upgrade", "version"]
+    }
+  ]
+}

@@ -63,14 +63,26 @@ final class DataSyncActor {
 
     // MARK: - Private helpers
 
-    private func makeBook(from pending: PendingBookResult) -> Book {
-        let publishedDate: Date?
-        if let dateString = pending.metadata.publishedDate {
-            publishedDate = ISO8601DateFormatter().date(from: dateString)
-        } else {
-            publishedDate = nil
-        }
+    private static let iso8601Formatter = ISO8601DateFormatter()
 
+    private static let simpleDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private func parsePublishedDate(_ dateString: String?) -> Date? {
+        guard let dateString else { return nil }
+        if let iso8601Date = Self.iso8601Formatter.date(from: dateString) {
+            return iso8601Date
+        }
+        return Self.simpleDateFormatter.date(from: dateString)
+    }
+
+    private func makeBook(from pending: PendingBookResult) -> Book {
         return Book(
             title: pending.resolvedTitle,
             author: pending.resolvedAuthor,
@@ -78,7 +90,7 @@ final class DataSyncActor {
             coverUrl: pending.metadata.coverUrl,
             format: pending.metadata.format,
             publisher: pending.metadata.publisher,
-            publishedDate: publishedDate,
+            publishedDate: parsePublishedDate(pending.metadata.publishedDate),
             pageCount: pending.metadata.pageCount,
             spineConfidence: pending.metadata.confidence,
             addedDate: Date(),

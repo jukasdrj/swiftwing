@@ -18,9 +18,9 @@ struct UploadResponse: Codable {
 
     struct UploadData: Codable {
         let jobId: String
-        let sseUrl: String
-        let authToken: String?
-        let statusUrl: URL?
+        let streamUrl: String
+        let token: String?
+        let status: String?
     }
 }
 
@@ -243,7 +243,7 @@ class TalariaBackendTest {
                          userInfo: [NSLocalizedDescriptionKey: "Upload failed: success=false"])
         }
 
-        return (uploadResponse.data.jobId, uploadResponse.data.sseUrl, uploadResponse.data.authToken)
+        return (uploadResponse.data.jobId, uploadResponse.data.streamUrl, uploadResponse.data.token)
     }
 
     func streamEvents(streamUrl: String, authToken: String?, handler: (SSEEvent) async -> Void) async throws {

@@ -69,8 +69,14 @@ struct LibraryView: View {
                     sortOption: viewModel.sortOption,
                     onCancelSelection: { viewModel.exitSelectionMode() },
                     onExport: { viewModel.exportLibrary(books: books) },
-                    onToggleReviewFilter: { viewModel.showReviewNeeded.toggle() },
-                    onSelectSort: { viewModel.sortOptionRaw = $0.rawValue },
+                    onToggleReviewFilter: {
+                        viewModel.showReviewNeeded.toggle()
+                        viewModel.updateFilteredBooks(context: modelContext)
+                    },
+                    onSelectSort: {
+                        viewModel.sortOptionRaw = $0.rawValue
+                        viewModel.updateFilteredBooks(context: modelContext)
+                    },
                     onSelectOrSelectAll: {
                         if viewModel.isSelectionMode {
                             viewModel.selectAllBooks(from: viewModel.cachedFilteredBooks)
@@ -197,7 +203,12 @@ Image(systemName: "books.vertical")
 
     // MARK: - Search Empty State
     private var searchEmptyStateView: some View {
-        ContentUnavailableView.search(text: viewModel.searchText)
+        ContentUnavailableView {
+            Label("No Results", systemImage: "magnifyingglass")
+        } description: {
+            Text("No books match \"\(viewModel.searchText)\".")
+        }
+        .accessibilityIdentifier("library_no_results")
     }
 
     // MARK: - Review Needed Empty State (US-319)
@@ -207,6 +218,7 @@ Image(systemName: "books.vertical")
             systemImage: "checkmark.circle",
             description: Text("All your books have high AI confidence scores!")
         )
+        .accessibilityIdentifier("library_no_review_needed")
     }
 
     // MARK: - Selection Toolbar (US-320)

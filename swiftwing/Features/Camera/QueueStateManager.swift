@@ -116,13 +116,8 @@ final class QueueStateManager {
         rateLimitCountdown = Int(duration)
         
         countdownTimer?.cancel()
-        countdownTimer = Task { @MainActor in
-            while rateLimitCountdown > 0 {
-                try? await Task.sleep(for: .seconds(1))
-                rateLimitCountdown -= 1
-            }
-            isRateLimited = false
-            queueLogger.info("Rate limit expired")
+        countdownTimer = Task { [weak self] in
+            await self?.runRateLimitCountdown()
         }
     }
     
@@ -218,5 +213,22 @@ final class QueueStateManager {
     
     deinit {
         // countdownTimer will be automatically cancelled when deallocated
+    }
+
+    private func runRateLimitCountdown() async {
+        do {
+            while rateLimitCountdown > 0 {
+                try Task.checkCancellation()
+                try await Task.sleep(for: .seconds(1))
+                try Task.checkCancellation()
+                rateLimitCountdown -= 1
+            }
+            isRateLimited = false
+            queueLogger.info("Rate limit expired")
+        } catch is CancellationError {
+            queueLogger.debug("Rate limit countdown canceled")
+        } catch {
+            queueLogger.error("Rate limit countdown failed: \(error.localizedDescription)")
+        }
     }
 }

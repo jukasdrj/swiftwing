@@ -118,196 +118,92 @@ actor ScanJobCoordinator {
 
     // MARK: - SSE Streaming
 
-    /// Stream SSE events and dispatch to callbacks.
-    /// Returns the number of books added to the review queue from this stream.
+    /// Poll scan status from Talaria backend and dispatch results to callbacks.
+    /// Returns the number of distinct books delivered from this job.
     func streamAndProcess(
         streamUrl: URL,
         deviceId: String,
         authToken: String?,
         jobId: String,
         thumbnailData: Data?,
-        reviewCountBefore: Int,
-        callbacks: ScanJobCallbacks,
-        getReviewCount: @MainActor @Sendable () -> Int
+        callbacks: ScanJobCallbacks
     ) async throws -> Int {
-        let streamStart = CFAbsoluteTimeGetCurrent()
-
-        let eventStream = talariaService.streamEvents(streamUrl: streamUrl, deviceId: deviceId, authToken: authToken)
-
-        e2eLogger.info("📡 Starting SSE event loop...")
+        e2eLogger.info("📡 Starting polling for jobId=\(jobId)...")
         #if DEBUG
-        integrationLog("SSE: Starting event loop for streamUrl=\(streamUrl.absoluteString)")
+        integrationLog("POLLING: Starting status polls for jobId=\(jobId)")
         #endif
 
-        for try await event in eventStream {
-            // Check for task cancellation (app backgrounding)
+        // Trigger progress callback to keep UI loader alive
+        await callbacks.onProgress("Processing spine...")
+
+        do {
+            // Poll for completion and fetch results
+            let books = try await talariaService.pollScanStatus(jobId: jobId)
+
+            e2eLogger.info("📡 Polling complete! Received \(books.count) books.")
+            #if DEBUG
+            integrationLog("POLLING: Success! Received \(books.count) books")
+            #endif
+
             if Task.isCancelled {
-                e2eLogger.warning("SSE stream cancelled (app backgrounding)")
+                e2eLogger.warning("Polling job cancelled")
                 return 0
             }
 
-            switch event {
-            case .progress(let info):
-                e2eLogger.info("SSE progress: \(info.message)")
-                #if DEBUG
-                integrationLog("SSE: progress event: \(info.message)")
-                #endif
-                await callbacks.onProgress(info.message)
+            var deliveredBookKeys = Set<String>()
+            var deliveredBooksCount = 0
 
-            case .result(let bookMetadata):
-                e2eLogger.info("Book result: \(bookMetadata.resolvedTitle) by \(bookMetadata.resolvedAuthor)")
-                #if DEBUG
-                integrationLog("SSE: result event: '\(bookMetadata.resolvedTitle)' by '\(bookMetadata.resolvedAuthor)'")
-                #endif
+            // Process books
+            for book in books {
+                if let bookKey = deduplicationKey(for: book) {
+                    guard deliveredBookKeys.insert(bookKey).inserted else {
+                        e2eLogger.info("Skipping duplicate book payload for \(book.resolvedTitle)")
+                        continue
+                    }
+                }
 
-                await callbacks.onBookMetadataReceived(bookMetadata)
+                await callbacks.onBookMetadataReceived(book)
 
-                // Encode metadata to raw JSON string for debugging
                 let rawJSON: String?
-                if let jsonData = try? JSONEncoder().encode(bookMetadata),
+                if let jsonData = try? JSONEncoder().encode(book),
                    let jsonString = String(data: jsonData, encoding: .utf8) {
                     rawJSON = jsonString
                 } else {
                     rawJSON = nil
                 }
 
-                await callbacks.onBookResult(bookMetadata, rawJSON, nil, nil)
-
-            case .complete(let resultsUrl, let inlineBooks, let summary, let duration, let truncation):
-                let streamDuration = CFAbsoluteTimeGetCurrent() - streamStart
-                e2eLogger.info("SSE complete! duration=\(String(format: "%.1f", streamDuration))s, hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
-                if let summary { e2eLogger.info("Scan summary: \(summary.totalDetected) detected, \(summary.totalUnique) unique") }
-                if let duration, let totalMs = duration.totalMs { e2eLogger.info("Scan duration: \(totalMs)ms") }
-                if let truncation, truncation.truncationSuspected {
-                    e2eLogger.warning("Truncation suspected in scan results")
-                    await callbacks.onTruncationSuspected()
-                }
-                #if DEBUG
-                integrationLog("SSE: COMPLETE event! hasResultsUrl=\(resultsUrl != nil), inlineBooks=\(inlineBooks?.count ?? -1)")
-                #endif
-
-                var books: [BookMetadata] = []
-
-                // First, check for inline books (modern API)
-                if let inlineBooks = inlineBooks, !inlineBooks.isEmpty {
-                    e2eLogger.info("Using inline books from completion event (\(inlineBooks.count) books)")
-                    books = inlineBooks
-                }
-                // Fallback to fetching from resultsUrl (legacy API)
-                else if let url = resultsUrl,
-                        let storedAuthToken = jobAuthTokens[jobId] {
-                    e2eLogger.info("Fetching book results from: \(url)")
-
-                    do {
-                        books = try await talariaService.fetchResults(
-                            resultsUrl: url,
-                            authToken: storedAuthToken
-                        )
-                        e2eLogger.info("Received \(books.count) books from results API")
-                    } catch {
-                        e2eLogger.error("Failed to fetch results from \(url): \(error.localizedDescription)")
-                        await callbacks.onResultsFetchFailed(url, storedAuthToken, jobId)
-                        return 0
-                    }
-                } else {
-                    // Missing both inline books and resultsUrl
-                    e2eLogger.warning("No results available in completion event")
-                    #if DEBUG
-                    integrationLog("SSE: COMPLETE but NO RESULTS - no inline books and no resultsUrl")
-                    #endif
-
-                    // Check if books were already delivered via individual SSE result events
-                    let currentReviewCount = await getReviewCount()
-                    let booksFromResultEvents = currentReviewCount - reviewCountBefore
-                    if booksFromResultEvents > 0 {
-                        e2eLogger.info("\(booksFromResultEvents) book(s) already delivered via result events, treating complete as success")
-                        #if DEBUG
-                        integrationLog("SSE: COMPLETE with books from result events (\(booksFromResultEvents) books), treating as success")
-                        #endif
-                        await callbacks.onScanComplete(booksFromResultEvents, thumbnailData)
-                        removeAuthToken(jobId: jobId)
-                        return booksFromResultEvents
-                    } else {
-                        #if DEBUG
-                        integrationLog("SSE: COMPLETE with no books at all - treating as error")
-                        #endif
-                        await callbacks.onError("No results available")
-                        removeAuthToken(jobId: jobId)
-                        return 0
-                    }
-                }
-
-                // Process all books via callbacks
-                let countBefore = await getReviewCount()
-                for book in books {
-                    #if DEBUG
-                    integrationLog("SSE: Processing book from complete: '\(book.resolvedTitle)' by '\(book.resolvedAuthor)'")
-                    #endif
-                    let rawJSON: String?
-                    if let jsonData = try? JSONEncoder().encode(book),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        rawJSON = jsonString
-                    } else {
-                        rawJSON = nil
-                    }
-                    await callbacks.onBookResult(book, rawJSON, nil, nil)
-                }
-
-                let booksAdded = await getReviewCount() - countBefore
-                await callbacks.onScanComplete(booksAdded, thumbnailData)
-                removeAuthToken(jobId: jobId)
-                return booksAdded
-
-            case .error(let errorInfo):
-                e2eLogger.error("SSE error (jobId: \(jobId)): \(errorInfo.message), retryable: \(errorInfo.retryable ?? false)")
-                #if DEBUG
-                integrationLog("SSE: ERROR event: \(errorInfo.message), retryable=\(errorInfo.retryable ?? false)")
-                #endif
-
-                if errorInfo.retryable == true {
-                    e2eLogger.info("Error is retryable - signaling for retry")
-                    await callbacks.onRetryableError(errorInfo.message)
-                } else {
-                    e2eLogger.error("Error is NOT retryable - showing permanent error")
-                    await callbacks.onError(errorInfo.message)
-                }
-                removeAuthToken(jobId: jobId)
-                return 0
-
-            case .canceled:
-                e2eLogger.warning("SSE job canceled (jobId: \(jobId))")
-                await callbacks.onCanceled()
-                removeAuthToken(jobId: jobId)
-                return 0
-
-            case .segmented(let preview):
-                e2eLogger.debug("Segmented preview: \(preview.totalBooks) books detected (\(preview.imageData.count) bytes)")
-                await callbacks.onSegmented(preview)
-
-            case .bookProgress(let progress):
-                e2eLogger.debug("Book progress: \(progress.current)/\(progress.total)")
-                await callbacks.onBookProgress(progress.current, progress.total)
-
-            case .ping:
-                e2eLogger.debug("SSE ping received")
-
-            case .enrichmentDegraded(let info):
-                e2eLogger.warning("Enrichment degraded: \(info.reason ?? "unknown reason")")
-                if let isbn = info.isbn {
-                    e2eLogger.debug("Enrichment degraded ISBN: \(isbn)")
-                }
-                if let fallback = info.fallbackSource {
-                    e2eLogger.debug("Enrichment fallback: \(fallback)")
-                }
-                await callbacks.onEnrichmentDegraded(info.reason)
+                await callbacks.onBookResult(book, rawJSON, nil, nil)
+                deliveredBooksCount += 1
             }
+
+            await callbacks.onScanComplete(deliveredBooksCount, thumbnailData)
+            removeAuthToken(jobId: jobId)
+            return deliveredBooksCount
+        } catch is CancellationError {
+            e2eLogger.warning("Polling job cancelled")
+            await callbacks.onCanceled()
+            removeAuthToken(jobId: jobId)
+            return 0
+        } catch {
+            e2eLogger.error("Polling job failed: \(error.localizedDescription)")
+            await callbacks.onError("Scan processing failed: \(error.localizedDescription)")
+            removeAuthToken(jobId: jobId)
+            return 0
+        }
+    }
+
+    private func deduplicationKey(for book: BookMetadata) -> String? {
+        if let isbn = book.isbn?.trimmingCharacters(in: .whitespacesAndNewlines), !isbn.isEmpty {
+            return "isbn:\(isbn)"
         }
 
-        #if DEBUG
-        integrationLog("SSE: for-await loop EXITED normally (no more events). Task.isCancelled=\(Task.isCancelled)")
-        #endif
+        let title = book.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let author = book.author?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !title.isEmpty, !author.isEmpty else {
+            return nil
+        }
 
-        return 0
+        return "title-author:\(title.lowercased())|\(author.lowercased())"
     }
 
     // MARK: - Cleanup

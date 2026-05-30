@@ -78,10 +78,12 @@ final class CameraViewModel {
 
     // MARK: - US-408: Rate Limit State
     let rateLimitState: RateLimitState = RateLimitState()
+    private var rateLimitCountdownTask: Task<Void, Never>?
 
     // MARK: - US-409: Offline Queue State
     var networkMonitor: NetworkMonitor = NetworkMonitor()
     let offlineQueueManager: OfflineQueueManager = OfflineQueueManager()
+    private var isUploadingOfflineScans = false
 
     // MARK: - Capture Throttle
     private var activeCaptureCount = 0
@@ -291,7 +293,6 @@ final class CameraViewModel {
             // Capture item ID and thumbnail for callbacks
             let capturedItemId = item.id
             let capturedThumbnailData = item.thumbnailData
-            let reviewCountBefore = reviewQueueManager.pendingReviewBooks.count
 
             // Build callbacks for the coordinator (thread photo URL for bounding box overlay)
             let callbacks = buildScanCallbacks(
@@ -305,11 +306,7 @@ final class CameraViewModel {
                 authToken: authToken,
                 jobId: uploadResult.jobId,
                 thumbnailData: capturedThumbnailData,
-                reviewCountBefore: reviewCountBefore,
-                callbacks: callbacks,
-                getReviewCount: { [weak self] in
-                    self?.reviewQueueManager.pendingReviewBooks.count ?? 0
-                }
+                callbacks: callbacks
             )
 
             // Check if task was cancelled during streaming
@@ -430,6 +427,9 @@ final class CameraViewModel {
     private func uploadToTalaria(itemId: UUID, item: ProcessingItem, uploadData: Data, fileURL: URL) async throws -> ScanUploadResult {
         // US-410: Performance optimization - limit concurrent SSE streams to 5
         await streamManager.acquireStreamSlot(scanId: itemId)
+        guard await streamManager.hasActiveSlot(scanId: itemId) else {
+            throw CancellationError()
+        }
 
         // Note: slot release is explicit at each exit point below (success and error).
         // A fire-and-forget Task in defer is not guaranteed to execute before the caller
@@ -599,25 +599,19 @@ final class CameraViewModel {
 
     // MARK: - US-408: Rate Limit Management
     func startRateLimitCountdown() async {
+        rateLimitCountdownTask?.cancel()
+
         let duration = TimeInterval(await rateLimitState.getRemainingSeconds())
-        queueStateManager.startRateLimitCountdown(duration: duration)
-
-        // Process queued scans when rate limit expires
-        while await rateLimitState.isRateLimited {
-            try? await Task.sleep(for: .seconds(1))
-        }
-
-        let queuedScans = await rateLimitState.dequeueAllScans()
-        guard let ctx = modelContext else {
-            e2eLogger.error("ModelContext not injected — cannot process rate-limit queue")
+        guard duration > 0 else {
+            await rateLimitState.clearRateLimit()
+            queueStateManager.clearRateLimit()
             return
         }
-        for scan in queuedScans {
-            let itemId = UUID()
-            let task = Task {
-                await processCaptureWithImageData(itemId: itemId, imageData: scan.imageData, modelContext: ctx, preScannedISBN: scan.preScannedISBN)
-            }
-            await scanCoordinator.trackJob(id: itemId, task: task)
+
+        queueStateManager.startRateLimitCountdown(duration: duration)
+
+        rateLimitCountdownTask = Task { [weak self] in
+            await self?.monitorRateLimitExpiration()
         }
     }
 
@@ -648,6 +642,39 @@ final class CameraViewModel {
         // Auto-dismiss after 5 seconds
         try? await Task.sleep(for: .seconds(5))
         queueStateManager.hideEnrichmentDegradation()
+    }
+
+    private func monitorRateLimitExpiration() async {
+        do {
+            while await rateLimitState.getRemainingSeconds() > 0 {
+                try await Task.sleep(for: .seconds(1))
+            }
+
+            await rateLimitState.clearRateLimit()
+            queueStateManager.clearRateLimit()
+
+            let queuedScans = await rateLimitState.dequeueAllScans()
+            guard !queuedScans.isEmpty else {
+                return
+            }
+
+            guard let ctx = modelContext else {
+                e2eLogger.error("ModelContext not injected — cannot process rate-limit queue")
+                return
+            }
+
+            for scan in queuedScans {
+                let itemId = UUID()
+                let task = Task {
+                    await processCaptureWithImageData(itemId: itemId, imageData: scan.imageData, modelContext: ctx, preScannedISBN: scan.preScannedISBN)
+                }
+                await scanCoordinator.trackJob(id: itemId, task: task)
+            }
+        } catch is CancellationError {
+            e2eLogger.debug("Rate limit countdown task canceled")
+        } catch {
+            e2eLogger.error("Rate limit countdown task failed: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Focus Handling
@@ -693,6 +720,14 @@ final class CameraViewModel {
     }
 
     func uploadQueuedScans() async {
+        guard !isUploadingOfflineScans else {
+            e2eLogger.info("Offline upload already in progress - skipping duplicate trigger")
+            return
+        }
+
+        isUploadingOfflineScans = true
+        defer { isUploadingOfflineScans = false }
+
         do {
             let queuedScans = try await offlineQueueManager.getAllQueuedScans()
 

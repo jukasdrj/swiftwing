@@ -130,7 +130,7 @@ Talaria v3.5.0+ clarifies the schema boundary between the external API contract 
   "success": true,
   "data": {
     "jobId": "550e8400-e29b-41d4-a716-446655440000",    // UUID string
-    "status": "initialized",                              // JobStatus enum
+    "status": "queued",                                   // JobStatus enum
     "streamUrl": "https://api.oooefam.net/...",          // SSE endpoint
     "token": "eyJhbGc..."                                // Optional auth token
   }
@@ -300,7 +300,20 @@ See `docs/testing/TESTING-CHECKLIST.md` for regression checklist.
 
 ## Skills & Tools
 
-**Skills:**
+**Available Skills:** See `skills/available.json` for machine-readable catalog.
+
+| Skill | Purpose | Trigger |
+|-------|---------|---------|
+| `swiftui-pro` | SwiftUI best practices, modern APIs | SwiftUI view changes |
+| `swiftdata-pro` | SwiftData patterns, queries | Model/data changes |
+| `swift-testing-pro` | Modern Swift Testing | Test file changes |
+| `swift-concurrency-pro` | Concurrency correctness | Actor/async changes |
+| `new-feature-slice` | Vertical slice development | New feature/epic |
+| `run-contract-tests` | OpenAPI contract validation | API changes |
+| `planning-with-files` | Complex multi-step task planning | Architecture changes, debugging |
+| `find-docs` | Current library documentation | Version upgrades, API changes |
+
+**Slash Commands:**
 - `/planning-with-files` — file-based planning (REQUIRED for >4 tool calls)
 - `/gogo` — quick commit + push
 - `/commit-push-pr` — commit → push → PR
@@ -317,10 +330,12 @@ See `docs/testing/TESTING-CHECKLIST.md` for regression checklist.
 | File | Purpose |
 |------|---------|
 | `START-HERE.md` | Orientation for new contributors |
-| `AGENTS.md` | Agent-optimized architecture reference |
+| `AGENTS.md` | Agent-optimized architecture reference + skills catalog |
 | `PRD.md` | Full product requirements |
 | `docs/` | Architecture, testing docs |
 | `.claude/rules/` | Build workflow, Swift conventions, planning policy |
+| `.claude/skills/` | Specialized AI skills (SwiftUI, SwiftData, concurrency) |
+| `skills/available.json` | Machine-readable skill manifest |
 | `.archive/` | Completed epic summaries, historical planning |
 
 ---
