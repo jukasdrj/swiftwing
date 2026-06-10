@@ -198,15 +198,11 @@ actor TalariaService {
         }
     }
 
-    /// Cleanup job resources on Talaria server
-    /// Fetch scan results from the resultsUrl provided in SSE completion event
+    /// Fetch scan results from a job-provided results URL
     /// - Parameter resultsUrl: Relative URL path (e.g. "/v3/jobs/ai_scan/scan_...")
     /// - Parameter authToken: Auth token for the job
     /// - Returns: Array of BookMetadata objects
     /// - Throws: NetworkError on failure
-    ///
-    /// Called after SSE stream completes to retrieve the array of identified books.
-    /// The resultsUrl is provided in the "completed" event data.
     func fetchResults(resultsUrl: String, authToken: String) async throws -> [BookMetadata] {
         // Construct full URL with ?format=lite query parameter
         var resultsUrlWithFormat = resultsUrl
@@ -313,8 +309,11 @@ actor TalariaService {
         request.httpMethod = "GET"
 
         var pollAttempt = 0
+        // ~5 minutes at the 4s backoff cap — bounds battery/network cost if a
+        // job gets stuck server-side in queued/processing
+        let maxPollAttempts = 75
 
-        while true {
+        while pollAttempt < maxPollAttempts {
             // Check if the current task has been cancelled (e.g. app backgrounded or screen dismissed)
             if Task.isCancelled {
                 throw CancellationError()
@@ -349,6 +348,9 @@ actor TalariaService {
             e2eLogger.debug("Poll attempt \(pollAttempt, privacy: .public) - waiting \(delay, privacy: .public)s before next check")
             try await Task.sleep(for: .seconds(delay))
         }
+
+        e2eLogger.error("Polling timed out after \(maxPollAttempts, privacy: .public) attempts for job \(jobId, privacy: .public)")
+        throw NetworkError.timeout
     }
 
     /// Fetch results for completed job in stateless polling mode

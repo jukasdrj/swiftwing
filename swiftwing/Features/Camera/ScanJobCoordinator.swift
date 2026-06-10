@@ -62,7 +62,8 @@ struct ScanUploadResult: Sendable {
 /// from UI state management.
 actor ScanJobCoordinator {
     private let talariaService: TalariaService
-    private var activeJobs: [UUID: Task<Void, Never>] = [:]
+    // Cancel handles for in-flight scan tasks (tasks may have any success type)
+    private var activeJobs: [UUID: @Sendable () -> Void] = [:]
     private var jobAuthTokens: [String: String] = [:]
     private var cleanupTasks: [Task<Void, Never>] = []
 
@@ -72,8 +73,8 @@ actor ScanJobCoordinator {
 
     // MARK: - Job Tracking
 
-    func trackJob(id: UUID, task: Task<Void, Never>) {
-        activeJobs[id] = task
+    func trackJob<Success: Sendable>(id: UUID, task: Task<Success, Never>) {
+        activeJobs[id] = { task.cancel() }
     }
 
     func removeJob(id: UUID) {
@@ -235,8 +236,8 @@ actor ScanJobCoordinator {
         e2eLogger.info("Cancelling \(jobCount) active SSE streams (navigation/backgrounding)")
 
         // Cancel all Swift Task instances
-        for (_, task) in activeJobs {
-            task.cancel()
+        for (_, cancel) in activeJobs {
+            cancel()
         }
         activeJobs.removeAll()
 
@@ -249,7 +250,7 @@ actor ScanJobCoordinator {
     }
 
     func cancelJob(id: UUID) {
-        activeJobs[id]?.cancel()
+        activeJobs[id]?()
         activeJobs.removeValue(forKey: id)
     }
 

@@ -98,46 +98,56 @@ actor OfflineQueueManager {
         let queuePath = self.queueDirectory
 
         return AsyncThrowingStream { continuation in
-            do {
-                // Check if directory exists
-                guard FileManager.default.fileExists(atPath: queuePath.path) else {
+            // Disk I/O runs in a detached task so stream creation never blocks
+            // the caller (CameraViewModel calls this from the main actor)
+            let task = Task {
+                do {
+                    // Check if directory exists
+                    guard FileManager.default.fileExists(atPath: queuePath.path) else {
+                        continuation.finish()
+                        return
+                    }
+
+                    // Read all metadata files
+                    let contents = try FileManager.default.contentsOfDirectory(
+                        at: queuePath,
+                        includingPropertiesForKeys: nil
+                    )
+
+                    let metadataFiles = contents.filter { $0.pathExtension == "json" }
+
+                    // Load and decode all metadata first to sort by date
+                    var metadataList: [QueuedScanMetadata] = []
+                    for metadataFile in metadataFiles {
+                        if Task.isCancelled { break }
+                        do {
+                            let metadataData = try Data(contentsOf: metadataFile)
+                            let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
+                            metadataList.append(metadata)
+                        } catch {
+                            // Skip this file and continue with others
+                        }
+                    }
+
+                    // Sort by capture date (oldest first)
+                    let sorted = metadataList.sorted { $0.captureDate < $1.captureDate }
+
+                    // Stream each scan one at a time
+                    for metadata in sorted {
+                        if Task.isCancelled { break }
+                        let imageURL = queuePath.appendingPathComponent(metadata.imageFileName)
+                        if let imageData = try? Data(contentsOf: imageURL) {
+                            continuation.yield((metadata: metadata, imageData: imageData))
+                        }
+                    }
                     continuation.finish()
-                    return
+                } catch {
+                    continuation.finish(throwing: error)
                 }
+            }
 
-                // Read all metadata files
-                let contents = try FileManager.default.contentsOfDirectory(
-                    at: queuePath,
-                    includingPropertiesForKeys: nil
-                )
-
-                let metadataFiles = contents.filter { $0.pathExtension == "json" }
-
-                // Load and decode all metadata first to sort by date
-                var metadataList: [QueuedScanMetadata] = []
-                for metadataFile in metadataFiles {
-                    do {
-                        let metadataData = try Data(contentsOf: metadataFile)
-                        let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
-                        metadataList.append(metadata)
-                    } catch {
-                        // Skip this file and continue with others
-                    }
-                }
-
-                // Sort by capture date (oldest first)
-                let sorted = metadataList.sorted { $0.captureDate < $1.captureDate }
-
-                // Stream each scan one at a time
-                for metadata in sorted {
-                    let imageURL = queuePath.appendingPathComponent(metadata.imageFileName)
-                    if let imageData = try? Data(contentsOf: imageURL) {
-                        continuation.yield((metadata: metadata, imageData: imageData))
-                    }
-                }
-                continuation.finish()
-            } catch {
-                continuation.finish(throwing: error)
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }

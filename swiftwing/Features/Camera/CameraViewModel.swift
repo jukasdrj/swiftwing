@@ -233,7 +233,11 @@ final class CameraViewModel {
         }
     }
 
-    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String? = nil) async {
+    /// - Returns: true when the scan was uploaded successfully or safely handed
+    ///   off (re-queued offline); false when processing failed and any persisted
+    ///   copy of the scan should be retained for retry
+    @discardableResult
+    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String? = nil) async -> Bool {
         let startTime = CFAbsoluteTimeGetCurrent()
         var queueItem: ProcessingItem?
         var tempFileURL: URL?
@@ -268,7 +272,7 @@ final class CameraViewModel {
                 queueStateManager.offlineQueuedCount = count
 
                 // Keep item in queue indefinitely until uploaded
-                return
+                return true
             }
 
             // Add to processing queue immediately with thumbnail (preprocessing state)
@@ -313,7 +317,7 @@ final class CameraViewModel {
             // Check if task was cancelled during streaming
             if Task.isCancelled {
                 if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
-                return
+                return false
             }
 
             // Success path - mark as done (unless callbacks already handled error/retry)
@@ -324,11 +328,12 @@ final class CameraViewModel {
 
             // Auto-remove from queue after 5 seconds
             await removeQueueItemAfterDelay(id: capturedItemId, delay: 5.0)
+            return true
 
         } catch is CancellationError {
             // Task was cancelled (e.g. user navigated away) — not a user-visible error
             e2eLogger.debug("processCaptureWithImageData: task cancelled")
-            return
+            return false
         } catch {
             e2eLogger.error("❌ processCaptureWithImageData error: \(error.localizedDescription)")
             #if DEBUG
@@ -340,6 +345,7 @@ final class CameraViewModel {
             } else {
                 await handleProcessingError(error: error, queueItem: queueItem, jobId: jobId, authToken: authToken, tempFileURL: tempFileURL)
             }
+            return false
         }
     }
 
@@ -742,13 +748,18 @@ final class CameraViewModel {
                 await scanCoordinator.trackJob(id: itemId, task: task)
 
                 // Wait for this scan to complete before processing the next one
-                await task.value
+                let uploaded = await task.value
 
-                // Remove from queue after successful processing
-                do {
-                    try await self.offlineQueueManager.removeQueuedScan(scanId: metadata.id)
-                } catch {
-                    e2eLogger.warning("Failed to remove queued scan \(metadata.id): \(error.localizedDescription)")
+                // Remove from queue only after successful processing — a failed
+                // upload keeps the scan on disk for the next retry pass
+                if uploaded {
+                    do {
+                        try await self.offlineQueueManager.removeQueuedScan(scanId: metadata.id)
+                    } catch {
+                        e2eLogger.warning("Failed to remove queued scan \(metadata.id): \(error.localizedDescription)")
+                    }
+                } else {
+                    e2eLogger.warning("Queued scan \(metadata.id) failed to upload - keeping in offline queue")
                 }
             }
 
