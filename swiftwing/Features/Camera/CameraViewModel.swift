@@ -235,7 +235,7 @@ final class CameraViewModel {
 
     func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String? = nil) async {
         let startTime = CFAbsoluteTimeGetCurrent()
-        let queueItem: ProcessingItem? = nil
+        var queueItem: ProcessingItem?
         var tempFileURL: URL?
         var jobId: String?
         var authToken: String?
@@ -273,6 +273,7 @@ final class CameraViewModel {
 
             // Add to processing queue immediately with thumbnail (preprocessing state)
             let item = queueStateManager.addItem(imageData: imageData, preScannedISBN: capturedISBN)
+            queueItem = item
 
             // Steps 1 & 2: Preprocess + process image for upload
             let (uploadData, fileURL) = try await preprocessAndPrepareUpload(
@@ -722,51 +723,37 @@ final class CameraViewModel {
         defer { isUploadingOfflineScans = false }
 
         do {
-            let queuedScans = try await offlineQueueManager.getAllQueuedScans()
-
-            guard !queuedScans.isEmpty else {
-                return
-            }
-
-            e2eLogger.info("Uploading \(queuedScans.count) queued scans")
-
-            queueStateManager.processingQueue.removeAll { $0.state == .offline }
+            var hasScans = false
 
             guard let ctx = modelContext else {
                 e2eLogger.error("ModelContext not injected — cannot upload queued scans")
                 return
             }
 
-            await withTaskGroup(of: Result<Void, Error>.self) { group in
-                for (metadata, imageData) in queuedScans {
-                    let itemId = UUID()
-                    let task = Task {
-                        await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: metadata.preScannedISBN)
-                    }
-                    await scanCoordinator.trackJob(id: itemId, task: task)
+            queueStateManager.processingQueue.removeAll { $0.state == .offline }
 
-                    group.addTask {
-                        await task.value
-                        do {
-                            try await self.offlineQueueManager.removeQueuedScan(scanId: metadata.id)
-                            return .success(())
-                        } catch {
-                            return .failure(error)
-                        }
-                    }
+            // Stream queued scans one at a time from oldest to newest
+            for try await (metadata, imageData) in offlineQueueManager.streamQueuedScans() {
+                hasScans = true
+                let itemId = UUID()
+                let task = Task {
+                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: metadata.preScannedISBN)
                 }
+                await scanCoordinator.trackJob(id: itemId, task: task)
 
-                // Collect partial failures — individual upload errors don't abort the group
-                var failureCount = 0
-                for await result in group {
-                    if case .failure(let error) = result {
-                        failureCount += 1
-                        e2eLogger.warning("Offline upload removal failed: \(error.localizedDescription)")
-                    }
+                // Wait for this scan to complete before processing the next one
+                await task.value
+
+                // Remove from queue after successful processing
+                do {
+                    try await self.offlineQueueManager.removeQueuedScan(scanId: metadata.id)
+                } catch {
+                    e2eLogger.warning("Failed to remove queued scan \(metadata.id): \(error.localizedDescription)")
                 }
-                if failureCount > 0 {
-                    e2eLogger.warning("Some offline scan removals failed: \(failureCount) error(s)")
-                }
+            }
+
+            if !hasScans {
+                return
             }
 
             let finalCount = try await offlineQueueManager.getQueuedScanCount()

@@ -101,13 +101,13 @@ actor TalariaService {
     /// - Parameters:
     ///   - image: Image data (JPEG format)
     ///   - deviceId: Unique device identifier
-    /// - Returns: Tuple containing jobId, streamUrl for SSE, and optional auth token
+    /// - Returns: Tuple containing jobId, optional streamUrl, status, and optional auth token
     /// - Throws: NetworkError on failure
     ///
     /// **API Contract:** Returns fields from JobResponseSchema (status, streamUrl, token).
     /// The status field indicates job state (queued, processing, completed, failed, canceled).
-    /// Use streamUrl with streamEvents() to subscribe to real-time progress updates.
-    func uploadScan(image: Data, deviceId: String) async throws -> (jobId: String, streamUrl: URL, status: JobStatus, token: String?) {
+    /// streamUrl is optional (server transition tolerance); use polling path if nil.
+    func uploadScan(image: Data, deviceId: String) async throws -> (jobId: String, streamUrl: URL?, status: JobStatus, token: String?) {
         // Construct upload endpoint
         guard let url = URL(string: "\(baseURL)/v3/jobs/scans") else {
             throw NetworkError.invalidResponse
@@ -155,14 +155,9 @@ actor TalariaService {
                     throw NetworkError.invalidResponse
                 }
 
-                guard let streamUrl = uploadResponse.data.streamUrl else {
-                    e2eLogger.error("Upload response missing streamUrl (required)")
-                    throw NetworkError.invalidResponse
-                }
+                e2eLogger.info("Upload response received: JobID=\(uploadResponse.data.jobId, privacy: .public) Status=\(String(describing: uploadResponse.data.status), privacy: .public) StreamURL=\(String(describing: uploadResponse.data.streamUrl), privacy: .public)")
 
-                e2eLogger.info("Upload response received: JobID=\(uploadResponse.data.jobId, privacy: .public) Status=\(String(describing: uploadResponse.data.status), privacy: .public)")
-
-                return (jobId: uploadResponse.data.jobId, streamUrl: streamUrl, status: uploadResponse.data.status, token: uploadResponse.data.token)
+                return (jobId: uploadResponse.data.jobId, streamUrl: uploadResponse.data.streamUrl, status: uploadResponse.data.status, token: uploadResponse.data.token)
 
             case 400, 413, 429, 500...599:
                 // Attempt RFC 9457 ProblemDetails parsing

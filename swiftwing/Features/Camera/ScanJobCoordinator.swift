@@ -53,7 +53,7 @@ struct ScanJobCallbacks: Sendable {
 /// Result of a successful scan upload
 struct ScanUploadResult: Sendable {
     let jobId: String
-    let streamUrl: URL
+    let streamUrl: URL?
     let authToken: String?
 }
 
@@ -103,9 +103,10 @@ actor ScanJobCoordinator {
 
         let (jobId, streamUrl, _, token) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
 
-        e2eLogger.info("📤 Upload success! jobId=\(jobId), streamUrl=\(streamUrl.absoluteString)")
+        let streamUrlLog = streamUrl.map { $0.absoluteString } ?? "(polling path)"
+        e2eLogger.info("📤 Upload success! jobId=\(jobId), streamUrl=\(streamUrlLog)")
         #if DEBUG
-        integrationLog("UPLOAD: Success! jobId=\(jobId), streamUrl=\(streamUrl.absoluteString)")
+        integrationLog("UPLOAD: Success! jobId=\(jobId), streamUrl=\(streamUrlLog)")
         #endif
 
         // Store auth token for SSE connection
@@ -120,8 +121,9 @@ actor ScanJobCoordinator {
 
     /// Poll scan status from Talaria backend and dispatch results to callbacks.
     /// Returns the number of distinct books delivered from this job.
+    /// streamUrl is optional (provided for future SSE path; current implementation uses polling).
     func streamAndProcess(
-        streamUrl: URL,
+        streamUrl: URL?,
         deviceId: String,
         authToken: String?,
         jobId: String,

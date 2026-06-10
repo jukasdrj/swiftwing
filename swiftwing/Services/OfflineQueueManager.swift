@@ -80,94 +80,53 @@ actor OfflineQueueManager {
         return scanId
     }
 
-    /// Retrieve all queued scans with their metadata
-    /// - Returns: Array of (metadata, imageData) tuples
-    func getAllQueuedScans() async throws -> [(metadata: QueuedScanMetadata, imageData: Data)] {
-        // Check if directory exists
-        guard FileManager.default.fileExists(atPath: queueDirectory.path) else {
-            return []
-        }
-
-        // Read all metadata files
-        let contents = try FileManager.default.contentsOfDirectory(
-            at: queueDirectory,
-            includingPropertiesForKeys: nil
-        )
-
-        let metadataFiles = contents.filter { $0.pathExtension == "json" }
-
-        var results: [(metadata: QueuedScanMetadata, imageData: Data)] = []
-
-        for metadataFile in metadataFiles {
-            do {
-                // Load metadata
-                let metadataData = try Data(contentsOf: metadataFile)
-                let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
-
-                // Load corresponding image
-                let imageURL = queueDirectory.appendingPathComponent(metadata.imageFileName)
-                let imageData = try Data(contentsOf: imageURL)
-
-                results.append((metadata: metadata, imageData: imageData))
-            } catch {
-                logger.warning("Failed to load queued scan from \(metadataFile.lastPathComponent): \(error)")
-                // Continue with other scans even if one fails
-            }
-        }
-
-        // Sort by capture date (oldest first)
-        results.sort { $0.metadata.captureDate < $1.metadata.captureDate }
-
-        logger.info("Found \(results.count) queued offline scans")
-        return results
-    }
-
     /// Stream queued scans one at a time from oldest to newest
     /// - Returns: AsyncThrowingStream of (metadata, imageData) tuples
-    func streamQueuedScans() -> AsyncThrowingStream<(metadata: QueuedScanMetadata, imageData: Data), Error> {
-        AsyncThrowingStream { continuation in
-            Task {
-                do {
-                    // Check if directory exists
-                    guard FileManager.default.fileExists(atPath: queueDirectory.path) else {
-                        continuation.finish()
-                        return
-                    }
+    nonisolated func streamQueuedScans() -> AsyncThrowingStream<(metadata: QueuedScanMetadata, imageData: Data), Error> {
+        let queuePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("OfflineQueue", isDirectory: true)
 
-                    // Read all metadata files
-                    let contents = try FileManager.default.contentsOfDirectory(
-                        at: queueDirectory,
-                        includingPropertiesForKeys: nil
-                    )
-
-                    let metadataFiles = contents.filter { $0.pathExtension == "json" }
-
-                    // Load and decode all metadata first to sort by date
-                    var metadataList: [QueuedScanMetadata] = []
-                    for metadataFile in metadataFiles {
-                        do {
-                            let metadataData = try Data(contentsOf: metadataFile)
-                            let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
-                            metadataList.append(metadata)
-                        } catch {
-                            logger.warning("Failed to load metadata from \(metadataFile.lastPathComponent): \(error)")
-                        }
-                    }
-
-                    // Sort by capture date (oldest first)
-                    let sorted = metadataList.sorted { $0.captureDate < $1.captureDate }
-
-                    // Stream each scan one at a time
-                    for metadata in sorted {
-                        let imageURL = queueDirectory.appendingPathComponent(metadata.imageFileName)
-                        if let imageData = try? Data(contentsOf: imageURL) {
-                            continuation.yield((metadata: metadata, imageData: imageData))
-                        }
-                    }
+        return AsyncThrowingStream { continuation in
+            do {
+                // Check if directory exists
+                guard FileManager.default.fileExists(atPath: queuePath.path) else {
                     continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
+                    return
                 }
+
+                // Read all metadata files
+                let contents = try FileManager.default.contentsOfDirectory(
+                    at: queuePath,
+                    includingPropertiesForKeys: nil
+                )
+
+                let metadataFiles = contents.filter { $0.pathExtension == "json" }
+
+                // Load and decode all metadata first to sort by date
+                var metadataList: [QueuedScanMetadata] = []
+                for metadataFile in metadataFiles {
+                    do {
+                        let metadataData = try Data(contentsOf: metadataFile)
+                        let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
+                        metadataList.append(metadata)
+                    } catch {
+                        // Skip this file and continue with others
+                    }
+                }
+
+                // Sort by capture date (oldest first)
+                let sorted = metadataList.sorted { $0.captureDate < $1.captureDate }
+
+                // Stream each scan one at a time
+                for metadata in sorted {
+                    let imageURL = queuePath.appendingPathComponent(metadata.imageFileName)
+                    if let imageData = try? Data(contentsOf: imageURL) {
+                        continuation.yield((metadata: metadata, imageData: imageData))
+                    }
+                }
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
             }
         }
     }
