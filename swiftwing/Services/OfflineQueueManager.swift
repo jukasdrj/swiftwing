@@ -33,6 +33,16 @@ actor OfflineQueueManager {
         }
     }
 
+    /// Internal initializer for testing with custom queue directory
+    init(queueDirectory: URL) {
+        self.queueDirectory = queueDirectory
+
+        // Create directory if it doesn't exist (non-blocking)
+        Task {
+            await ensureInitialized()
+        }
+    }
+
     // MARK: - Initialization Guard
 
     /// Ensures the queue directory exists before any queue operation.
@@ -83,8 +93,9 @@ actor OfflineQueueManager {
     /// Stream queued scans one at a time from oldest to newest
     /// - Returns: AsyncThrowingStream of (metadata, imageData) tuples
     nonisolated func streamQueuedScans() -> AsyncThrowingStream<(metadata: QueuedScanMetadata, imageData: Data), Error> {
-        let queuePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("OfflineQueue", isDirectory: true)
+        // Capture queue directory path at method call time
+        // This allows the method to be nonisolated while still respecting injected test directories
+        let queuePath = self.queueDirectory
 
         return AsyncThrowingStream { continuation in
             do {
