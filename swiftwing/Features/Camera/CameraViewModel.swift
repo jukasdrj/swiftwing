@@ -235,7 +235,7 @@ final class CameraViewModel {
 
     func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String? = nil) async {
         let startTime = CFAbsoluteTimeGetCurrent()
-        var queueItem: ProcessingItem?
+        let queueItem: ProcessingItem? = nil
         var tempFileURL: URL?
         var jobId: String?
         var authToken: String?
@@ -311,7 +311,6 @@ final class CameraViewModel {
 
             // Check if task was cancelled during streaming
             if Task.isCancelled {
-                await scanCoordinator.cleanup(jobId: uploadResult.jobId, authToken: authToken)
                 if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
                 return
             }
@@ -321,9 +320,6 @@ final class CameraViewModel {
                queueStateManager.processingQueue[index].state == .analyzing {
                 queueStateManager.updateItem(id: capturedItemId, state: .done, message: nil)
             }
-
-            // Cleanup server resources (non-blocking); temp file deferred until review action
-            await scanCoordinator.cleanup(jobId: uploadResult.jobId, authToken: authToken)
 
             // Auto-remove from queue after 5 seconds
             await removeQueueItemAfterDelay(id: capturedItemId, delay: 5.0)
@@ -389,9 +385,6 @@ final class CameraViewModel {
 
             haptics.errorOccurred()
 
-            if let jid = jobId {
-                await scanCoordinator.cleanup(jobId: jid, authToken: authToken)
-            }
             if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
 
             await removeQueueItemAfterDelay(id: item.id, delay: 5.0)

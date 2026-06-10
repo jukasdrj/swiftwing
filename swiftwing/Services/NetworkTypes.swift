@@ -316,7 +316,7 @@ public struct UploadResponse: Codable, Sendable {
 public struct UploadResponseData: Codable, Sendable {
     let jobId: String
     let status: JobStatus
-    let streamUrl: URL
+    let streamUrl: URL?
     let token: String?
 }
 

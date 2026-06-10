@@ -97,12 +97,6 @@ actor ScanUploadCoordinator {
         try await processUpload(imageData: imageData, callbacks: callbacks, modelContext: modelContext)
     }
     
-    // MARK: - Cleanup
-    
-    func cleanup(jobId: String) async throws {
-        uploadLogger.debug("Cleaning up jobId: \(jobId)")
-        try await talariaService.cleanup(jobId: jobId)
-    }
 }
 
 // MARK: - Supporting Types

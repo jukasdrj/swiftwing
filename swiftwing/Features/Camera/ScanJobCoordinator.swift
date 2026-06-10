@@ -101,7 +101,7 @@ actor ScanJobCoordinator {
         integrationLog("UPLOAD: Starting upload to Talaria...")
         #endif
 
-        let (jobId, streamUrl, status, token) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
+        let (jobId, streamUrl, _, token) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
 
         e2eLogger.info("📤 Upload success! jobId=\(jobId), streamUrl=\(streamUrl.absoluteString)")
         #if DEBUG
@@ -208,16 +208,6 @@ actor ScanJobCoordinator {
 
     // MARK: - Cleanup
 
-    func cleanup(jobId: String, authToken: String? = nil) async {
-        let token = authToken ?? jobAuthTokens[jobId]
-        do {
-            try await talariaService.cleanup(jobId: jobId, authToken: token)
-            e2eLogger.info("Server cleanup successful for job: \(jobId)")
-        } catch {
-            e2eLogger.warning("Server cleanup failed for job \(jobId): \(error.localizedDescription)")
-        }
-    }
-
     func cleanupTempFile(_ url: URL) {
         do {
             try FileManager.default.removeItem(at: url)
@@ -248,29 +238,9 @@ actor ScanJobCoordinator {
         }
         activeJobs.removeAll()
 
-        // Collect all in-progress job IDs that need backend cleanup
-        let activeJobIds = processingQueue
-            .filter { $0.state == .uploading || $0.state == .analyzing }
-            .compactMap { $0.jobId }
-
         // Cancel any previously running cleanup tasks
         for task in cleanupTasks { task.cancel() }
         cleanupTasks.removeAll()
-
-        // Fire-and-forget cleanup calls to backend (tracked for future cancellation)
-        for activeJobId in activeJobIds {
-            let storedAuthToken = jobAuthTokens[activeJobId]
-            let service = talariaService
-            let cleanupTask = Task {
-                do {
-                    try await service.cleanup(jobId: activeJobId, authToken: storedAuthToken)
-                    e2eLogger.info("Backend cleanup sent for disconnected job: \(activeJobId)")
-                } catch {
-                    e2eLogger.warning("Backend cleanup failed for \(activeJobId): \(error.localizedDescription)")
-                }
-            }
-            cleanupTasks.append(cleanupTask)
-        }
 
         // Clear all auth tokens
         jobAuthTokens.removeAll()
