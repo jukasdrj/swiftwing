@@ -68,7 +68,7 @@ public enum AnyCodableValue: Codable, Sendable, Equatable {
 /// do {
 ///     try await talariaService.uploadScan(image)
 /// } catch NetworkError.apiError(let problem) {
-///     if problem.retryable {
+///     if problem.retryable ?? false {
 ///         let delayMs = problem.retryAfterMs ?? 60000
 ///         try await Task.sleep(nanoseconds: delayMs * 1_000_000)
 ///     }
@@ -79,9 +79,9 @@ public struct ProblemDetails: Codable, Sendable {
     let type: String
     let title: String
     let status: Int
-    let detail: String
-    let code: String
-    let retryable: Bool
+    let detail: String?
+    let code: String?
+    let retryable: Bool?
     let retryAfterMs: Int?
     let instance: String?
     let metadata: [String: AnyCodableValue]?
@@ -115,7 +115,7 @@ public struct ProblemDetails: Codable, Sendable {
 ///     let delay = retryAfter ?? 60.0
 ///     print("Waiting \(delay)s before retry...")
 /// } catch NetworkError.apiError(let problem) {
-///     print("API Error: \(problem.code) - \(problem.detail)")
+///     print("API Error: \(problem.code ?? "UNKNOWN") - \(problem.detail ?? "unknown error")")
 /// }
 /// ```
 public enum NetworkError: Error {
@@ -143,7 +143,7 @@ public enum NetworkError: Error {
                 return "Rate limited - retry later"
             }
         case .apiError(let problem):
-            return problem.detail
+            return problem.detail ?? "Unknown API error"
         }
     }
 }

@@ -193,7 +193,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         // Assert
         XCTAssertEqual(error.status, 429)
         XCTAssertEqual(error.code, "RATE_LIMITED")
-        XCTAssertEqual(error.retryable, true)
+        XCTAssertEqual(error.retryable, true)  // Optional, but fixture provides it
         XCTAssertEqual(error.retryAfterMs, 30000)
     }
     
@@ -204,7 +204,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         // Assert
         XCTAssertEqual(error.status, 500)
         XCTAssertEqual(error.code, "EXTERNAL_API_ERROR")
-        XCTAssertTrue(error.retryable)
+        XCTAssertTrue(error.retryable ?? false)  // Optional, but fixture provides it
     }
 
     func test_decodeProblemDetails_invalidRequest() throws {
@@ -212,7 +212,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
 
         XCTAssertEqual(error.status, 422)
         XCTAssertEqual(error.code, "INVALID_IMAGE_SIZE")
-        XCTAssertFalse(error.retryable)
+        XCTAssertFalse(error.retryable ?? false)  // Optional, but fixture provides it
     }
     
     // MARK: - Contract Version Detection
