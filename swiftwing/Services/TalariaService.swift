@@ -41,8 +41,7 @@ private func sseLog(_ msg: String) {
 ///
 /// **Domain Model Translation:**
 /// This service translates between OpenAPI types and SwiftWing domain models:
-/// - UploadResponse (OpenAPI) → (jobId, streamUrl) tuple (domain)
-/// - SSE event stream (text) → SSEEvent enum (domain events)
+/// - UploadResponse (OpenAPI) → (jobId, status) tuple (domain)
 /// - BookMetadata JSON (OpenAPI) → BookMetadata struct (domain model)
 ///
 /// **Performance Characteristics (US-509 benchmarks):**

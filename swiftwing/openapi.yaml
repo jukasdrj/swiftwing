@@ -154,18 +154,12 @@ components:
       type: object
       required:
         - jobId
-        - streamUrl
       properties:
         jobId:
           type: string
           format: uuid
           description: Unique identifier for this scan job
           example: "123e4567-e89b-12d3-a456-426614174000"
-        streamUrl:
-          type: string
-          format: uri
-          description: SSE stream endpoint URL
-          example: "https://api.oooefam.net/v3/jobs/scans/123e4567-e89b-12d3-a456-426614174000/stream"
 
     BookMetadata:
       type: object
