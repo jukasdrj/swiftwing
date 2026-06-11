@@ -555,8 +555,6 @@ components:
           required:
           - jobId
           - status
-          - streamUrl
-          - token
           properties:
             jobId:
               type: string
@@ -571,13 +569,6 @@ components:
               - failed
               - canceled
               description: Initial job status (always 'queued')
-            streamUrl:
-              type: string
-              format: uri
-              description: SSE stream URL for real-time progress
-            token:
-              type: string
-              description: Bearer token for SSE authentication (valid 1 hour)
         metadata:
           $ref: '#/components/schemas/ResponseMetadata'
     JobStatusResponse:

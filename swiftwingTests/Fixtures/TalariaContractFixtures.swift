@@ -24,22 +24,18 @@ enum TalariaContractFixtures {
       "success": true,
       "data": {
         "jobId": "550e8400-e29b-41d4-a716-446655440000",
-        "status": "queued",
-        "streamUrl": "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream",
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "status": "queued"
       }
     }
     """
-    
+
     /// Upload response with processing status (less common)
     static let uploadResponseProcessingJSON = """
     {
       "success": true,
       "data": {
         "jobId": "660e8400-e29b-41d4-a716-446655440001",
-        "status": "processing",
-        "streamUrl": "https://api.oooefam.net/v3/jobs/scans/660e8400-e29b-41d4-a716-446655440001/stream",
-        "token": null
+        "status": "processing"
       }
     }
     """

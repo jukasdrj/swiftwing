@@ -903,18 +903,18 @@
 - ✅ All unit + contract tests passing
 
 ### Phase 2: Talaria Server Deploy (Separate Plan)
-- [ ] [BLOCKED] Awaiting talaria/docs/superpowers/plans/2026-06-09-phase2-talaria-deploy.md
+- [x] DONE 2026-06-11 — talaria PR #29 merged and deployed to production via new CI pipeline (push-to-`talaria` auto-deploy)
   - Server: emit TOP-LEVEL `enrichmentStatus` in results (client already expects this via Task 2 contract test)
   - Server: stop sending streamUrl/token in upload response (client tolerates absence via Task 3 optional)
 
 ### Phase 3: Client Follow-up (Final Checkbox)
-- [ ] [BLOCKED until talaria Task 6 deployed (POST 202 no longer contains streamUrl/token)] Delete streamUrl/token fields from UploadResponseData
+- [x] DONE 2026-06-11 — streamUrl/token removed end-to-end (UploadResponseData, uploadScan tuple, ScanUploadResult, dead auth-token store, openapi yamls); build 0/0, unit tests 105/0
   - File: `/Users/juju/dev_repos/swiftwing/swiftwing/Services/NetworkTypes.swift` (lines 316-321)
   - Action: Remove both fields entirely; update uploadScan return tuple to exclude them
   - Commit message: "Task 3b: Remove streamUrl/token fields after server deploys"
 
 ### Phase 4: Verification Gate
-- [ ] [BLOCKED until Phase 2 completes] Cross-product verification (client + server integration)
+- [x] Tier 2 DONE 2026-06-11 — live E2E vs production passed (202 {jobId,status} only, polling to completed in ~12s, results carry top-level enrichmentStatus incl. review_needed). Tier 3 manual golden path + family-device install still pending (requires physical device)
   - Reference: `talaria/docs/superpowers/plans/2026-06-09-phase4-verification-gate.md`
   - Smoke test: Upload scan with current server + new client; verify enrichmentStatus decodes correctly
   - Regression: Verify duplicate detection works with both ISBN and ISBN-less books

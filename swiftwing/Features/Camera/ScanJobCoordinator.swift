@@ -53,8 +53,6 @@ struct ScanJobCallbacks: Sendable {
 /// Result of a successful scan upload
 struct ScanUploadResult: Sendable {
     let jobId: String
-    let streamUrl: URL?
-    let authToken: String?
 }
 
 /// Coordinates the Upload -> SSE Stream -> Results lifecycle for book scanning.
@@ -64,7 +62,6 @@ actor ScanJobCoordinator {
     private let talariaService: TalariaService
     // Cancel handles for in-flight scan tasks (tasks may have any success type)
     private var activeJobs: [UUID: @Sendable () -> Void] = [:]
-    private var jobAuthTokens: [String: String] = [:]
     private var cleanupTasks: [Task<Void, Never>] = []
 
     init(talariaService: TalariaService) {
@@ -81,18 +78,6 @@ actor ScanJobCoordinator {
         activeJobs.removeValue(forKey: id)
     }
 
-    func storeAuthToken(jobId: String, token: String) {
-        jobAuthTokens[jobId] = token
-    }
-
-    func getAuthToken(jobId: String) -> String? {
-        jobAuthTokens[jobId]
-    }
-
-    func removeAuthToken(jobId: String) {
-        jobAuthTokens.removeValue(forKey: jobId)
-    }
-
     // MARK: - Upload
 
     /// Upload image to Talaria and return job info
@@ -102,31 +87,22 @@ actor ScanJobCoordinator {
         integrationLog("UPLOAD: Starting upload to Talaria...")
         #endif
 
-        let (jobId, streamUrl, _, token) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
+        let (jobId, _) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
 
-        let streamUrlLog = streamUrl.map { $0.absoluteString } ?? "(polling path)"
-        e2eLogger.info("📤 Upload success! jobId=\(jobId), streamUrl=\(streamUrlLog)")
+        e2eLogger.info("📤 Upload success! jobId=\(jobId)")
         #if DEBUG
-        integrationLog("UPLOAD: Success! jobId=\(jobId), streamUrl=\(streamUrlLog)")
+        integrationLog("UPLOAD: Success! jobId=\(jobId)")
         #endif
 
-        // Store auth token for SSE connection
-        if let token = token {
-            storeAuthToken(jobId: jobId, token: token)
-        }
-
-        return ScanUploadResult(jobId: jobId, streamUrl: streamUrl, authToken: token)
+        return ScanUploadResult(jobId: jobId)
     }
 
     // MARK: - SSE Streaming
 
     /// Poll scan status from Talaria backend and dispatch results to callbacks.
     /// Returns the number of distinct books delivered from this job.
-    /// streamUrl is optional (provided for future SSE path; current implementation uses polling).
     func streamAndProcess(
-        streamUrl: URL?,
         deviceId: String,
-        authToken: String?,
         jobId: String,
         thumbnailData: Data?,
         callbacks: ScanJobCallbacks
@@ -180,17 +156,14 @@ actor ScanJobCoordinator {
             }
 
             await callbacks.onScanComplete(deliveredBooksCount, thumbnailData)
-            removeAuthToken(jobId: jobId)
             return deliveredBooksCount
         } catch is CancellationError {
             e2eLogger.warning("Polling job cancelled")
             await callbacks.onCanceled()
-            removeAuthToken(jobId: jobId)
             return 0
         } catch {
             e2eLogger.error("Polling job failed: \(error.localizedDescription)")
             await callbacks.onError("Scan processing failed: \(error.localizedDescription)")
-            removeAuthToken(jobId: jobId)
             return 0
         }
     }
@@ -244,9 +217,6 @@ actor ScanJobCoordinator {
         // Cancel any previously running cleanup tasks
         for task in cleanupTasks { task.cancel() }
         cleanupTasks.removeAll()
-
-        // Clear all auth tokens
-        jobAuthTokens.removeAll()
     }
 
     func cancelJob(id: UUID) {

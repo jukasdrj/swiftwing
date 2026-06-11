@@ -290,8 +290,6 @@ extension EnrichmentStatus: Codable {
 /// **Field Mapping (Talaria → Swiftwing):**
 /// - jobId (string UUID) → jobId (String)
 /// - status (JobStatus enum) → status (JobStatus)
-/// - streamUrl (string URL) → streamUrl (URL)
-/// - token (string) → token (String) — for future auth-header use
 ///
 /// **Note:** Talaria firehose upload (POST /v3/jobs/scans/firehose) returns additional
 /// fields (uploadUrl, chunkSize, photoCount) not mapped here. Add when firehose is implemented.
@@ -311,13 +309,9 @@ public struct UploadResponse: Codable, Sendable {
 /// **Field Semantics:**
 /// - `jobId`: Unique job identifier for this scan (UUID format)
 /// - `status`: Current job state (queued, processing, completed, failed, canceled)
-/// - `streamUrl`: Server-Sent Events endpoint for real-time progress updates
-/// - `token`: Optional auth token for SSE stream (future use for auth-header setup)
 public struct UploadResponseData: Codable, Sendable {
     let jobId: String
     let status: JobStatus
-    let streamUrl: URL?
-    let token: String?
 }
 
 // MARK: - Book Metadata

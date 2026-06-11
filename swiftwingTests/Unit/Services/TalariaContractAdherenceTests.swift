@@ -25,27 +25,23 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertEqual(response.success, true)
         XCTAssertEqual(response.data.jobId, "550e8400-e29b-41d4-a716-446655440000")
         XCTAssertEqual(response.data.status, .queued)
-        XCTAssertEqual(response.data.streamUrl?.absoluteString, "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream")
-        XCTAssertNotNil(response.data.token)
     }
     
     func test_decodeUploadResponse_withProcessingStatus() throws {
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseProcessingJSON)
-        
+
         // Assert
         XCTAssertEqual(response.data.status, .processing)
-        XCTAssertNil(response.data.token, "Token should be nil for processing status")
     }
     
     func test_uploadResponseData_hasAllRequiredFields() throws {
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseJSON)
-        
+
         // Assert - Verify all required fields are present
         XCTAssertFalse(response.data.jobId.isEmpty, "jobId cannot be empty")
         XCTAssertNotNil(response.data.status, "status is required")
-        XCTAssertNotNil(response.data.streamUrl, "streamUrl is required")
     }
     
     // MARK: - BookMetadata Tests (Singular Author)
@@ -223,28 +219,22 @@ final class TalariaContractAdherenceTests: XCTestCase {
 
         // Assert - These fields must exist for version detection
         XCTAssertNotNil(response.data.status, "status field required for v3.5.0+")
-        XCTAssertNotNil(response.data.streamUrl, "streamUrl field provided in v3.5.0+ (optional for transition)")
-        XCTAssertNotNil(response.data.token, "token field provided in v3.5.0+")
     }
-    
+
     // MARK: - Integration Tests
-    
+
     func test_talariaService_usesCorrectResponseMapping() throws {
         // This test verifies that TalariaService correctly maps UploadResponseData fields
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseJSON)
-        
+
         // Act
         let jobId = response.data.jobId
-        let streamUrl = response.data.streamUrl
         let status = response.data.status
-        let token = response.data.token
-        
+
         // Assert - All fields should map correctly for TalariaService.uploadScan return type
         XCTAssertEqual(jobId, "550e8400-e29b-41d4-a716-446655440000")
-        XCTAssertEqual(streamUrl?.absoluteString, "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream")
         XCTAssertEqual(status, .queued)
-        XCTAssertNotNil(token)
     }
     
     // MARK: - Backward Compatibility Tests
@@ -282,13 +272,11 @@ final class TalariaContractAdherenceTests: XCTestCase {
               "success": true,
               "data": {
                 "jobId": "test-id",
-                "status": "\(statusString)",
-                "streamUrl": "https://example.com/stream",
-                "token": null
+                "status": "\(statusString)"
               }
             }
             """
-            
+
             let response = try TalariaContractFixtures.decodeUploadResponse(from: json)
             XCTAssertEqual(response.data.status, expectedStatus, "Should decode status: \(statusString)")
         }

@@ -242,7 +242,6 @@ final class CameraViewModel {
         var queueItem: ProcessingItem?
         var tempFileURL: URL?
         var jobId: String?
-        var authToken: String?
         // Use caller-supplied pre-scanned ISBN if provided (e.g. from offline queue retry)
         let capturedISBN = preScannedISBN
 
@@ -290,7 +289,6 @@ final class CameraViewModel {
                 itemId: itemId, item: item, uploadData: uploadData, fileURL: fileURL
             )
             jobId = uploadResult.jobId
-            authToken = uploadResult.authToken
 
             // Switch to analyzing state
             queueStateManager.updateItem(id: item.id, state: .analyzing, message: "Analyzing...")
@@ -306,9 +304,7 @@ final class CameraViewModel {
 
             // Stream SSE events via coordinator
             let _ = try await scanCoordinator.streamAndProcess(
-                streamUrl: uploadResult.streamUrl,
                 deviceId: self.deviceId,
-                authToken: authToken,
                 jobId: uploadResult.jobId,
                 thumbnailData: capturedThumbnailData,
                 callbacks: callbacks
@@ -343,7 +339,7 @@ final class CameraViewModel {
                case .rateLimited(let retryAfter) = networkError {
                 await handleRateLimitError(retryAfter: retryAfter, imageData: imageData, capturedISBN: capturedISBN, queueItem: queueItem, tempFileURL: tempFileURL)
             } else {
-                await handleProcessingError(error: error, queueItem: queueItem, jobId: jobId, authToken: authToken, tempFileURL: tempFileURL)
+                await handleProcessingError(error: error, queueItem: queueItem, jobId: jobId, tempFileURL: tempFileURL)
             }
             return false
         }
@@ -380,7 +376,6 @@ final class CameraViewModel {
         error: Error,
         queueItem: ProcessingItem?,
         jobId: String?,
-        authToken: String?,
         tempFileURL: URL?
     ) async {
         e2eLogger.error("Image processing/upload failed: \(error.localizedDescription)")
@@ -423,7 +418,7 @@ final class CameraViewModel {
     }
 
     /// Acquire a stream slot, upload image data to Talaria, and record cleanup info.
-    /// Returns the upload result containing jobId, authToken, and streamUrl.
+    /// Returns the upload result containing jobId.
     private func uploadToTalaria(itemId: UUID, item: ProcessingItem, uploadData: Data, fileURL: URL) async throws -> ScanUploadResult {
         // US-410: Performance optimization - limit concurrent SSE streams to 5
         await streamManager.acquireStreamSlot(scanId: itemId)
