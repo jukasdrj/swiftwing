@@ -233,7 +233,11 @@ final class CameraViewModel {
         }
     }
 
-    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String? = nil) async {
+    /// - Returns: true when the scan was uploaded successfully or safely handed
+    ///   off (re-queued offline); false when processing failed and any persisted
+    ///   copy of the scan should be retained for retry
+    @discardableResult
+    func processCaptureWithImageData(itemId: UUID, imageData: Data, modelContext: ModelContext, preScannedISBN: String? = nil) async -> Bool {
         let startTime = CFAbsoluteTimeGetCurrent()
         var queueItem: ProcessingItem?
         var tempFileURL: URL?
@@ -268,11 +272,12 @@ final class CameraViewModel {
                 queueStateManager.offlineQueuedCount = count
 
                 // Keep item in queue indefinitely until uploaded
-                return
+                return true
             }
 
             // Add to processing queue immediately with thumbnail (preprocessing state)
             let item = queueStateManager.addItem(imageData: imageData, preScannedISBN: capturedISBN)
+            queueItem = item
 
             // Steps 1 & 2: Preprocess + process image for upload
             let (uploadData, fileURL) = try await preprocessAndPrepareUpload(
@@ -311,9 +316,8 @@ final class CameraViewModel {
 
             // Check if task was cancelled during streaming
             if Task.isCancelled {
-                await scanCoordinator.cleanup(jobId: uploadResult.jobId, authToken: authToken)
                 if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
-                return
+                return false
             }
 
             // Success path - mark as done (unless callbacks already handled error/retry)
@@ -322,16 +326,14 @@ final class CameraViewModel {
                 queueStateManager.updateItem(id: capturedItemId, state: .done, message: nil)
             }
 
-            // Cleanup server resources (non-blocking); temp file deferred until review action
-            await scanCoordinator.cleanup(jobId: uploadResult.jobId, authToken: authToken)
-
             // Auto-remove from queue after 5 seconds
             await removeQueueItemAfterDelay(id: capturedItemId, delay: 5.0)
+            return true
 
         } catch is CancellationError {
             // Task was cancelled (e.g. user navigated away) — not a user-visible error
             e2eLogger.debug("processCaptureWithImageData: task cancelled")
-            return
+            return false
         } catch {
             e2eLogger.error("❌ processCaptureWithImageData error: \(error.localizedDescription)")
             #if DEBUG
@@ -343,6 +345,7 @@ final class CameraViewModel {
             } else {
                 await handleProcessingError(error: error, queueItem: queueItem, jobId: jobId, authToken: authToken, tempFileURL: tempFileURL)
             }
+            return false
         }
     }
 
@@ -389,9 +392,6 @@ final class CameraViewModel {
 
             haptics.errorOccurred()
 
-            if let jid = jobId {
-                await scanCoordinator.cleanup(jobId: jid, authToken: authToken)
-            }
             if let tempFileURL { await scanCoordinator.cleanupTempFile(tempFileURL) }
 
             await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
@@ -729,51 +729,42 @@ final class CameraViewModel {
         defer { isUploadingOfflineScans = false }
 
         do {
-            let queuedScans = try await offlineQueueManager.getAllQueuedScans()
-
-            guard !queuedScans.isEmpty else {
-                return
-            }
-
-            e2eLogger.info("Uploading \(queuedScans.count) queued scans")
-
-            queueStateManager.processingQueue.removeAll { $0.state == .offline }
+            var hasScans = false
 
             guard let ctx = modelContext else {
                 e2eLogger.error("ModelContext not injected — cannot upload queued scans")
                 return
             }
 
-            await withTaskGroup(of: Result<Void, Error>.self) { group in
-                for (metadata, imageData) in queuedScans {
-                    let itemId = UUID()
-                    let task = Task {
-                        await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: metadata.preScannedISBN)
-                    }
-                    await scanCoordinator.trackJob(id: itemId, task: task)
+            queueStateManager.processingQueue.removeAll { $0.state == .offline }
 
-                    group.addTask {
-                        await task.value
-                        do {
-                            try await self.offlineQueueManager.removeQueuedScan(scanId: metadata.id)
-                            return .success(())
-                        } catch {
-                            return .failure(error)
-                        }
-                    }
+            // Stream queued scans one at a time from oldest to newest
+            for try await (metadata, imageData) in offlineQueueManager.streamQueuedScans() {
+                hasScans = true
+                let itemId = UUID()
+                let task = Task {
+                    await processCaptureWithImageData(itemId: itemId, imageData: imageData, modelContext: ctx, preScannedISBN: metadata.preScannedISBN)
                 }
+                await scanCoordinator.trackJob(id: itemId, task: task)
 
-                // Collect partial failures — individual upload errors don't abort the group
-                var failureCount = 0
-                for await result in group {
-                    if case .failure(let error) = result {
-                        failureCount += 1
-                        e2eLogger.warning("Offline upload removal failed: \(error.localizedDescription)")
+                // Wait for this scan to complete before processing the next one
+                let uploaded = await task.value
+
+                // Remove from queue only after successful processing — a failed
+                // upload keeps the scan on disk for the next retry pass
+                if uploaded {
+                    do {
+                        try await self.offlineQueueManager.removeQueuedScan(scanId: metadata.id)
+                    } catch {
+                        e2eLogger.warning("Failed to remove queued scan \(metadata.id): \(error.localizedDescription)")
                     }
+                } else {
+                    e2eLogger.warning("Queued scan \(metadata.id) failed to upload - keeping in offline queue")
                 }
-                if failureCount > 0 {
-                    e2eLogger.warning("Some offline scan removals failed: \(failureCount) error(s)")
-                }
+            }
+
+            if !hasScans {
+                return
             }
 
             let finalCount = try await offlineQueueManager.getQueuedScanCount()

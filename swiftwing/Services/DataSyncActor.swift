@@ -25,8 +25,10 @@ final class DataSyncActor {
     @discardableResult
     func save(book: PendingBookResult, in context: ModelContext) throws -> Bool {
         let isbn = book.resolvedISBN
+        let title = book.resolvedTitle
+        let author = book.resolvedAuthor
 
-        if let existing = try DuplicateDetection.findDuplicate(isbn: isbn, in: context) {
+        if let existing = try DuplicateDetection.findDuplicate(isbn: isbn, title: title, author: author, in: context) {
             logger.info("DataSyncActor: skipping duplicate '\(book.resolvedTitle, privacy: .public)' (isbn: \(existing.isbn, privacy: .public))")
             return false
         }
@@ -45,7 +47,9 @@ final class DataSyncActor {
 
         for book in books {
             let isbn = book.resolvedISBN
-            if (try? DuplicateDetection.findDuplicate(isbn: isbn, in: context)) != nil {
+            let title = book.resolvedTitle
+            let author = book.resolvedAuthor
+            if (try? DuplicateDetection.findDuplicate(isbn: isbn, title: title, author: author, in: context)) != nil {
                 logger.info("DataSyncActor: skipping duplicate '\(book.resolvedTitle, privacy: .public)'")
                 continue
             }

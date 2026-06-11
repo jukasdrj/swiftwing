@@ -23,7 +23,9 @@ struct SwiftwingApp: App {
 
     init() {
         configureForUITesting()
-        cleanupOrphanedTempPhotos()
+        Task(priority: .background) {
+            await Self.cleanupOrphanedTempPhotos()
+        }
 
         #if DEBUG
         // OPTIONAL: Uncomment to auto-seed library on first launch
@@ -48,7 +50,8 @@ struct SwiftwingApp: App {
 
     /// Remove orphaned JPEG temp files older than 1 hour from the temp directory.
     /// Handles crash/force-quit scenarios where normal cleanup didn't run.
-    private func cleanupOrphanedTempPhotos() {
+    /// Executes in background to avoid blocking app initialization.
+    private nonisolated static func cleanupOrphanedTempPhotos() async {
         let tempDir = FileManager.default.temporaryDirectory
         let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "app-init")
         let oneHourAgo = Date().addingTimeInterval(-3600)

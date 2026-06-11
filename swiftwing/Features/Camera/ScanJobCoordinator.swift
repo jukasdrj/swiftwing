@@ -53,7 +53,7 @@ struct ScanJobCallbacks: Sendable {
 /// Result of a successful scan upload
 struct ScanUploadResult: Sendable {
     let jobId: String
-    let streamUrl: URL
+    let streamUrl: URL?
     let authToken: String?
 }
 
@@ -62,7 +62,8 @@ struct ScanUploadResult: Sendable {
 /// from UI state management.
 actor ScanJobCoordinator {
     private let talariaService: TalariaService
-    private var activeJobs: [UUID: Task<Void, Never>] = [:]
+    // Cancel handles for in-flight scan tasks (tasks may have any success type)
+    private var activeJobs: [UUID: @Sendable () -> Void] = [:]
     private var jobAuthTokens: [String: String] = [:]
     private var cleanupTasks: [Task<Void, Never>] = []
 
@@ -72,8 +73,8 @@ actor ScanJobCoordinator {
 
     // MARK: - Job Tracking
 
-    func trackJob(id: UUID, task: Task<Void, Never>) {
-        activeJobs[id] = task
+    func trackJob<Success: Sendable>(id: UUID, task: Task<Success, Never>) {
+        activeJobs[id] = { task.cancel() }
     }
 
     func removeJob(id: UUID) {
@@ -101,11 +102,12 @@ actor ScanJobCoordinator {
         integrationLog("UPLOAD: Starting upload to Talaria...")
         #endif
 
-        let (jobId, streamUrl, status, token) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
+        let (jobId, streamUrl, _, token) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
 
-        e2eLogger.info("📤 Upload success! jobId=\(jobId), streamUrl=\(streamUrl.absoluteString)")
+        let streamUrlLog = streamUrl.map { $0.absoluteString } ?? "(polling path)"
+        e2eLogger.info("📤 Upload success! jobId=\(jobId), streamUrl=\(streamUrlLog)")
         #if DEBUG
-        integrationLog("UPLOAD: Success! jobId=\(jobId), streamUrl=\(streamUrl.absoluteString)")
+        integrationLog("UPLOAD: Success! jobId=\(jobId), streamUrl=\(streamUrlLog)")
         #endif
 
         // Store auth token for SSE connection
@@ -120,8 +122,9 @@ actor ScanJobCoordinator {
 
     /// Poll scan status from Talaria backend and dispatch results to callbacks.
     /// Returns the number of distinct books delivered from this job.
+    /// streamUrl is optional (provided for future SSE path; current implementation uses polling).
     func streamAndProcess(
-        streamUrl: URL,
+        streamUrl: URL?,
         deviceId: String,
         authToken: String?,
         jobId: String,
@@ -208,16 +211,6 @@ actor ScanJobCoordinator {
 
     // MARK: - Cleanup
 
-    func cleanup(jobId: String, authToken: String? = nil) async {
-        let token = authToken ?? jobAuthTokens[jobId]
-        do {
-            try await talariaService.cleanup(jobId: jobId, authToken: token)
-            e2eLogger.info("Server cleanup successful for job: \(jobId)")
-        } catch {
-            e2eLogger.warning("Server cleanup failed for job \(jobId): \(error.localizedDescription)")
-        }
-    }
-
     func cleanupTempFile(_ url: URL) {
         do {
             try FileManager.default.removeItem(at: url)
@@ -243,41 +236,21 @@ actor ScanJobCoordinator {
         e2eLogger.info("Cancelling \(jobCount) active SSE streams (navigation/backgrounding)")
 
         // Cancel all Swift Task instances
-        for (_, task) in activeJobs {
-            task.cancel()
+        for (_, cancel) in activeJobs {
+            cancel()
         }
         activeJobs.removeAll()
-
-        // Collect all in-progress job IDs that need backend cleanup
-        let activeJobIds = processingQueue
-            .filter { $0.state == .uploading || $0.state == .analyzing }
-            .compactMap { $0.jobId }
 
         // Cancel any previously running cleanup tasks
         for task in cleanupTasks { task.cancel() }
         cleanupTasks.removeAll()
-
-        // Fire-and-forget cleanup calls to backend (tracked for future cancellation)
-        for activeJobId in activeJobIds {
-            let storedAuthToken = jobAuthTokens[activeJobId]
-            let service = talariaService
-            let cleanupTask = Task {
-                do {
-                    try await service.cleanup(jobId: activeJobId, authToken: storedAuthToken)
-                    e2eLogger.info("Backend cleanup sent for disconnected job: \(activeJobId)")
-                } catch {
-                    e2eLogger.warning("Backend cleanup failed for \(activeJobId): \(error.localizedDescription)")
-                }
-            }
-            cleanupTasks.append(cleanupTask)
-        }
 
         // Clear all auth tokens
         jobAuthTokens.removeAll()
     }
 
     func cancelJob(id: UUID) {
-        activeJobs[id]?.cancel()
+        activeJobs[id]?()
         activeJobs.removeValue(forKey: id)
     }
 

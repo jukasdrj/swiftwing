@@ -13,7 +13,6 @@
 		297CACB39DDD705A8166A4A6 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D2799E01740D4AFBDD20D960 /* JetBrainsMono-Regular.ttf */; };
 		2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B42B677D75020B244722F76 /* CameraPreviewView.swift */; };
 		2F881DDD1F304669B5B0F6A8 /* PendingBookResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592CF225879D432E9A26F387 /* PendingBookResult.swift */; };
-		34846D91B93457BE0416BE8F /* SSEEventParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED950344DCECA589A004461 /* SSEEventParser.swift */; };
 		369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5FA190CF9E5B8B778E942 /* CameraView.swift */; };
 		420A170E7A7CA72194C885D9 /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */; };
 		47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4213E4CF87C7BB46283EB591 /* ReviewQueueView.swift */; };
@@ -154,7 +153,6 @@
 		EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
 		F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineIndicatorView.swift; sourceTree = "<group>"; };
 		FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitOverlay.swift; sourceTree = "<group>"; };
-		FED950344DCECA589A004461 /* SSEEventParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SSEEventParser.swift; sourceTree = "<group>"; };
 		UI00000200000000000000001 /* swiftwingUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swiftwingUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		YUJ3QP10K9BZB6ONRHQFTP3K /* FeatureFlagsDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagsDebugView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -393,7 +391,6 @@
 				BBAB4A6B0846BA3231888A50 /* TalariaService.swift */,
 				A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */,
 				C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */,
-				FED950344DCECA589A004461 /* SSEEventParser.swift */,
 			);
 			name = Network;
 			sourceTree = "<group>";
@@ -668,7 +665,6 @@
 				47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */,
 				AA30BF0100000000000000001 /* ReviewCardView.swift in Sources */,
 				AA30BF0100000000000000002 /* ReviewEditForm.swift in Sources */,
-				34846D91B93457BE0416BE8F /* SSEEventParser.swift in Sources */,
 				701775C4C08E1E2D4E1ADD3C /* DeviceIdentifier.swift in Sources */,
 				NGSJ4CCSZTID46QJZTIZ1FGL /* ProcessingFeedbackView.swift in Sources */,
 				73KE6WVAWL51SGLD8AHCZGA1 /* FeatureFlagsDebugView.swift in Sources */,

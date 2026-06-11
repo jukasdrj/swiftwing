@@ -33,6 +33,16 @@ actor OfflineQueueManager {
         }
     }
 
+    /// Internal initializer for testing with custom queue directory
+    init(queueDirectory: URL) {
+        self.queueDirectory = queueDirectory
+
+        // Create directory if it doesn't exist (non-blocking)
+        Task {
+            await ensureInitialized()
+        }
+    }
+
     // MARK: - Initialization Guard
 
     /// Ensures the queue directory exists before any queue operation.
@@ -80,46 +90,66 @@ actor OfflineQueueManager {
         return scanId
     }
 
-    /// Retrieve all queued scans with their metadata
-    /// - Returns: Array of (metadata, imageData) tuples
-    func getAllQueuedScans() async throws -> [(metadata: QueuedScanMetadata, imageData: Data)] {
-        // Check if directory exists
-        guard FileManager.default.fileExists(atPath: queueDirectory.path) else {
-            return []
-        }
+    /// Stream queued scans one at a time from oldest to newest
+    /// - Returns: AsyncThrowingStream of (metadata, imageData) tuples
+    nonisolated func streamQueuedScans() -> AsyncThrowingStream<(metadata: QueuedScanMetadata, imageData: Data), Error> {
+        // Capture queue directory path at method call time
+        // This allows the method to be nonisolated while still respecting injected test directories
+        let queuePath = self.queueDirectory
 
-        // Read all metadata files
-        let contents = try FileManager.default.contentsOfDirectory(
-            at: queueDirectory,
-            includingPropertiesForKeys: nil
-        )
+        return AsyncThrowingStream { continuation in
+            // Disk I/O runs in a detached task so stream creation never blocks
+            // the caller (CameraViewModel calls this from the main actor)
+            let task = Task {
+                do {
+                    // Check if directory exists
+                    guard FileManager.default.fileExists(atPath: queuePath.path) else {
+                        continuation.finish()
+                        return
+                    }
 
-        let metadataFiles = contents.filter { $0.pathExtension == "json" }
+                    // Read all metadata files
+                    let contents = try FileManager.default.contentsOfDirectory(
+                        at: queuePath,
+                        includingPropertiesForKeys: nil
+                    )
 
-        var results: [(metadata: QueuedScanMetadata, imageData: Data)] = []
+                    let metadataFiles = contents.filter { $0.pathExtension == "json" }
 
-        for metadataFile in metadataFiles {
-            do {
-                // Load metadata
-                let metadataData = try Data(contentsOf: metadataFile)
-                let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
+                    // Load and decode all metadata first to sort by date
+                    var metadataList: [QueuedScanMetadata] = []
+                    for metadataFile in metadataFiles {
+                        if Task.isCancelled { break }
+                        do {
+                            let metadataData = try Data(contentsOf: metadataFile)
+                            let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
+                            metadataList.append(metadata)
+                        } catch {
+                            // Skip this file and continue with others
+                        }
+                    }
 
-                // Load corresponding image
-                let imageURL = queueDirectory.appendingPathComponent(metadata.imageFileName)
-                let imageData = try Data(contentsOf: imageURL)
+                    // Sort by capture date (oldest first)
+                    let sorted = metadataList.sorted { $0.captureDate < $1.captureDate }
 
-                results.append((metadata: metadata, imageData: imageData))
-            } catch {
-                logger.warning("Failed to load queued scan from \(metadataFile.lastPathComponent): \(error)")
-                // Continue with other scans even if one fails
+                    // Stream each scan one at a time
+                    for metadata in sorted {
+                        if Task.isCancelled { break }
+                        let imageURL = queuePath.appendingPathComponent(metadata.imageFileName)
+                        if let imageData = try? Data(contentsOf: imageURL) {
+                            continuation.yield((metadata: metadata, imageData: imageData))
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
-
-        // Sort by capture date (oldest first)
-        results.sort { $0.metadata.captureDate < $1.metadata.captureDate }
-
-        logger.info("Found \(results.count) queued offline scans")
-        return results
     }
 
     /// Remove a queued scan after successful upload

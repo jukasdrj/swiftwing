@@ -20,12 +20,12 @@ final class TalariaContractAdherenceTests: XCTestCase {
     func test_decodeUploadResponse_withStandardSchema() throws {
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseJSON)
-        
+
         // Assert
         XCTAssertEqual(response.success, true)
         XCTAssertEqual(response.data.jobId, "550e8400-e29b-41d4-a716-446655440000")
         XCTAssertEqual(response.data.status, .queued)
-        XCTAssertEqual(response.data.streamUrl.absoluteString, "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream")
+        XCTAssertEqual(response.data.streamUrl?.absoluteString, "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream")
         XCTAssertNotNil(response.data.token)
     }
     
@@ -193,7 +193,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         // Assert
         XCTAssertEqual(error.status, 429)
         XCTAssertEqual(error.code, "RATE_LIMITED")
-        XCTAssertEqual(error.retryable, true)
+        XCTAssertEqual(error.retryable, .some(true))  // Optional field, fixture provides true
         XCTAssertEqual(error.retryAfterMs, 30000)
     }
     
@@ -204,7 +204,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         // Assert
         XCTAssertEqual(error.status, 500)
         XCTAssertEqual(error.code, "EXTERNAL_API_ERROR")
-        XCTAssertTrue(error.retryable)
+        XCTAssertTrue(error.retryable ?? false)  // Optional, but fixture provides it
     }
 
     func test_decodeProblemDetails_invalidRequest() throws {
@@ -212,7 +212,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
 
         XCTAssertEqual(error.status, 422)
         XCTAssertEqual(error.code, "INVALID_IMAGE_SIZE")
-        XCTAssertFalse(error.retryable)
+        XCTAssertFalse(error.retryable ?? false)  // Optional, but fixture provides it
     }
     
     // MARK: - Contract Version Detection
@@ -220,11 +220,11 @@ final class TalariaContractAdherenceTests: XCTestCase {
     func test_uploadResponse_containsRequiredFields_forVersionDetection() throws {
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseJSON)
-        
+
         // Assert - These fields must exist for version detection
         XCTAssertNotNil(response.data.status, "status field required for v3.5.0+")
-        XCTAssertNotNil(response.data.streamUrl, "streamUrl field required for v3.5.0+")
-        XCTAssertNotNil(response.data.token, "token field required for v3.5.0+")
+        XCTAssertNotNil(response.data.streamUrl, "streamUrl field provided in v3.5.0+ (optional for transition)")
+        XCTAssertNotNil(response.data.token, "token field provided in v3.5.0+")
     }
     
     // MARK: - Integration Tests
@@ -242,7 +242,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         
         // Assert - All fields should map correctly for TalariaService.uploadScan return type
         XCTAssertEqual(jobId, "550e8400-e29b-41d4-a716-446655440000")
-        XCTAssertEqual(streamUrl.absoluteString, "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream")
+        XCTAssertEqual(streamUrl?.absoluteString, "https://api.oooefam.net/v3/jobs/scans/550e8400-e29b-41d4-a716-446655440000/stream")
         XCTAssertEqual(status, .queued)
         XCTAssertNotNil(token)
     }
