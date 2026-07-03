@@ -180,7 +180,85 @@ enum TalariaContractFixtures {
       "publicationYear": 2024
     }
     """
-    
+
+    /// Result payload where the server sends the literal placeholder "unknown"
+    /// as the ISBN (current server behavior for unresolved spines). The decoder
+    /// must normalize this to nil so dedup keys and the SwiftData unique
+    /// constraint never see a shared "unknown" value.
+    static let bookMetadataUnknownISBNJSON = """
+    {
+      "title": "Mystery Spine",
+      "author": "Some Author",
+      "isbn": "unknown",
+      "coverUrl": null,
+      "publisher": null,
+      "publicationYear": 2020,
+      "enrichmentStatus": "not_found",
+      "confidence": 0.55
+    }
+    """
+
+    // MARK: - Job Status Fixtures (Polling)
+
+    /// Failed job status WITH the structured error object (newer servers)
+    static let jobStatusFailedWithErrorJSON = """
+    {
+      "success": true,
+      "data": {
+        "jobId": "770e8400-e29b-41d4-a716-446655440002",
+        "status": "failed",
+        "progress": 1.0,
+        "error": {
+          "code": "IMAGE_QUALITY_LOW",
+          "message": "Image quality too low. Retake in better lighting.",
+          "retryable": true
+        }
+      }
+    }
+    """
+
+    /// Failed job status WITHOUT an error object (older servers) —
+    /// decoding must tolerate the absence and fall back to a generic message.
+    static let jobStatusFailedWithoutErrorJSON = """
+    {
+      "success": true,
+      "data": {
+        "jobId": "880e8400-e29b-41d4-a716-446655440003",
+        "status": "failed",
+        "progress": 1.0
+      }
+    }
+    """
+
+    // MARK: - Scan Results Fixtures (Polling)
+
+    /// Results payload with enrichment fields hoisted to the top level of each
+    /// book (coverUrl, publisher, publishedDate, authors) — the server-side fix
+    /// hoists these out of the nested enrichment object. Proves the existing
+    /// BookMetadata decode path picks them up.
+    static let scanResultsTopLevelEnrichmentJSON = """
+    {
+      "success": true,
+      "data": {
+        "jobId": "990e8400-e29b-41d4-a716-446655440004",
+        "status": "completed",
+        "results": [
+          {
+            "title": "The Great Gatsby",
+            "authors": ["F. Scott Fitzgerald"],
+            "isbn": "9780743273565",
+            "coverUrl": "https://example.com/covers/gatsby.jpg",
+            "publisher": "Scribner",
+            "publishedDate": "1925-04-10",
+            "confidence": 0.98,
+            "enrichmentStatus": "success"
+          }
+        ]
+      }
+    }
+    """
+
+
     // MARK: - Error Response Fixtures
     
     /// RFC 9457 error response (rate limiting)
@@ -251,6 +329,22 @@ enum TalariaContractFixtures {
         return try JSONDecoder().decode(BookMetadata.self, from: data)
     }
     
+    /// Decode fixture to JobStatusResponse (polling contract)
+    static func decodeJobStatusResponse(from json: String) throws -> JobStatusResponse {
+        guard let data = data(from: json) else {
+            throw NSError(domain: "TalariaContractFixtures", code: -1, userInfo: nil)
+        }
+        return try JSONDecoder().decode(JobStatusResponse.self, from: data)
+    }
+
+    /// Decode fixture to ScanResultsResponse (polling contract)
+    static func decodeScanResultsResponse(from json: String) throws -> ScanResultsResponse {
+        guard let data = data(from: json) else {
+            throw NSError(domain: "TalariaContractFixtures", code: -1, userInfo: nil)
+        }
+        return try JSONDecoder().decode(ScanResultsResponse.self, from: data)
+    }
+
     /// Decode fixture to ProblemDetails
     static func decodeProblemDetails(from json: String) throws -> ProblemDetails {
         guard let data = data(from: json) else {

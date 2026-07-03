@@ -1,7 +1,8 @@
 import Foundation
 
 /// Mock network monitor for testing online/offline scenarios.
-final class MockNetworkMonitor: Sendable {
+/// `@unchecked Sendable` is sound: the only mutable state (`_isOnline`) is guarded by `lock`.
+final class MockNetworkMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private var _isOnline: Bool = true
     
@@ -12,7 +13,7 @@ final class MockNetworkMonitor: Sendable {
     var statusPublisher: AsyncStream<Bool> {
         AsyncStream { continuation in
             // Immediately emit current status
-            continuation.yield(_isOnline)
+            continuation.yield(isOnline)
         }
     }
     

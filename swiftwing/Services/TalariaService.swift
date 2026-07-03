@@ -196,6 +196,10 @@ actor TalariaService {
         }
     }
 
+    // DEPRECATED(2026-07-03): last caller (ScanJobCoordinator.fetchResults → CameraViewModel.retryResultsFetch
+    // manual-retry path) was removed with the S3 dead-wiring cleanup; the polling flow
+    // (pollScanStatus → fetchPollingResults) is the live results path — remove after one release
+    // cycle confirms no SSE/resultsUrl flow needs it back.
     /// Fetch scan results from a job-provided results URL
     /// - Parameter resultsUrl: Relative URL path (e.g. "/v3/jobs/ai_scan/scan_...")
     /// - Parameter authToken: Auth token for the job
@@ -297,7 +301,14 @@ actor TalariaService {
     }
 
     /// Poll job status until completion or failure, then fetch the results
-    func pollScanStatus(jobId: String, interval: TimeInterval = 1.0) async throws -> [BookMetadata] {
+    ///
+    /// **Resilience:** Transient failures (URLError, response decode errors, HTTP 5xx,
+    /// and HTTP 404 — the server's status handler returns a 404 catch-all on transient
+    /// internal errors) do not abort the poll immediately. Up to
+    /// `maxConsecutiveTransientFailures` consecutive failures are tolerated within the
+    /// existing backoff loop; any successful 200 resets the counter. Exceeding the
+    /// budget throws the last error. `maxPollAttempts` remains the total time budget.
+    func pollScanStatus(jobId: String) async throws -> [BookMetadata] {
         guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)") else {
             throw NetworkError.invalidResponse
         }
@@ -310,6 +321,15 @@ actor TalariaService {
         // ~5 minutes at the 4s backoff cap — bounds battery/network cost if a
         // job gets stuck server-side in queued/processing
         let maxPollAttempts = 75
+        // Consecutive transient-failure budget: one blip shouldn't kill a scan
+        // the server is still happily processing.
+        var consecutiveFailures = 0
+        // Results-fetch failures need their own budget: every 200 status read
+        // resets `consecutiveFailures`, so a persistently failing results
+        // endpoint would otherwise re-arm the shared budget each cycle and
+        // burn all 75 poll attempts before surfacing the real error.
+        var resultsFetchFailures = 0
+        let maxConsecutiveTransientFailures = 4
 
         while pollAttempt < maxPollAttempts {
             // Check if the current task has been cancelled (e.g. app backgrounded or screen dismissed)
@@ -317,27 +337,71 @@ actor TalariaService {
                 throw CancellationError()
             }
 
-            let (data, response) = try await urlSession.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw NetworkError.invalidResponse
+            var jobCompleted = false
+            do {
+                let (data, response) = try await urlSession.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw NetworkError.invalidResponse
+                }
+
+                switch httpResponse.statusCode {
+                case 200:
+                    let statusResponse = try JSONDecoder().decode(JobStatusResponse.self, from: data)
+                    // Any successful status read resets the transient-failure budget
+                    consecutiveFailures = 0
+
+                    switch statusResponse.data.status {
+                    case .completed:
+                        // Fetch results OUTSIDE this do/catch: its failure budget
+                        // must throw past the transient catch below, not feed it.
+                        jobCompleted = true
+                    case .failed:
+                        // Newer servers attach a structured error object; older
+                        // servers omit it — fall back to a generic message.
+                        let jobError = statusResponse.data.error
+                        throw NetworkError.scanFailed(
+                            code: jobError?.code ?? "SCAN_FAILED",
+                            message: jobError?.message ?? "Scan processing failed on the server. Please try again."
+                        )
+                    case .canceled:
+                        throw CancellationError()
+                    case .queued, .processing:
+                        break  // still running — keep polling
+                    }
+                default:
+                    // Includes the status handler's 404 catch-all on transient
+                    // internal errors and 5xx blips — handled by the budget below.
+                    throw NetworkError.serverError(httpResponse.statusCode)
+                }
+            } catch {
+                // Terminal outcomes propagate immediately
+                if error is CancellationError { throw error }
+                if let networkError = error as? NetworkError, case .scanFailed = networkError {
+                    throw error
+                }
+
+                // Transient (URLError, decode failure, 404/5xx) — consume budget
+                consecutiveFailures += 1
+                e2eLogger.warning("Poll transient failure \(consecutiveFailures, privacy: .public)/\(maxConsecutiveTransientFailures, privacy: .public) for job \(jobId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                if consecutiveFailures > maxConsecutiveTransientFailures {
+                    throw error
+                }
             }
 
-            switch httpResponse.statusCode {
-            case 200:
-                let statusResponse = try JSONDecoder().decode(JobStatusResponse.self, from: data)
-
-                if statusResponse.data.status == .completed {
-                    // Job is completed, fetch full results
+            if jobCompleted {
+                // Results fetches get their own budget: the status-200 reset
+                // above must not re-arm it, or a persistently failing results
+                // endpoint burns all 75 poll attempts and masks the real error.
+                do {
                     return try await fetchPollingResults(jobId: jobId)
-                } else if statusResponse.data.status == .failed {
-                    throw NetworkError.serverError(500)
-                } else if statusResponse.data.status == .canceled {
-                    throw CancellationError()
+                } catch {
+                    if error is CancellationError { throw error }
+                    resultsFetchFailures += 1
+                    e2eLogger.warning("Results fetch failure \(resultsFetchFailures, privacy: .public)/\(maxConsecutiveTransientFailures, privacy: .public) for job \(jobId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    if resultsFetchFailures > maxConsecutiveTransientFailures {
+                        throw error
+                    }
                 }
-            case 404:
-                throw NetworkError.serverError(404)
-            default:
-                throw NetworkError.serverError(httpResponse.statusCode)
             }
 
             // Sleep with adaptive backoff before checking again

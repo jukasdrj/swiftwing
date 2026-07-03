@@ -22,11 +22,6 @@ struct ProcessingItem: Identifiable, Equatable {
     // Book metadata from Talaria result (populated when SSE returns .result or .complete)
     var bookMetadata: BookMetadata?
 
-    // NEW: Retry context for failed result fetches (Fix #2)
-    var retryContext: ResultsFetchRetryContext?
-
-    // MARK: - Retry Context for Failed Result Fetches (Fix #2)
-
     init(imageData: Data, state: ProcessingState = .preprocessing, progressMessage: String? = nil) {
         self.id = UUID()
         self.thumbnailData = Self.generateThumbnail(from: imageData)
@@ -96,11 +91,4 @@ struct ProcessingItem: Identifiable, Equatable {
             }
         }
     }
-}
-
-// Retry context for failed results API fetches
-struct ResultsFetchRetryContext: Equatable, Sendable {
-    let resultsUrl: String
-    let authToken: String
-    let jobId: String
 }

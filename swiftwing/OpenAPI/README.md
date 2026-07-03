@@ -225,6 +225,8 @@ git checkout HEAD~1 -- swiftwing/OpenAPI/
 
 ## Future: Auto-Generated Client
 
+<!-- DEPRECATED(2026-07-03): swift-openapi-generator packages + openapi-generator-config.yaml are declared but no build plugin is wired and no source consumes generated types; remove packages after confirming no codegen plans. -->
+
 **Current State:** SwiftWing uses manual TalariaService implementation
 
 **Future Enhancement:** Enable swift-openapi-generator build plugin

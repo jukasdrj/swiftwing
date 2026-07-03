@@ -515,17 +515,6 @@ final class CameraViewModel {
             onBookProgress: { [weak self] current, total in
                 self?.updateQueueItemBookProgress(id: itemId, current: current, total: total)
             },
-            onResultsFetchFailed: { [weak self] url, fetchAuthToken, failedJobId in
-                self?.queueStateManager.markError(id: itemId, message: "Failed to fetch results. Check network and retry.")
-                if let index = self?.queueStateManager.processingQueue.firstIndex(where: { $0.id == itemId }) {
-                    self?.queueStateManager.processingQueue[index].retryContext = ResultsFetchRetryContext(
-                        resultsUrl: url,
-                        authToken: fetchAuthToken,
-                        jobId: failedJobId
-                    )
-                }
-                e2eLogger.info("Item kept in queue for manual retry")
-            },
             onTruncationSuspected: { [weak self] in
                 guard let self else { return }
                 e2eLogger.warning("Scan results may be truncated (large bookshelf)")
@@ -775,65 +764,6 @@ final class CameraViewModel {
         if !oldValue && newValue {
             Task {
                 await uploadQueuedScans()
-            }
-        }
-    }
-
-    // MARK: - Fix #2: Retry Failed Results Fetch
-    func retryResultsFetch(item: ProcessingItem) {
-        guard let context = item.retryContext else {
-            e2eLogger.warning("No retry context available")
-            return
-        }
-
-        e2eLogger.info("Retrying results fetch for job: \(context.jobId)")
-
-        // Reset state to analyzing
-        queueStateManager.updateItem(id: item.id, state: .analyzing, message: "Retrying...")
-
-        Task {
-            do {
-                let books = try await scanCoordinator.fetchResults(
-                    resultsUrl: context.resultsUrl,
-                    authToken: context.authToken
-                )
-
-                e2eLogger.info("Retry successful: Received \(books.count) books")
-
-                guard let ctx = modelContext else {
-                    e2eLogger.error("ModelContext not available")
-                    return
-                }
-
-                // Process all books
-                for book in books {
-                    // Skip if already in library (e.g., auto-approved during original scan)
-                    let isbn = book.isbn ?? ""
-                    if !isbn.isEmpty && !isbn.hasPrefix("UNKNOWN-") {
-                        if let _ = try? DuplicateDetection.findDuplicate(isbn: isbn, in: ctx) {
-                            e2eLogger.info("Retry dedup: skipping '\(book.resolvedTitle)' — already in library")
-                            continue
-                        }
-                    }
-
-                    let rawJSON: String?
-                    if let jsonData = try? JSONEncoder().encode(book),
-                       let jsonString = String(data: jsonData, encoding: .utf8) {
-                        rawJSON = jsonString
-                    } else {
-                        rawJSON = nil
-                    }
-
-                    reviewQueueManager.handleBookResult(metadata: book, rawJSON: rawJSON, thumbnailData: item.thumbnailData, modelContext: ctx)
-                }
-
-                // Success - mark as done
-                queueStateManager.updateItem(id: item.id, state: .done, message: nil)
-                await removeQueueItemAfterDelay(id: item.id, delay: 5.0)
-
-            } catch {
-                e2eLogger.error("Retry failed: \(error.localizedDescription)")
-                queueStateManager.markError(id: item.id, message: "Retry failed: \(error.localizedDescription)")
             }
         }
     }
