@@ -28,8 +28,8 @@ paths:
       - Scans
       summary: Scan bookshelf photos
       description: 'Upload 1-5 photos for AI-powered book detection with Gemini Vision.
-        Returns immediately with jobId for progress tracking via SSE stream. Max size:
-        10MB per photo, 50MB total.'
+        Returns immediately with jobId for progress tracking. Max size: 10MB per photo,
+        50MB total.'
       operationId: createScanJob
       parameters:
       - name: X-Device-ID
@@ -186,8 +186,8 @@ paths:
       tags:
       - Scans
       summary: Get scan job status
-      description: 'Query current status of bookshelf scan job. Use SSE stream for
-        real-time updates (recommended). Polling fallback: max 1 request every 2 seconds.'
+      description: 'Query current status of bookshelf scan job. Polling supported: max
+        1 request every 2 seconds.'
       operationId: getScanJobStatus
       parameters:
       - name: jobId
@@ -238,48 +238,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Job already completed or failed
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /v3/jobs/scans/{jobId}/stream:
-    get:
-      tags:
-      - Scans
-      summary: Stream scan progress (SSE)
-      description: Real-time progress updates via Server-Sent Events. Requires Bearer
-        token from job creation response. Token valid for 1 hour.
-      operationId: streamScanProgress
-      parameters:
-      - name: jobId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: Authorization
-        in: header
-        required: false
-        schema:
-          type: string
-        description: Bearer token from job creation
-      responses:
-        '200':
-          description: SSE stream
-          content:
-            text/event-stream:
-              schema:
-                type: object
-                description: Server-Sent Events stream with progress, complete, error,
-                  and ping events
-        '401':
-          description: Unauthorized (invalid or expired token)
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Job not found
           content:
             application/problem+json:
               schema:
@@ -635,6 +593,8 @@ components:
                   type: string
                 message:
                   type: string
+                retryable:
+                  type: boolean
               description: Error details if job failed
         metadata:
           $ref: '#/components/schemas/ResponseMetadata'
@@ -684,11 +644,26 @@ components:
         author:
           type: string
           description: Primary author
+        authors:
+          type: array
+          items:
+            type: string
+          description: List of authors
         confidence:
           type: number
           minimum: 0
           maximum: 1
           description: AI confidence score (0.0 to 1.0)
+        coverUrl:
+          type: string
+          format: uri
+          description: Cover image URL
+        publisher:
+          type: string
+          description: Publisher name
+        publishedDate:
+          type: string
+          description: Publication date
         boundingBox:
           type: object
           description: Normalized bounding box for detected book spine (0.0-1.0 relative
