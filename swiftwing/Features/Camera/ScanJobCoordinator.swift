@@ -43,9 +43,6 @@ struct ScanJobCallbacks: Sendable {
     /// Called with per-book progress
     let onBookProgress: @MainActor @Sendable (_ current: Int, _ total: Int) -> Void
 
-    /// Called when results fetch fails (for retry context)
-    let onResultsFetchFailed: @MainActor @Sendable (_ url: String, _ authToken: String, _ jobId: String) -> Void
-
     /// Called when truncation is suspected in scan results
     let onTruncationSuspected: @MainActor @Sendable () -> Void
 }
@@ -168,7 +165,9 @@ actor ScanJobCoordinator {
         }
     }
 
-    private func deduplicationKey(for book: BookMetadata) -> String? {
+    /// Internal (not private) so contract tests can pin dedup-key behavior
+    /// (e.g. a server "unknown" ISBN must never produce "isbn:unknown").
+    func deduplicationKey(for book: BookMetadata) -> String? {
         if let isbn = book.isbn?.trimmingCharacters(in: .whitespacesAndNewlines), !isbn.isEmpty {
             return "isbn:\(isbn)"
         }
@@ -193,11 +192,6 @@ actor ScanJobCoordinator {
         } catch {
             e2eLogger.warning("Local temp file cleanup failed for \(url.lastPathComponent): \(error.localizedDescription)")
         }
-    }
-
-    /// Fetch results from a URL (used for retry)
-    func fetchResults(resultsUrl: String, authToken: String) async throws -> [BookMetadata] {
-        try await talariaService.fetchResults(resultsUrl: resultsUrl, authToken: authToken)
     }
 
     // MARK: - Cancellation

@@ -180,6 +180,114 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertEqual(book.title, "Test Book", "Other fields should parse successfully")
     }
     
+    // MARK: - ISBN "unknown" Placeholder Guard (S2)
+
+    func test_decodeBookMetadata_unknownISBN_normalizedToNil() throws {
+        // Arrange - server sends the literal placeholder "unknown"
+        let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataUnknownISBNJSON)
+
+        // Assert - placeholder must not survive decode
+        XCTAssertNil(book.isbn, "Literal 'unknown' ISBN must decode as nil")
+        XCTAssertEqual(book.title, "Mystery Spine", "Other fields should parse successfully")
+    }
+
+    func test_decodeBookMetadata_unknownISBN_caseAndWhitespaceInsensitive() throws {
+        for placeholder in ["unknown", "UNKNOWN", "Unknown", "  unknown  ", "", "   "] {
+            let json = """
+            {
+              "title": "Test Book",
+              "author": "Test Author",
+              "isbn": "\(placeholder)",
+              "enrichmentStatus": "success"
+            }
+            """
+            let book = try TalariaContractFixtures.decodeBookMetadata(from: json)
+            XCTAssertNil(book.isbn, "ISBN placeholder '\(placeholder)' must decode as nil")
+        }
+    }
+
+    func test_decodeBookMetadata_validISBN_passesThrough() throws {
+        // Normal ISBN untouched
+        let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataFullJSON)
+        XCTAssertEqual(book.isbn, "9780743273565")
+
+        // Whitespace around a valid ISBN is trimmed, not nilled
+        let padded = """
+        {
+          "title": "Test Book",
+          "author": "Test Author",
+          "isbn": "  9780743273565  ",
+          "enrichmentStatus": "success"
+        }
+        """
+        let paddedBook = try TalariaContractFixtures.decodeBookMetadata(from: padded)
+        XCTAssertEqual(paddedBook.isbn, "9780743273565")
+    }
+
+    func test_deduplicationKey_neverYieldsIsbnUnknown() async throws {
+        // Arrange - metadata decoded from a payload with "isbn": "unknown"
+        let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataUnknownISBNJSON)
+        let coordinator = ScanJobCoordinator(talariaService: TalariaService())
+
+        // Act
+        let key = await coordinator.deduplicationKey(for: book)
+
+        // Assert - must fall back to title-author, never the poisoned isbn key
+        XCTAssertNotEqual(key, "isbn:unknown", "Placeholder ISBN must never become a dedup key")
+        XCTAssertEqual(key, "title-author:mystery spine|some author")
+    }
+
+    // MARK: - Job Status Failed Contract (S3)
+
+    func test_decodeJobStatus_failedWithErrorObject() throws {
+        // Arrange - newer servers attach a structured error on failure
+        let response = try TalariaContractFixtures.decodeJobStatusResponse(from: TalariaContractFixtures.jobStatusFailedWithErrorJSON)
+
+        // Assert
+        XCTAssertEqual(response.data.status, .failed)
+        let jobError = try XCTUnwrap(response.data.error)
+        XCTAssertEqual(jobError.code, "IMAGE_QUALITY_LOW")
+        XCTAssertEqual(jobError.message, "Image quality too low. Retake in better lighting.")
+        XCTAssertEqual(jobError.retryable, true)
+    }
+
+    func test_decodeJobStatus_failedWithoutErrorObject_oldServer() throws {
+        // Arrange - older servers omit the error object entirely
+        let response = try TalariaContractFixtures.decodeJobStatusResponse(from: TalariaContractFixtures.jobStatusFailedWithoutErrorJSON)
+
+        // Assert - decode must tolerate absence (backward compatibility)
+        XCTAssertEqual(response.data.status, .failed)
+        XCTAssertNil(response.data.error)
+    }
+
+    func test_networkError_scanFailed_surfacesServerMessage() {
+        // Arrange
+        let error = NetworkError.scanFailed(
+            code: "IMAGE_QUALITY_LOW",
+            message: "Image quality too low. Retake in better lighting."
+        )
+
+        // Assert - both the custom description and the LocalizedError bridge
+        XCTAssertEqual(error.localizedDescription, "IMAGE_QUALITY_LOW: Image quality too low. Retake in better lighting.")
+        XCTAssertEqual((error as Error).localizedDescription, "IMAGE_QUALITY_LOW: Image quality too low. Retake in better lighting.")
+    }
+
+    // MARK: - Results Payload Top-Level Enrichment Fields (S3)
+
+    func test_decodeScanResults_topLevelEnrichmentFieldsPickedUp() throws {
+        // Arrange - server-side fix hoists coverUrl/publisher/publishedDate/authors
+        // to the top level of each result
+        let response = try TalariaContractFixtures.decodeScanResultsResponse(from: TalariaContractFixtures.scanResultsTopLevelEnrichmentJSON)
+
+        // Assert - existing decode path must pick all of them up
+        let book = try XCTUnwrap(response.data.results.first)
+        XCTAssertEqual(book.coverUrl?.absoluteString, "https://example.com/covers/gatsby.jpg")
+        XCTAssertEqual(book.publisher, "Scribner")
+        XCTAssertEqual(book.publishedDate, "1925-04-10")
+        XCTAssertEqual(book.author, "F. Scott Fitzgerald", "Plural authors[] should join into author")
+        XCTAssertEqual(book.isbn, "9780743273565")
+    }
+
     // MARK: - Error Response Tests
     
     func test_decodeProblemDetails_rateLimitError() throws {

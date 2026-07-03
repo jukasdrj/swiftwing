@@ -100,6 +100,8 @@ public struct ProblemDetails: Codable, Sendable {
 /// - `invalidResponse`: Malformed JSON or unexpected response structure
 /// - `rateLimited(retryAfter: TimeInterval?)`: HTTP 429 with optional retry delay
 /// - `apiError(ProblemDetails)`: RFC 9457 structured error from Talaria API
+/// - `scanFailed(code:message:)`: Job reached status "failed" — surfaces the server's
+///   structured JobError (e.g. "IMAGE_QUALITY_LOW: Image quality too low.")
 ///
 /// **Talaria-Specific Handling:**
 /// - Rate limiting returns both Retry-After header AND retryAfterMs in response body
@@ -125,6 +127,7 @@ public enum NetworkError: Error {
     case invalidResponse
     case rateLimited(retryAfter: TimeInterval?)
     case apiError(ProblemDetails)
+    case scanFailed(code: String, message: String)
 
     public var localizedDescription: String {
         switch self {
@@ -144,8 +147,17 @@ public enum NetworkError: Error {
             }
         case .apiError(let problem):
             return problem.detail ?? "Unknown API error"
+        case .scanFailed(let code, let message):
+            return "\(code): \(message)"
         }
     }
+}
+
+extension NetworkError: LocalizedError {
+    /// Surface the structured message through Error.localizedDescription
+    /// (without this, NSError bridging returns a generic "operation couldn't
+    /// be completed" string and the server's failure reason never reaches the UI).
+    public var errorDescription: String? { localizedDescription }
 }
 
 // MARK: - Status Enums
@@ -446,7 +458,22 @@ extension BookMetadata: Codable {
             author = nil
         }
         
-        isbn = try container.decodeIfPresent(String.self, forKey: .isbn)
+        // Guard against placeholder ISBNs: the server currently sends the literal
+        // string "unknown" when it cannot resolve an ISBN. Treating that as a real
+        // ISBN would poison deduplication keys and the SwiftData unique constraint
+        // (every unresolved book would collide on "unknown"). Normalize whitespace
+        // and map empty/"unknown" to nil — downstream PendingBookResult.resolvedISBN
+        // then synthesizes a per-book UNKNOWN-<uuid> placeholder instead.
+        if let rawISBN = try container.decodeIfPresent(String.self, forKey: .isbn) {
+            let trimmed = rawISBN.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty || trimmed.caseInsensitiveCompare("unknown") == .orderedSame {
+                isbn = nil
+            } else {
+                isbn = trimmed
+            }
+        } else {
+            isbn = nil
+        }
         publisher = try container.decodeIfPresent(String.self, forKey: .publisher)
         format = try container.decodeIfPresent(String.self, forKey: .format)
 
@@ -613,10 +640,23 @@ public struct JobStatusResponse: Codable, Sendable {
     public let data: JobStatusData
 }
 
+/// Structured error details attached to a failed job status.
+///
+/// **Contract note:** Newer Talaria servers include this object when
+/// `status == "failed"` (e.g. `IMAGE_QUALITY_LOW`). Older servers omit it
+/// entirely — all consumers must treat it as optional.
+public struct JobError: Codable, Sendable {
+    public let code: String
+    public let message: String
+    public let retryable: Bool?
+}
+
 public struct JobStatusData: Codable, Sendable {
     public let jobId: String
     public let status: JobStatus
     public let progress: Double
+    /// Present only when status is `failed` on newer servers; nil on old servers.
+    public let error: JobError?
 }
 
 public struct ScanResultsResponse: Codable, Sendable {
