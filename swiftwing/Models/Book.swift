@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 // Epic 5: Reading status tracking
-public enum ReadingStatus: String, Codable {
+public enum ReadingStatus: String, Codable, Sendable {
     case toRead = "to_read"
     case reading = "reading"
     case completed = "completed"
