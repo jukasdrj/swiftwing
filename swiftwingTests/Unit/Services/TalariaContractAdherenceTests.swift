@@ -272,6 +272,16 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertEqual((error as Error).localizedDescription, "IMAGE_QUALITY_LOW: Image quality too low. Retake in better lighting.")
     }
 
+    func test_networkError_scanFailed_genericCodeShowsMessageOnly() {
+        // The SCAN_FAILED fallback code carries no information — the UI shows
+        // just the message, without a stuttered "SCAN_FAILED:" prefix.
+        let error = NetworkError.scanFailed(
+            code: "SCAN_FAILED",
+            message: "Scan processing failed on the server. Please try again."
+        )
+        XCTAssertEqual(error.localizedDescription, "Scan processing failed on the server. Please try again.")
+    }
+
     // MARK: - Results Payload Top-Level Enrichment Fields (S3)
 
     func test_decodeScanResults_topLevelEnrichmentFieldsPickedUp() throws {

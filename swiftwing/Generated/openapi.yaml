@@ -637,7 +637,10 @@ components:
       properties:
         isbn:
           type: string
-          description: ISBN-13 or ISBN-10 if detected
+          description: >-
+            ISBN-13 or ISBN-10 when resolved; omitted when the spine could not
+            be matched. (Legacy servers sent the literal string "unknown" —
+            the client decoder treats that as absent.)
         title:
           type: string
           description: Book title

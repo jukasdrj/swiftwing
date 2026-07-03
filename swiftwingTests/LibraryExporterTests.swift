@@ -9,13 +9,26 @@ struct LibraryExporterTests {
     // MARK: - Helpers
 
     /// Noon local time avoids DST/day-boundary flakiness in yyyy-MM-dd formatting.
+    /// Pinned to Gregorian so a non-Gregorian system calendar can't skew years.
     private func date(_ year: Int, _ month: Int, _ day: Int) -> Date {
         var components = DateComponents()
         components.year = year
         components.month = month
         components.day = day
         components.hour = 12
-        return Calendar.current.date(from: components)!
+        return Calendar(identifier: .gregorian).date(from: components)!
+    }
+
+    /// Publish dates are stored as UTC-midnight instants (see formatPublishDate).
+    private func utcMidnight(_ year: Int, _ month: Int, _ day: Int) -> Date {
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = day
+        components.timeZone = TimeZone(secondsFromGMT: 0)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar.date(from: components)!
     }
 
     private func makeBook(
@@ -72,7 +85,7 @@ struct LibraryExporterTests {
             isbn: "9780441478125",
             format: "Hardcover",
             publisher: "Ace Books",
-            publishedDate: date(1969, 6, 1),
+            publishedDate: utcMidnight(1969, 6, 1),
             pageCount: 304,
             addedDate: date(2026, 1, 15),
             readingStatus: .completed,

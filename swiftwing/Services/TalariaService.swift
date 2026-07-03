@@ -324,6 +324,11 @@ actor TalariaService {
         // Consecutive transient-failure budget: one blip shouldn't kill a scan
         // the server is still happily processing.
         var consecutiveFailures = 0
+        // Results-fetch failures need their own budget: every 200 status read
+        // resets `consecutiveFailures`, so a persistently failing results
+        // endpoint would otherwise re-arm the shared budget each cycle and
+        // burn all 75 poll attempts before surfacing the real error.
+        var resultsFetchFailures = 0
         let maxConsecutiveTransientFailures = 4
 
         while pollAttempt < maxPollAttempts {
@@ -332,6 +337,7 @@ actor TalariaService {
                 throw CancellationError()
             }
 
+            var jobCompleted = false
             do {
                 let (data, response) = try await urlSession.data(for: request)
                 guard let httpResponse = response as? HTTPURLResponse else {
@@ -346,8 +352,9 @@ actor TalariaService {
 
                     switch statusResponse.data.status {
                     case .completed:
-                        // Job is completed, fetch full results
-                        return try await fetchPollingResults(jobId: jobId)
+                        // Fetch results OUTSIDE this do/catch: its failure budget
+                        // must throw past the transient catch below, not feed it.
+                        jobCompleted = true
                     case .failed:
                         // Newer servers attach a structured error object; older
                         // servers omit it — fall back to a generic message.
@@ -378,6 +385,22 @@ actor TalariaService {
                 e2eLogger.warning("Poll transient failure \(consecutiveFailures, privacy: .public)/\(maxConsecutiveTransientFailures, privacy: .public) for job \(jobId, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 if consecutiveFailures > maxConsecutiveTransientFailures {
                     throw error
+                }
+            }
+
+            if jobCompleted {
+                // Results fetches get their own budget: the status-200 reset
+                // above must not re-arm it, or a persistently failing results
+                // endpoint burns all 75 poll attempts and masks the real error.
+                do {
+                    return try await fetchPollingResults(jobId: jobId)
+                } catch {
+                    if error is CancellationError { throw error }
+                    resultsFetchFailures += 1
+                    e2eLogger.warning("Results fetch failure \(resultsFetchFailures, privacy: .public)/\(maxConsecutiveTransientFailures, privacy: .public) for job \(jobId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    if resultsFetchFailures > maxConsecutiveTransientFailures {
+                        throw error
+                    }
                 }
             }
 

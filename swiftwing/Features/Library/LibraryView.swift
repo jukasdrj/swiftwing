@@ -552,7 +552,7 @@ struct LibraryExporter {
             escapeCSVField(book.format ?? ""),          // Binding
             book.pageCount.map(String.init) ?? "",      // Pages
             "",                                         // Duration in Seconds
-            book.publishedDate.map(formatDate) ?? "",   // Publish Date
+            book.publishedDate.map(formatPublishDate) ?? "", // Publish Date
             escapeCSVField(book.publisher ?? ""),       // Publisher
             "",                                         // Genres
             "",                                         // Moods
@@ -627,6 +627,18 @@ struct LibraryExporter {
     static func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    /// Publish dates arrive as UTC-midnight instants (Talaria's publicationYear
+    /// becomes "<year>-01-01" parsed at GMT by DataSyncActor) — format them at
+    /// GMT too, or every western-timezone export shifts to Dec 31 of the prior
+    /// year. Local timestamps (Date Added / Date Finished) keep local formatting.
+    static func formatPublishDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
     }

@@ -148,7 +148,10 @@ public enum NetworkError: Error {
         case .apiError(let problem):
             return problem.detail ?? "Unknown API error"
         case .scanFailed(let code, let message):
-            return "\(code): \(message)"
+            // The generic fallback code adds no information for the user —
+            // surface just the message; real codes (IMAGE_QUALITY_LOW, ...)
+            // keep the "CODE: message" shape the UI and tests pin.
+            return code == "SCAN_FAILED" ? message : "\(code): \(message)"
         }
     }
 }

@@ -160,7 +160,13 @@ actor ScanJobCoordinator {
             return 0
         } catch {
             e2eLogger.error("Polling job failed: \(error.localizedDescription)")
-            await callbacks.onError("Scan processing failed: \(error.localizedDescription)")
+            // NetworkError.scanFailed already carries the server's user-facing
+            // failure message — don't stack a second "failed" prefix on it.
+            if let networkError = error as? NetworkError, case .scanFailed = networkError {
+                await callbacks.onError(error.localizedDescription)
+            } else {
+                await callbacks.onError("Scan processing failed: \(error.localizedDescription)")
+            }
             return 0
         }
     }
