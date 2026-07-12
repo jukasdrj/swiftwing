@@ -46,6 +46,7 @@
 		A5A480382F23CF0D006CD05C /* ImageCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A480372F23CF0D006CD05C /* ImageCacheManager.swift */; };
 		AA00BSV010000000000000B1 /* BookSchemaVersioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BSV010000000000000V1 /* BookSchemaVersioning.swift */; };
 		AA10BF010000000000000BC1 /* BookCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000BC1 /* BookCardView.swift */; };
+		AA10BF010000000000000LE1 /* LibraryExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LE1 /* LibraryExporter.swift */; };
 		AA10BF010000000000000LG1 /* LibraryGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LG1 /* LibraryGridView.swift */; };
 		AA10BF010000000000000LP1 /* LibraryPerformanceOptimizations.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LP1 /* LibraryPerformanceOptimizations.swift */; };
 		AA10BF010000000000000LT1 /* LibraryToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LT1 /* LibraryToolbar.swift */; };
@@ -133,6 +134,7 @@
 		A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProcessingItem.swift; sourceTree = "<group>"; };
 		AA00BSV010000000000000V1 /* BookSchemaVersioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookSchemaVersioning.swift; sourceTree = "<group>"; };
 		AA10FR010000000000000BC1 /* BookCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookCardView.swift; sourceTree = "<group>"; };
+		AA10FR010000000000000LE1 /* LibraryExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryExporter.swift; sourceTree = "<group>"; };
 		AA10FR010000000000000LG1 /* LibraryGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryGridView.swift; sourceTree = "<group>"; };
 		AA10FR010000000000000LP1 /* LibraryPerformanceOptimizations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryPerformanceOptimizations.swift; sourceTree = "<group>"; };
 		AA10FR010000000000000LT1 /* LibraryToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryToolbar.swift; sourceTree = "<group>"; };
@@ -341,6 +343,7 @@
 				AA10FR010000000000000LG1 /* LibraryGridView.swift */,
 				AA10FR010000000000000LT1 /* LibraryToolbar.swift */,
 				AA10FR010000000000000BC1 /* BookCardView.swift */,
+				AA10FR010000000000000LE1 /* LibraryExporter.swift */,
 				A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */,
 				AA10FR010000000000000LP1 /* LibraryPerformanceOptimizations.swift */,
 				348655348F0B4268945B43D2 /* BookDetailSheetView.swift */,
@@ -626,6 +629,7 @@
 				AA10BF010000000000000LG1 /* LibraryGridView.swift in Sources */,
 				AA10BF010000000000000LT1 /* LibraryToolbar.swift in Sources */,
 				AA10BF010000000000000BC1 /* BookCardView.swift in Sources */,
+				AA10BF010000000000000LE1 /* LibraryExporter.swift in Sources */,
 				AA10BF010000000000000LP1 /* LibraryPerformanceOptimizations.swift in Sources */,
 				7F00001E0000000000000001 /* RootView.swift in Sources */,
 				7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */,
