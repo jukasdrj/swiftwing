@@ -87,7 +87,7 @@ SwiftWing uses a **committed specification** approach rather than auto-fetching 
 4. **Update Code If Necessary**
    - If spec changes affect TalariaService, update implementation
    - Update NetworkTypes.swift if schemas changed
-   - Adjust SSE event parsing if event types changed
+   - Adjust status/results decoding if schemas changed
 
 5. **Commit Changes**
    ```bash
@@ -115,12 +115,14 @@ SwiftWing uses a **committed specification** approach rather than auto-fetching 
 ```
 
 **What It Does:**
-1. Fetches latest spec from Talaria server
-2. Computes SHA256 checksum
-3. Shows diff preview
-4. Asks for confirmation (unless `--force`)
-5. Updates both files atomically
-6. Verifies checksum integrity
+1. Fetches live contract from `GET /v3/openapi.json` (not `/openapi.yaml` — 404)
+2. Converts JSON → committed YAML; augments `DetectedBook.enrichmentStatus` when missing
+3. Computes SHA256 checksum
+4. Shows diff preview
+5. Asks for confirmation (unless `--force`)
+6. Updates `talaria-openapi.yaml` + checksum file
+
+**Live docs:** `https://api.oooefam.net/v3/docs`
 
 **Safety Features:**
 - Requires `--force` flag to overwrite existing spec

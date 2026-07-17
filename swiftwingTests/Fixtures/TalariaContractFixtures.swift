@@ -1,7 +1,7 @@
 import Foundation
 @testable import swiftwing
 
-/// API contract validation fixtures matching the latest Talaria schema (v3.5.0+)
+/// API contract validation fixtures matching Talaria 3.9.0+ (HTTP polling contract).
 /// These fixtures are used to validate Swiftwing's parsing against the Talaria API contract.
 ///
 /// **Purpose:**
@@ -40,9 +40,9 @@ enum TalariaContractFixtures {
     }
     """
     
-    // MARK: - SSE Event Fixtures (BookMetadata)
+    // MARK: - BookMetadata Fixtures (results endpoint)
     
-    /// SSE result event with all fields present (ideal case)
+    /// Full book payload as returned by GET .../results (ideal case)
     static let bookMetadataFullJSON = """
     {
       "title": "The Great Gatsby",
@@ -62,7 +62,7 @@ enum TalariaContractFixtures {
     }
     """
     
-    /// SSE result event with plural authors (future format)
+    /// Book payload with plural authors only
     static let bookMetadataPluralAuthorsJSON = """
     {
       "title": "The Art of Computer Programming",

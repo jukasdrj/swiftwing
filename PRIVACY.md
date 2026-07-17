@@ -36,7 +36,7 @@ SwiftWing ("we", "our", or "the app") is committed to protecting your privacy. T
 ### 3. Network Activity
 **What we collect:** When scanning books:
 - Your device sends JPEG images to our Talaria API via HTTPS
-- Our API returns book metadata via Server-Sent Events (SSE) streaming
+- Our API returns book metadata after HTTP status polling completes
 - If you're offline, scans are queued locally and uploaded when network returns
 
 **What we do NOT collect:**

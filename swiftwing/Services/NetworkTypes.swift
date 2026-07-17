@@ -524,9 +524,11 @@ extension BookMetadata: Codable {
     }
 }
 
-// MARK: - SSE Events
+// MARK: - Legacy progress / SSE-shaped types
+// Retained for UI callback compatibility after the Talaria 3.9.0 move to HTTP polling.
+// Production path does not open SSE streams.
 
-/// Rich progress information from SSE progress events
+/// Progress information (historically from SSE; now synthesized during poll)
 public struct ProgressInfo: Sendable, Equatable {
     let message: String
     let progress: Double?        // 0.0 - 1.0
@@ -579,7 +581,7 @@ public struct SSEErrorInfo: Codable, Sendable {
     let jobId: String?
 }
 
-/// Server-Sent Event types from Talaria streaming API
+/// Historical SSE event union (unused by production poll path; kept for tests/fixtures)
 public enum SSEEvent: Sendable {
     case progress(ProgressInfo)     // Real-time status with optional progress fraction and counts
     case result(BookMetadata)       // Book metadata from AI (legacy - some API versions send in stream)

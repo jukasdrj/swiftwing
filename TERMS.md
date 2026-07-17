@@ -56,7 +56,7 @@ When offline:
 
 SwiftWing integrates with our Talaria API (`https://api.oooefam.net`) for AI processing. By using the app, you agree to:
 - Send book spine images to Talaria for analysis
-- Receive metadata from Talaria via Server-Sent Events (SSE)
+- Receive metadata from Talaria after HTTP status polling
 - Accept that Talaria uptime is not guaranteed (the service may experience downtime)
 
 **Talaria Rate Limits:**

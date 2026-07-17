@@ -43,7 +43,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 - Example: `CameraViewModel` (727 lines)
 
 **Service Layer** (Actors):
-- `TalariaService` - Network + SSE streaming
+- `TalariaService` - Network + HTTP status polling
 - `CameraManager` - AVFoundation isolation
 - `DataSyncActor` - SwiftData write coordination
 - `NetworkMonitor` - Network state tracking
@@ -172,26 +172,24 @@ Task {
 ### Talaria Service (Actor)
 ```swift
 actor TalariaService {
-    func startScan() async throws -> UUID
-    func uploadImage(_ jobId: UUID, _ data: Data) async throws
-    func streamProgress(_ jobId: UUID) async throws -> AsyncStream<ScanProgress>
-    func fetchResults(_ jobId: UUID) async throws -> [BookMetadata]
+    func uploadScan(image: Data, deviceId: String) async throws -> (jobId: String, status: JobStatus)
+    func pollScanStatus(jobId: String) async throws -> [BookMetadata]
 }
 ```
 
-**SSE Streaming**:
-- Server-Sent Events for real-time progress
-- Automatic reconnection on network loss
+**HTTP status polling (Talaria 3.9.0+):**
+- `POST /v3/jobs/scans` → jobId, then poll `GET /v3/jobs/scans/{jobId}`
+- On `completed`, fetch `GET .../results?format=lite`
 - Offline queue for failed uploads
-- Rate limiting (10 scans / 20 minutes)
+- Rate limiting (device-scoped; honor 429 + retryAfterMs)
 
 **Error Handling**:
 ```swift
 do {
-    let results = try await talariaService.fetchResults(jobId)
-} catch TalariaError.rateLimitExceeded {
+    let results = try await talariaService.pollScanStatus(jobId: jobId)
+} catch NetworkError.rateLimited {
     // Show rate limit overlay
-} catch TalariaError.networkUnavailable {
+} catch NetworkError.noConnection {
     // Queue for offline retry
 } catch {
     // Generic error handling

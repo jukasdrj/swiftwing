@@ -302,7 +302,7 @@ final class CameraViewModel {
                 itemId: capturedItemId, item: item, capturedISBN: capturedISBN, modelContext: modelContext, originalPhotoURL: tempFileURL
             )
 
-            // Stream SSE events via coordinator
+            // Poll job status via coordinator
             let _ = try await scanCoordinator.streamAndProcess(
                 deviceId: self.deviceId,
                 jobId: uploadResult.jobId,
@@ -420,7 +420,7 @@ final class CameraViewModel {
     /// Acquire a stream slot, upload image data to Talaria, and record cleanup info.
     /// Returns the upload result containing jobId.
     private func uploadToTalaria(itemId: UUID, item: ProcessingItem, uploadData: Data, fileURL: URL) async throws -> ScanUploadResult {
-        // US-410: Performance optimization - limit concurrent SSE streams to 5
+        // US-410: Performance optimization - limit concurrent scan jobs to 5
         await streamManager.acquireStreamSlot(scanId: itemId)
         guard await streamManager.hasActiveSlot(scanId: itemId) else {
             throw CancellationError()
@@ -448,7 +448,7 @@ final class CameraViewModel {
         }
     }
 
-    /// Build the full set of SSE streaming callbacks for a scan job.
+    /// Build the full set of scan-job callbacks for polling results.
     private func buildScanCallbacks(itemId: UUID, item: ProcessingItem, capturedISBN: String?, modelContext: ModelContext, originalPhotoURL: URL? = nil) -> ScanJobCallbacks {
         let capturedThumbnailData = item.thumbnailData
 

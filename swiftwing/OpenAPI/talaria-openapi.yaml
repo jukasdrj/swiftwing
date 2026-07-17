@@ -1,8 +1,12 @@
+# Talaria V3 OpenAPI — committed for deterministic SwiftWing builds
+# Source: GET https://api.oooefam.net/v3/openapi.json (live 3.9.0)
+# enrichmentStatus on DetectedBook is augmented when missing from the served static spec.
 openapi: 3.0.3
 info:
   title: Talaria V3 API
-  version: 3.8.0
-  description: High-speed bookshelf scanning API with Gemini Vision
+  version: 3.9.0
+  description: High-speed bookshelf scanning API with Gemini Vision. Async jobs run on Cloudflare Workflows
+    (BookScanWorkflow); clients poll job status and results over HTTP (no SSE).
   contact:
     name: Talaria API Support
     url: https://github.com/jukasdrj/talaria/issues
@@ -27,9 +31,9 @@ paths:
       tags:
       - Scans
       summary: Scan bookshelf photos
-      description: 'Upload 1-5 photos for AI-powered book detection with Gemini Vision.
-        Returns immediately with jobId for progress tracking. Max size: 10MB per photo,
-        50MB total.'
+      description: 'Upload exactly one photo for AI-powered book detection with Gemini Vision. Returns
+        immediately with jobId for progress tracking via status polling. Max size: 10MB. Multi-photo batches
+        are not supported.'
       operationId: createScanJob
       parameters:
       - name: X-Device-ID
@@ -54,8 +58,8 @@ paths:
                     type: string
                     format: binary
                   minItems: 1
-                  maxItems: 5
-                  description: Array of photo files (1-5 photos)
+                  maxItems: 1
+                  description: Array containing exactly one photo file
       responses:
         '202':
           description: Scan job accepted
@@ -70,7 +74,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '413':
-          description: File too large (photo >10MB or batch >50MB)
+          description: File too large (photo >10MB)
           content:
             application/problem+json:
               schema:
@@ -81,113 +85,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /v3/jobs/scans/firehose:
-    post:
-      tags:
-      - Scans
-      summary: Initiate background upload scan (iOS)
-      description: Creates a job ID for iOS background upload. Use PUT /v3/jobs/scans/{jobId}/upload
-        to upload photo chunks.
-      operationId: createFirehoseScan
-      parameters:
-      - name: X-Device-ID
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uuid
-        description: Device UUID v4
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - totalPhotos
-              properties:
-                totalPhotos:
-                  type: integer
-                  minimum: 1
-                  maximum: 5
-                  description: Number of photos to expect
-      responses:
-        '202':
-          description: Firehose job created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JobInitResponse'
-        '400':
-          description: Invalid request
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /v3/jobs/scans/{jobId}/upload:
-    put:
-      tags:
-      - Scans
-      summary: Upload photo chunk
-      description: Upload a photo chunk for background upload jobs. Max 5MB per chunk.
-      operationId: uploadScanChunk
-      parameters:
-      - name: jobId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: X-Device-ID
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: X-Chunk-Index
-        in: header
-        required: true
-        schema:
-          type: integer
-          minimum: 0
-        description: 0-based chunk index
-      requestBody:
-        required: true
-        content:
-          application/octet-stream:
-            schema:
-              type: string
-              format: binary
-      responses:
-        '200':
-          description: Chunk uploaded
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      chunksReceived:
-                        type: integer
-                      totalChunks:
-                        type: integer
-        '404':
-          description: Job not found
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /v3/jobs/scans/{jobId}:
     get:
       tags:
       - Scans
       summary: Get scan job status
-      description: 'Query current status of bookshelf scan job. Polling supported: max
-        1 request every 2 seconds.'
+      description: Query current status of bookshelf scan job via polling (adaptive backoff recommended,
+        max 1 request every 2 seconds).
       operationId: getScanJobStatus
       parameters:
       - name: jobId
@@ -213,8 +117,8 @@ paths:
       tags:
       - Scans
       summary: Cancel scan job
-      description: Cancel in-progress scan job and cleanup R2 storage. Deletes all
-        uploaded photos for this job.
+      description: Cancel in-progress scan job and cleanup R2 storage. Deletes all uploaded photos for
+        this job.
       operationId: cancelScanJob
       parameters:
       - name: jobId
@@ -242,40 +146,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /v3/jobs/scans/{jobId}/cleanup:
-    delete:
-      tags:
-      - Scans
-      summary: Cleanup scan data (No-op)
-      description: 'US-PERF-2: This endpoint is now a no-op for backward compatibility.
-        R2 images are deleted server-side IMMEDIATELY after Gemini processing completes.
-        No client action required.'
-      operationId: cleanupScanJob
-      parameters:
-      - name: jobId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: X-Device-ID
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '204':
-          description: No content (no action taken, images already cleaned)
   /v3/jobs/scans/{jobId}/results:
     get:
       tags:
       - Scans
       summary: Get scan job results
-      description: Fetch detected books from completed scan job. Results include book
-        metadata, confidence scores, bounding boxes, and enrichment data. Results
-        cached in KV for 2 hours after completion. Use ?format=lite for App Clip minimal
-        response (excludes boundingBox).
+      description: Fetch detected books from completed scan job. Results include book metadata, confidence
+        scores, bounding boxes, and enrichment data. Results cached in KV for 2 hours after completion.
+        Use ?format=lite for App Clip minimal response (excludes boundingBox).
       operationId: getScanJobResults
       parameters:
       - name: jobId
@@ -311,8 +189,8 @@ paths:
       tags:
       - Books
       summary: Search for a book
-      description: Search for a book by title, author, ISBN, or any combination. Returns
-        single best match with corrected metadata, cover URL, and ISBN.
+      description: Search for a book by title, author, ISBN, or any combination. Returns single best match
+        with corrected metadata, cover URL, and ISBN.
       operationId: searchBook
       parameters:
       - name: X-Device-ID
@@ -359,8 +237,7 @@ paths:
                   metadata:
                     $ref: '#/components/schemas/ResponseMetadata'
         '400':
-          description: Missing search parameters (at least one of isbn, title, author
-            required)
+          description: Missing search parameters (at least one of isbn, title, author required)
           content:
             application/problem+json:
               schema:
@@ -382,9 +259,9 @@ paths:
       tags:
       - Admin
       summary: Get aggregated metrics for Grafana
-      description: Returns aggregated metrics from Analytics Engine datasets including
-        scan performance, cache efficiency, abuse patterns, and cost attribution.
-        Requires X-Admin-Token authentication. Rate limited to 10 requests per minute.
+      description: Returns aggregated metrics from Analytics Engine datasets including scan performance,
+        cache efficiency, abuse patterns, and cost attribution. Requires X-Admin-Token authentication.
+        Rate limited to 10 requests per minute.
       operationId: getAdminMetrics
       parameters:
       - name: X-Admin-Token
@@ -542,7 +419,6 @@ components:
           type: object
           required:
           - jobId
-          - type
           - status
           - progress
           - processedCount
@@ -593,8 +469,6 @@ components:
                   type: string
                 message:
                   type: string
-                retryable:
-                  type: boolean
               description: Error details if job failed
         metadata:
           $ref: '#/components/schemas/ResponseMetadata'
@@ -637,40 +511,22 @@ components:
       properties:
         isbn:
           type: string
-          description: >-
-            ISBN-13 or ISBN-10 when resolved; omitted when the spine could not
-            be matched. (Legacy servers sent the literal string "unknown" —
-            the client decoder treats that as absent.)
+          description: ISBN-13 or ISBN-10 if detected
         title:
           type: string
           description: Book title
         author:
           type: string
           description: Primary author
-        authors:
-          type: array
-          items:
-            type: string
-          description: List of authors
         confidence:
           type: number
           minimum: 0
           maximum: 1
           description: AI confidence score (0.0 to 1.0)
-        coverUrl:
-          type: string
-          format: uri
-          description: Cover image URL
-        publisher:
-          type: string
-          description: Publisher name
-        publishedDate:
-          type: string
-          description: Publication date
         boundingBox:
           type: object
-          description: Normalized bounding box for detected book spine (0.0-1.0 relative
-            to image dimensions). Absent in lite format.
+          description: Normalized bounding box for detected book spine (0.0-1.0 relative to image dimensions).
+            Absent in lite format.
           properties:
             x:
               type: number
@@ -697,10 +553,38 @@ components:
           enum:
           - hardcover
           - paperback
+          - mass-market
+          - e-book
+          - audiobook
           - unknown
           description: Book format detected from spine
+        coverUrl:
+          type: string
+          format: uri
+          description: Cover image URL (hoisted from enrichment for client decoding)
+        publisher:
+          type: string
+          description: Publisher name (hoisted from enrichment)
+        publishedDate:
+          type: string
+          description: Publication date (hoisted from enrichment)
+        authors:
+          type: array
+          items:
+            type: string
+          description: All author names (hoisted from enrichment)
         enrichment:
           $ref: '#/components/schemas/BookEnrichment'
+        enrichmentStatus:
+          type: string
+          enum:
+          - success
+          - not_found
+          - error
+          - circuit_open
+          - review_needed
+          description: Top-level enrichment status from the results mapper. Runtime always includes this
+            field for iOS clients.
     BookEnrichment:
       type: object
       properties:

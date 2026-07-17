@@ -108,7 +108,7 @@ Easy to cut features without breaking the app.
 
 **Vertical Slice:**
 - UI: Progress overlays on processing queue
-- Logic: SSE stream parsing + result handling
+- Logic: HTTP status polling + result handling
 - Data: SwiftData upsert (update existing records)
 - Network: Talaria API upload + SSE listener
 

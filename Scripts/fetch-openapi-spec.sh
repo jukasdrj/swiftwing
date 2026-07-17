@@ -1,15 +1,19 @@
 #!/bin/bash
 
 # fetch-openapi-spec.sh
-# Fetches the OpenAPI specification from Talaria server during each build
-# Runs before compilation to ensure client stays synchronized with latest API contract
+# Legacy build-phase helper (superseded by copy-openapi-spec.sh + committed spec).
+# Kept for local/manual use. Downloads live contract from /v3/openapi.json.
+#
+# Live contract (Talaria 3.9.0+): GET https://api.oooefam.net/v3/openapi.json
+# Historical path /openapi.yaml returns 404.
 
 set -e  # Exit immediately if any command fails
 
 # Configuration
-SPEC_URL="https://api.oooefam.net/openapi.yaml"
-OUTPUT_DIR="${SRCROOT}/swiftwing/Generated"
+SPEC_URL="https://api.oooefam.net/v3/openapi.json"
+OUTPUT_DIR="${SRCROOT:-.}/swiftwing/Generated"
 OUTPUT_FILE="${OUTPUT_DIR}/openapi.yaml"
+TEMP_JSON="${OUTPUT_DIR}/.openapi.json.tmp"
 USER_AGENT="SwiftWing/1.0 (OpenAPI Fetch)"
 TIMEOUT=30
 
@@ -24,20 +28,32 @@ if [ ! -d "${OUTPUT_DIR}" ]; then
     mkdir -p "${OUTPUT_DIR}"
 fi
 
-# Fetch the OpenAPI spec
-# --fail: Fail silently on HTTP errors (4xx, 5xx)
-# --silent: Don't show progress meter
-# --show-error: Show error message if it fails
-# --max-time: Maximum time allowed for the transfer
-# --user-agent: Set custom User-Agent header
-# -o: Write output to file
-echo "⬇️  Downloading spec (timeout: ${TIMEOUT}s)..."
+echo "⬇️  Downloading JSON spec (timeout: ${TIMEOUT}s)..."
 
 if curl --fail --silent --show-error \
     --max-time "${TIMEOUT}" \
     --user-agent "${USER_AGENT}" \
-    -o "${OUTPUT_FILE}" \
+    -o "${TEMP_JSON}" \
     "${SPEC_URL}"; then
+    if ! python3 - "${TEMP_JSON}" "${OUTPUT_FILE}" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    import yaml
+except ImportError:
+    sys.stderr.write("PyYAML required: python3 -m pip install pyyaml\n")
+    sys.exit(1)
+src, dst = Path(sys.argv[1]), Path(sys.argv[2])
+spec = json.loads(src.read_text())
+with dst.open("w") as f:
+    yaml.dump(spec, f, sort_keys=False, default_flow_style=False, allow_unicode=True, width=100)
+PY
+    then
+        rm -f "${TEMP_JSON}"
+        echo "❌ Failed to convert OpenAPI JSON to YAML"
+        exit 1
+    fi
+    rm -f "${TEMP_JSON}"
     echo "✅ OpenAPI spec fetched successfully"
     echo "   Size: $(wc -c < "${OUTPUT_FILE}" | xargs) bytes"
     exit 0
@@ -51,8 +67,8 @@ else
         exit 0
     else
         echo "❌ Failed to fetch OpenAPI spec from ${SPEC_URL}"
-        echo "   Build cannot continue with stale API contract"
-        echo "   Ensure network connectivity and server availability"
+        echo "   Prefer committed spec via Scripts/copy-openapi-spec.sh"
+        echo "   Docs: https://api.oooefam.net/v3/docs"
         exit 1
     fi
 fi

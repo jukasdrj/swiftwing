@@ -30,8 +30,8 @@ apiNamespace: TalariaAPI
 # Multipart Upload Support (for spine image uploads)
 multipartFormDataEnabled: true
 
-# Server-Sent Events Support (for real-time scan progress)
-eventStreamEnabled: true
+# HTTP status polling (SSE removed in Talaria 3.9.0)
+eventStreamEnabled: false
 
 # Response Handling
 responseValidation: true

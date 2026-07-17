@@ -10,13 +10,13 @@ private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: 
 /// Callbacks from ScanJobCoordinator back to the UI layer (CameraViewModel).
 /// All closures are @MainActor @Sendable since they update UI state.
 struct ScanJobCallbacks: Sendable {
-    /// Called when SSE sends a progress message (e.g. "Analyzing...", "Looking...")
+    /// Called when the job reports progress (poll path uses a simple status message)
     let onProgress: @MainActor @Sendable (_ message: String) -> Void
 
-    /// Called when a book result arrives (individual SSE result event)
+    /// Called when a book result arrives from the results endpoint
     let onBookResult: @MainActor @Sendable (_ metadata: BookMetadata, _ rawJSON: String?, _ preScannedISBN: String?, _ originalPhotoURL: URL?) -> Void
 
-    /// Called when SSE stream completes with books (booksAdded count, thumbnail, inline books processed)
+    /// Called when polling completes with books (booksAdded count, thumbnail)
     let onScanComplete: @MainActor @Sendable (_ booksAdded: Int, _ thumbnailData: Data?) -> Void
 
     /// Called on non-retryable error
@@ -52,7 +52,7 @@ struct ScanUploadResult: Sendable {
     let jobId: String
 }
 
-/// Coordinates the Upload -> SSE Stream -> Results lifecycle for book scanning.
+/// Coordinates the Upload → HTTP status poll → Results lifecycle for book scanning.
 /// Extracted from CameraViewModel (Phase 1B refactoring) to isolate network I/O
 /// from UI state management.
 actor ScanJobCoordinator {
@@ -94,7 +94,7 @@ actor ScanJobCoordinator {
         return ScanUploadResult(jobId: jobId)
     }
 
-    // MARK: - SSE Streaming
+    // MARK: - Status Polling
 
     /// Poll scan status from Talaria backend and dispatch results to callbacks.
     /// Returns the number of distinct books delivered from this job.
@@ -206,7 +206,7 @@ actor ScanJobCoordinator {
         let jobCount = activeJobs.count
         guard jobCount > 0 else { return }
 
-        e2eLogger.info("Cancelling \(jobCount) active SSE streams (navigation/backgrounding)")
+        e2eLogger.info("Cancelling \(jobCount) active poll jobs (navigation/backgrounding)")
 
         // Cancel all Swift Task instances
         for (_, cancel) in activeJobs {

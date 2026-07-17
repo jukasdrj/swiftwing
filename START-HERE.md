@@ -79,8 +79,8 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 - **UI:** SwiftUI (iOS 26.0+ only)
 - **Persistence:** SwiftData
 - **Camera:** AVFoundation
-- **Networking:** URLSession + Server-Sent Events
-- **AI Backend:** Talaria (`https://api.oooefam.net`)
+- **Networking:** URLSession + HTTP status polling
+- **AI Backend:** Talaria (`https://api.oooefam.net`, API 3.9.0+)
 - **No external dependencies**
 
 ---
@@ -107,16 +107,14 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 
 ## Talaria Integration
 
-The app uploads book spine images to the Talaria backend and streams results via SSE.
+The app uploads book spine images to Talaria, polls job status over HTTP, then fetches results.
 
-**Endpoints:**
-- `POST /v3/jobs/scans` — upload image, returns `{ jobId, sseUrl }`
-- `GET {sseUrl}` — SSE stream (progress, result, complete, error events)
-- `DELETE /v3/jobs/scans/{jobId}/cleanup` — cleanup after completion
+**Endpoints (3.9.0):**
+- `POST /v3/jobs/scans` — upload one photo (`photos[]`), returns `{ jobId, status }`
+- `GET /v3/jobs/scans/{jobId}` — poll until completed / failed / canceled
+- `GET /v3/jobs/scans/{jobId}/results?format=lite` — book metadata array
 
-**SSE deduplication is critical:** Talaria sends books via both `.result` events and inline in the `.complete` event. The deduplication guard in `CameraViewModel` is mission-critical, not defensive.
-
-See `CLAUDE.md` for the full Talaria integration reference.
+SSE, firehose, and cleanup endpoints are removed. See `CLAUDE.md` for the full integration reference.
 
 ---
 

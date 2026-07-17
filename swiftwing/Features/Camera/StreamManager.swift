@@ -7,7 +7,7 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "st
 
 /// Configuration for StreamManager concurrency limits
 struct StreamManagerConfig {
-    /// Maximum number of concurrent SSE streams allowed
+    /// Maximum number of concurrent scan jobs allowed
     /// Default: 5 (balances throughput with resource usage)
     let maxConcurrentStreams: Int
 
@@ -16,10 +16,10 @@ struct StreamManagerConfig {
 
 // MARK: - Stream Manager
 
-/// Actor that manages concurrent SSE stream limits and queuing for bulk scanning
+/// Actor that manages concurrent scan-job limits and queuing for bulk scanning
 ///
 /// US-410: Ensures bulk scanning remains performant by limiting max concurrent
-/// SSE streams to 5 (configurable) and queuing additional scans.
+/// poll jobs to 5 (configurable) and queuing additional scans.
 ///
 /// Performance targets:
 /// - Memory usage < 100 MB with 10 active streams
@@ -37,10 +37,10 @@ actor StreamManager {
 
     // MARK: - Properties
 
-    /// Maximum allowed concurrent SSE streams
+    /// Maximum allowed concurrent scan jobs
     private let maxConcurrentStreams: Int
 
-    /// Current number of active SSE streams
+    /// Current number of active scan jobs
     private var activeStreams: Int = 0
 
     /// Queue of pending scan IDs waiting for stream slots (FIFO)
@@ -139,7 +139,7 @@ actor StreamManager {
         }
     }
 
-    /// Get current number of active SSE streams
+    /// Get current number of active scan jobs
     /// - Returns: Number of streams currently executing
     func getActiveStreamCount() -> Int {
         return activeStreams

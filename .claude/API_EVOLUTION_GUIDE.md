@@ -10,7 +10,7 @@ This guide explains how Swiftwing handles Talaria API schema evolution and provi
 
 The Talaria API defines an **external contract** that may differ from the internal **canonical models**:
 
-- **External Contract:** The JSON structure returned by Talaria endpoints (e.g., `author: String`, `streamUrl: URL`)
+- **External Contract:** The JSON structure returned by Talaria endpoints (e.g., `author: String`, `jobId` + poll/results)
 - **Internal Canonical Models:** The internal data representation (e.g., `authors: [String]`, plural forms)
 - **Swiftwing Strategy:** Map the external contract to internal models, accepting both old and new formats for smooth transitions
 
@@ -41,10 +41,10 @@ confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
 
 ```swift
 // Old API response
-{ "jobId": "...", "streamUrl": "...", "status": "initialized" }
+{ "jobId": "...", "status": "queued" }
 
 // New API response (adds newField)
-{ "jobId": "...", "streamUrl": "...", "status": "initialized", "newField": "value" }
+{ "jobId": "...", "status": "queued", "newField": "value" }
 
 // Swiftwing decoder: Just ignore it (Codable ignores unknown fields by default)
 // No changes needed!
@@ -103,14 +103,14 @@ Use fixtures to validate against **all known API versions**:
 ```swift
 // swiftwingTests/Fixtures/TalariaContractFixtures.swift
 enum TalariaContractFixtures {
-    // Current format (v3.5.0)
+    // Current format (3.9.0 polling)
     static let uploadResponseJSON = """
-    { "jobId": "...", "status": "initialized", "streamUrl": "...", "token": null }
+    { "success": true, "data": { "jobId": "...", "status": "queued" } }
     """
     
     // Future format (hypothetical)
     static let uploadResponseFutureJSON = """
-    { "jobId": "...", "status": "initialized", "streamUrl": "...", "token": null, "newField": "value" }
+    { "success": true, "data": { "jobId": "...", "status": "queued", "newField": "value" } }
     """
 }
 ```
@@ -123,7 +123,7 @@ Write tests for **each version** you support:
 final class TalariaContractAdherenceTests: XCTestCase {
     func test_decodeUploadResponse_withCurrentSchema() throws {
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseJSON)
-        XCTAssertEqual(response.data.status, .initialized)
+        XCTAssertEqual(response.data.status, .queued)
     }
     
     func test_decodeUploadResponse_withFutureSchema_ignoringNewFields() throws {
@@ -196,15 +196,8 @@ let confidence = try? container.decodeIfPresent(Double.self, forKey: .confidence
 In `TalariaService`, log warnings when **unexpected schema changes** are detected:
 
 ```swift
-// Log if response doesn't have expected fields for current version
-if !uploadResponse.data.streamUrl.absoluteString.starts(with: "https://") {
-    e2eLogger.warning("Unexpected streamUrl format")
-}
-
-// Log if status field is missing (would indicate old API version)
-if uploadResponse.data.status == nil {
-    e2eLogger.warning("Missing status field — may indicate old Talaria API version")
-}
+// Log unexpected job status values (decoder already maps known enums)
+e2eLogger.info("Upload response: jobId=\(uploadResponse.data.jobId) status=\(String(describing: uploadResponse.data.status))")
 ```
 
 ### Manual Review

@@ -81,7 +81,7 @@ swiftwing/
 
 ### Concurrency (Swift 6.2)
 
-- `TalariaService` (actor) — network + SSE streams
+- `TalariaService` (actor) — network + HTTP status polling
 - `CameraManager` (actor) — AVCaptureSession
 - `ImagePreprocessor` (actor) — image processing; CIFilter pipeline offloaded via `Task.detached`
 - `DataSyncActor` (@MainActor class) — centralises all SwiftData writes; uses `@MainActor` rather than `actor` because `ModelContext` and `DuplicateDetection` are both `@MainActor`-bound
@@ -119,112 +119,86 @@ Use `/planning-with-files` before any task requiring >4 tool calls. This is non-
 
 ### Talaria Backend Integration
 
-**API Contract & Schema Boundaries (CRITICAL UPDATE — April 2026)**
+**API Contract (Talaria 3.9.0 — July 2026)**
 
-Talaria v3.5.0+ clarifies the schema boundary between the external API contract and internal canonical models:
+Talaria runs **Cloudflare Workflows + HTTP polling** (SSE, firehose, and cleanup endpoints removed).
 
-**Upload Response (POST /v3/jobs/scans):**
-```swift
-// API Contract (external) — matches JobResponseSchema from Talaria
+**Scan workflow:**
+1. `POST /v3/jobs/scans` — multipart `photos[]` (exactly **one** photo), header `X-Device-ID` (UUID v4)
+2. `GET /v3/jobs/scans/{jobId}` — poll until `completed` / `failed` / `canceled`
+3. `GET /v3/jobs/scans/{jobId}/results?format=lite` — fetch detected books
+
+**Upload Response (POST /v3/jobs/scans → 202):**
+```json
 {
   "success": true,
   "data": {
-    "jobId": "550e8400-e29b-41d4-a716-446655440000",    // UUID string
-    "status": "queued",                                   // JobStatus enum
-    "streamUrl": "https://api.oooefam.net/...",          // SSE endpoint
-    "token": "eyJhbGc..."                                // Optional auth token
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "queued"
   }
 }
-
-// Swiftwing mapping: (jobId: String, streamUrl: URL, status: JobStatus, token: String?)
 ```
 
-**BookMetadata from SSE & Results (CRITICAL: API Contract Boundary):**
-- **External API contract:** Uses singular `author: String` (for Swiftwing compatibility)
-- **Internal canonical model:** Uses plural `authors: [String]` (for future enrichment)
-- **Swiftwing strategy:** Accept both formats via custom decoder (forward-compatible)
+// SwiftWing mapping: `(jobId: String, status: JobStatus)`
+
+**Job status values:** `queued` | `processing` | `completed` | `failed` | `canceled`  
+(Client also maps legacy `initialized` → `queued`.)
+
+**BookMetadata from results (API contract boundary):**
+- **External API:** singular `author: String` (SwiftWing compatibility) + optional `authors[]`
+- **Hoisted enrichment fields:** `coverUrl`, `publisher`, `publishedDate`, top-level `enrichmentStatus`
+- **SwiftWing strategy:** accept singular or plural authors; resilient optional-field decoding
 
 ```swift
 // API Contract (external — current format)
 {
   "title": "The Great Gatsby",
-  "author": "F. Scott Fitzgerald",      // Singular (API contract)
+  "author": "F. Scott Fitzgerald",
   "isbn": "9780743273565",
   "enrichmentStatus": "success",
-  "confidence": 0.98
+  "confidence": 0.98,
+  "coverUrl": "https://..."
 }
-
-// Future format (already supported)
-{
-  "title": "The Great Gatsby",
-  "authors": ["F. Scott Fitzgerald"],   // Plural (canonical)
-  "isbn": "9780743273565",
-  "enrichmentStatus": "success"
-}
-
-// Swiftwing decoder joins plural authors: "F. Scott Fitzgerald, Co-Author"
-// Prefers singular author if both present
 ```
 
 **EnrichmentStatus Variations:**
 - `success` — Full enrichment complete
-- `review_needed` — Ambiguous spine; title/author are null; client should prompt review
-- `circuit_open` — Enrichment endpoint down; basic metadata present, covers/reviews missing
+- `review_needed` — Ambiguous spine; client should prompt review
+- `circuit_open` — Enrichment endpoint down; basic metadata may still be present
 - `not_found` — Book not in database
-- `error` — Enrichment failed; see error details
+- `error` — Enrichment failed
 - Unknown values default to `pending` (backward-compatible)
 
 **Contract Validation & Testing:**
 - Use `TalariaContractFixtures.swift` for CI-safe testing (no live API dependency)
 - Contract adherence tests in `TalariaContractAdherenceTests.swift`
-- Fixtures include edge cases: missing fields, malformed URLs, unexpected types
-- Resilient decoding: single field corruption doesn't kill entire book parse
+- Manual live poll: `swift test_talaria_backend.swift`
 
-**Handling Missing/Malformed Fields:**
-```swift
-// Resilient decoding strategy
-coverUrl = try? container.decodeIfPresent(URL.self, forKey: .coverUrl)  // Malformed URL silently fails
-confidence = try? container.decodeIfPresent(Double.self, forKey: .confidence)  // Type mismatch handled
-enrichmentStatus = try? container.decodeIfPresent(EnrichmentStatus.self, forKey: .enrichmentStatus)  // Unknown values default to pending
+**API Endpoints (3.9.0):**
+- `POST /v3/jobs/scans` — upload one photo → `{ jobId, status }`
+- `GET /v3/jobs/scans/{jobId}` — status poll (`progress` 0.0–1.0; optional `error` on failure)
+- `GET /v3/jobs/scans/{jobId}/results?format=lite|full` — results when completed
+- `DELETE /v3/jobs/scans/{jobId}` — cancel job
+- ~~SSE / firehose / cleanup~~ — removed (404)
 
-// Display-safe fallbacks
-var resolvedTitle: String { title ?? "Unknown Title" }
-var resolvedAuthor: String { author ?? "Unknown Author" }
-```
-
-**API Endpoints (Updated April 2026):**
-- `POST /v3/jobs/scans` — upload image, returns `{ jobId, status, streamUrl, token }`
-- `GET {streamUrl}` — SSE stream for real-time progress
-- `DELETE /v3/jobs/scans/{jobId}/cleanup` — no-op since Feb 2026 (images auto-deleted)
-
-**SSE Event Types** (unchanged):
-```
-event: progress       // {"message": "...", "progress": 0.35, "processedCount": 1, "totalCount": 3}
-event: result         // {"book": {title, author, isbn, ...}, "processedCount": 1, "totalCount": 7}
-event: completed      // {"totalDetected": 7, "books": [...], "duration": {...}}
-event: ping           // Keep-alive heartbeat
-event: enrichment_degraded  // Circuit breaker open (graceful degradation)
-event: error          // {"error": "...", "code": "...", "retryable": true}
-```
-
-**SSE deduplication is critical:** Talaria sends books via both `.result` events and inline in `.complete`. The deduplication guard in `CameraViewModel` is mission-critical.
+**Deduplication:** still required when processing results arrays (same book may appear once; guard by ISBN/title in `ScanJobCoordinator`).
 
 **Known API quirks (handled automatically):**
 1. `Retry-After` header is seconds; response body `retryAfterMs` is milliseconds
 2. Problem details use camelCase instead of snake_case
-3. Enrichment failures return `circuitOpen` status rather than error
-4. UploadResponse now includes `status` field for job state tracking (initialize, processing, etc.)
+3. Enrichment failures use `enrichmentStatus` (`circuit_open` / etc.) rather than hard fail
+4. Literal ISBN `"unknown"` is normalized to `nil` in the client decoder
 
 **API references:**
-- OpenAPI spec: `swiftwing/OpenAPI/talaria-openapi.yaml` (committed)
+- OpenAPI spec: `swiftwing/OpenAPI/talaria-openapi.yaml` (committed, 3.9.0)
+- Live contract: `https://api.oooefam.net/v3/openapi.json` (Swagger: `/v3/docs`)
 - Contract fixtures: `swiftwingTests/Fixtures/TalariaContractFixtures.swift`
 - Contract adherence tests: `swiftwingTests/Unit/Services/TalariaContractAdherenceTests.swift`
-- Talaria docs: `https://api.oooefam.net/docs`
 
 **OpenAPI spec update:**
 ```bash
-./Scripts/update-api-spec.sh          # normal (checksum verification)
-./Scripts/update-api-spec.sh --force  # bypass checksum
+./Scripts/update-api-spec.sh          # fetch /v3/openapi.json → YAML + checksum
+./Scripts/update-api-spec.sh --force  # no confirmation
 git diff swiftwing/OpenAPI/talaria-openapi.yaml  # review before committing
 ```
 Rollback: `git checkout swiftwing/OpenAPI/` to restore committed spec.
@@ -236,7 +210,7 @@ Rollback: `git checkout swiftwing/OpenAPI/` to restore committed spec.
 | Camera cold start | < 0.5s |
 | UI frame rate | > 55 FPS |
 | Image processing | < 500ms |
-| SSE connection | < 200ms |
+| Status poll round-trip | < 200ms P95 |
 
 **Instrumentation:** Use `CFAbsoluteTimeGetCurrent()` for timing. **Logging:** Use OSLog — `print()` does not appear in production device logs.
 

@@ -4,13 +4,18 @@
 # Manual script to update the committed OpenAPI specification from Talaria server
 # Requires explicit --force flag to overwrite existing spec
 # Includes checksum verification for integrity
+#
+# Live contract (Talaria 3.9.0+): GET https://api.oooefam.net/v3/openapi.json
+# (Swagger UI: https://api.oooefam.net/v3/docs)
+# Historical path /openapi.yaml returns 404.
 
 set -e  # Exit immediately if any command fails
 
 # Configuration
-SPEC_URL="https://api.oooefam.net/openapi.yaml"
+SPEC_URL="https://api.oooefam.net/v3/openapi.json"
 SPEC_DIR="swiftwing/OpenAPI"
 SPEC_FILE="${SPEC_DIR}/talaria-openapi.yaml"
+TEMP_JSON="${SPEC_DIR}/.openapi.json.tmp"
 TEMP_FILE="${SPEC_DIR}/.openapi.yaml.tmp"
 CHECKSUM_FILE="${SPEC_DIR}/.talaria-openapi.yaml.sha256"
 USER_AGENT="SwiftWing/1.0 (OpenAPI Manual Update)"
@@ -33,11 +38,12 @@ usage() {
     echo "  --force    Overwrite existing spec without confirmation"
     echo ""
     echo "The script will:"
-    echo "  1. Download spec from ${SPEC_URL}"
-    echo "  2. Verify download integrity"
-    echo "  3. Show diff if spec exists"
-    echo "  4. Require confirmation unless --force is used"
-    echo "  5. Update checksum for verification"
+    echo "  1. Download JSON from ${SPEC_URL}"
+    echo "  2. Convert to YAML and augment DetectedBook.enrichmentStatus (runtime field)"
+    echo "  3. Verify download integrity"
+    echo "  4. Show diff if spec exists"
+    echo "  5. Require confirmation unless --force is used"
+    echo "  6. Update checksum for verification"
     exit 1
 }
 
@@ -80,8 +86,8 @@ if [ -f "${SPEC_FILE}" ]; then
     echo ""
 fi
 
-# Fetch the spec to temporary file
-echo -e "${BLUE}⬇️  Downloading OpenAPI spec...${NC}"
+# Fetch the JSON spec to temporary file
+echo -e "${BLUE}⬇️  Downloading OpenAPI spec (JSON)...${NC}"
 echo "   URL: ${SPEC_URL}"
 echo "   Timeout: ${TIMEOUT}s"
 echo ""
@@ -89,26 +95,78 @@ echo ""
 if ! curl --fail --silent --show-error \
     --max-time "${TIMEOUT}" \
     --user-agent "${USER_AGENT}" \
-    -o "${TEMP_FILE}" \
+    -o "${TEMP_JSON}" \
     "${SPEC_URL}"; then
     echo -e "${RED}❌ Failed to fetch OpenAPI spec from ${SPEC_URL}${NC}"
     echo "   Check network connectivity and server availability"
-    rm -f "${TEMP_FILE}"
+    echo "   Docs: https://api.oooefam.net/v3/docs"
+    rm -f "${TEMP_JSON}"
     exit 1
 fi
 
 # Verify download succeeded and has content
-if [ ! -s "${TEMP_FILE}" ]; then
+if [ ! -s "${TEMP_JSON}" ]; then
     echo -e "${RED}❌ Downloaded file is empty${NC}"
-    rm -f "${TEMP_FILE}"
+    rm -f "${TEMP_JSON}"
     exit 1
 fi
 
-# Calculate checksum of downloaded file
+# Convert JSON → YAML and augment runtime-only fields
+echo -e "${BLUE}🔄 Converting JSON → YAML...${NC}"
+if ! python3 - "${TEMP_JSON}" "${TEMP_FILE}" <<'PY'
+import json, sys
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    sys.stderr.write("PyYAML is required: python3 -m pip install pyyaml\n")
+    sys.exit(1)
+
+src, dst = Path(sys.argv[1]), Path(sys.argv[2])
+spec = json.loads(src.read_text())
+
+# Runtime always emits top-level enrichmentStatus (mapCachedBookToResult).
+# Live openapi-static may omit it; keep SwiftWing's committed contract accurate.
+db = spec.get("components", {}).get("schemas", {}).get("DetectedBook")
+if isinstance(db, dict):
+    props = db.setdefault("properties", {})
+    if "enrichmentStatus" not in props:
+        props["enrichmentStatus"] = {
+            "type": "string",
+            "enum": ["success", "not_found", "error", "circuit_open", "review_needed"],
+            "description": (
+                "Top-level enrichment status from the results mapper. "
+                "Runtime always includes this field for iOS clients."
+            ),
+        }
+
+version = spec.get("info", {}).get("version", "unknown")
+header = (
+    f"# Talaria V3 OpenAPI — committed for deterministic SwiftWing builds\n"
+    f"# Source: GET https://api.oooefam.net/v3/openapi.json (live {version})\n"
+    f"# enrichmentStatus on DetectedBook is augmented when missing from the served static spec.\n"
+)
+with dst.open("w") as f:
+    f.write(header)
+    yaml.dump(spec, f, sort_keys=False, default_flow_style=False, allow_unicode=True, width=100)
+
+print(f"API version: {version}")
+print(f"Paths: {', '.join(sorted(spec.get('paths', {})))}")
+PY
+then
+    echo -e "${RED}❌ Failed to convert OpenAPI JSON to YAML${NC}"
+    rm -f "${TEMP_JSON}" "${TEMP_FILE}"
+    exit 1
+fi
+
+rm -f "${TEMP_JSON}"
+
+# Calculate checksum of converted YAML
 DOWNLOADED_SIZE=$(wc -c < "${TEMP_FILE}" | xargs)
 DOWNLOADED_SHA256=$(shasum -a 256 "${TEMP_FILE}" | awk '{print $1}')
 
-echo -e "${GREEN}✅ Download successful${NC}"
+echo -e "${GREEN}✅ Download + convert successful${NC}"
 echo "   Size: ${DOWNLOADED_SIZE} bytes"
 echo "   SHA256: ${DOWNLOADED_SHA256}"
 echo ""

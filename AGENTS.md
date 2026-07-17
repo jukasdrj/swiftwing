@@ -64,7 +64,7 @@ swiftwing/
 │   │   ├── NetworkMonitor.swift         # Network status tracking
 │   │   ├── OfflineQueueManager.swift    # Offline sync queue
 │   │   ├── RateLimitState.swift         # Rate limit tracking
-│   │   └── StreamManager.swift          # SSE stream coordination
+│   │   └── StreamManager.swift          # Concurrent scan job limits
 │   │
 │   ├── NetworkService.swift             # Legacy stub (for migration)
 │   └── ProcessingQueue UI components
@@ -339,7 +339,7 @@ Scripts/update-api-spec.sh --force # Force override
 ┌──────────────────────────────────────────────────────────────┐
 │            Actor Services (Thread-Safe)                       │
 │                                                               │
-│  TalariaService (actor)              - Network + SSE streaming      │
+│  TalariaService (actor)              - Network + HTTP status polling │
 │  CameraManager (actor)               - AVFoundation isolation       │
 │  NetworkMonitor (class)              - Network status tracking      │
 │  OfflineQueueManager (actor)         - Offline sync                │
@@ -373,7 +373,7 @@ Scripts/update-api-spec.sh --force # Force override
 - ModelContext injection via view lifecycle
 
 **Service Layer:**
-- `TalariaService` (actor) - Network calls, SSE streaming, rate limiting
+- `TalariaService` (actor) - Network calls, HTTP status polling, rate limiting
 - `CameraManager` (actor) - AVFoundation session management
 - `NetworkMonitor` (class) - Network status tracking
 - `DataSyncActor` (@MainActor class) - All SwiftData writes centralised here
@@ -418,7 +418,7 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 ### Working Workflow
 - **Snap:** Capture book spine photo via CameraView
 - **Talaria:** Upload to AI backend (`POST /v3/jobs/scans`)
-- **Stream:** SSE real-time progress tracking
+- **Poll:** HTTP status poll until complete, then fetch results
 - **Review:** Confidence-sorted book results in ReviewQueueView
 - **Save:** Approve → SwiftData Library with ISBN uniqueness
 
@@ -453,7 +453,7 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 |------|------|------|
 | CameraView.swift | Main camera UI | 250 lines |
 | CameraViewModel.swift | Camera business logic | 727 lines |
-| TalariaService.swift | Network + SSE (actor) | 22KB |
+| TalariaService.swift | Network + polling (actor) | 22KB |
 | LibraryView.swift | Library grid | 47KB |
 | Services/ | Actor-isolated services | 56KB |
 
@@ -487,9 +487,9 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 
 ### Network Requirements
 
-- **Talaria API:** `https://api.oooefam.net/v3/jobs/scans`
+- **Talaria API:** `https://api.oooefam.net/v3/jobs/scans` (API 3.9.0+)
 - **OpenAPI Spec:** `swiftwing/OpenAPI/talaria-openapi.yaml` (committed)
-- **SSE Streaming:** Server-Sent Events for real-time progress
+- **Progress:** HTTP poll `GET /v3/jobs/scans/{jobId}` then `.../results?format=lite`
 
 ### Performance Targets
 
@@ -685,7 +685,7 @@ swiftwing/                      ← iOS app source (620KB total)
 ├── CameraView.swift           ← Main camera UI (250 lines)
 ├── CameraViewModel.swift      ← Business logic (727 lines)
 ├── Services/
-│   ├── TalariaService.swift   ← Network + SSE (actor)
+│   ├── TalariaService.swift   ← Network + polling (actor)
 │   ├── NetworkMonitor.swift   ← Network status
 │   └── (other services)
 ├── Models/Book.swift          ← SwiftData entity

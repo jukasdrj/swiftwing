@@ -11,9 +11,9 @@ This checklist ensures all Epic 4 (Talaria Integration) features remain function
 - [ ] Image appears in processing queue
 - [ ] Processing queue shows thumbnail
 
-### SSE Streaming & AI Recognition
+### HTTP Polling & AI Recognition
 
-- [ ] Progress messages appear on queue item ("Looking...", "Reading...", "Enriching...")
+- [ ] Progress message appears on queue item while job is processing
 - [ ] Book result appears in library after processing
 - [ ] Book metadata is complete (title, author, ISBN, cover)
 - [ ] Processing queue item turns green on completion
@@ -50,10 +50,10 @@ This checklist ensures all Epic 4 (Talaria Integration) features remain function
 - [ ] Error state shows red border on queue item
 - [ ] Error message displays on item
 - [ ] Retry button appears on failed item
-- [ ] Retry button re-uploads and opens new SSE stream
+- [ ] Retry button re-uploads and starts a new status-poll job
 - [ ] Error haptic feedback triggers on failure
 
-### Concurrent Stream Management
+### Concurrent Job Management
 
 - [ ] 5+ rapid scans process without crashing
 - [ ] UI remains responsive during bulk scanning
@@ -63,9 +63,9 @@ This checklist ensures all Epic 4 (Talaria Integration) features remain function
 ### Resource Cleanup
 
 - [ ] Temp JPEG files are deleted after job completion
-- [ ] Server-side cleanup endpoint called (DELETE /cleanup)
+- [ ] No client call to removed `/cleanup` endpoint
 - [ ] No memory leaks during 10-minute scanning session
-- [ ] App backgrounding cancels active SSE streams
+- [ ] App backgrounding cancels active poll tasks
 
 ## Epic 1-3 Regression Tests
 

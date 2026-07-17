@@ -4,12 +4,12 @@ import os
 private let e2eLogger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "e2e-talaria")
 
 #if DEBUG
-/// File-based debug logger for SSE stream diagnosis
+/// File-based debug logger for poll/integration diagnosis
 private func sseLog(_ msg: String) {
     guard ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") else { return }
     let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
     let timestamp = ISO8601DateFormatter().string(from: Date())
-    let line = "[\(timestamp)] SSE_STREAM: \(msg)\n"
+    let line = "[\(timestamp)] POLL: \(msg)\n"
     guard let data = line.data(using: .utf8) else { return }
     if FileManager.default.fileExists(atPath: logFile.path) {
         if let handle = try? FileHandle(forWritingTo: logFile) {
@@ -46,9 +46,9 @@ private func sseLog(_ msg: String) {
 ///
 /// **Performance Characteristics (US-509 benchmarks):**
 /// - Upload latency: < 1000ms
-/// - SSE first event: < 500ms
+/// - Status poll round-trip: < 200ms P95
 /// - Concurrent uploads: 5 scans < 10s
-/// - CPU usage: < 15% main thread during SSE parsing
+/// - CPU usage: < 15% main thread during polling
 /// - Memory: Zero leaks in 10-minute sessions
 ///
 /// **Future Migration Path:**
@@ -336,5 +336,4 @@ actor TalariaService {
     }
 
     // MARK: - Private Helpers
-    // (Dead code removed - parseSSEEvent extracted to SSEEventParser)
 }
