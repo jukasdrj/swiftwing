@@ -75,3 +75,6 @@ flutter-legacy/
 # CC local settings (personal, not shared)
 .claude/settings.local.json
 .build-dd/
+
+# Agent worktrees (transient; artifacts were tracked by accident)
+.claude/worktrees/
