@@ -1,6 +1,6 @@
 # SwiftWing: AI Agent Reference & Architecture
 
-**Last Updated:** February 20, 2026
+**Last Updated:** 2026-07-17
 **Status:** Epics 1-5 Complete — Epic 6 (App Store Launch) In Progress
 **Branch:** `main`
 **Build:** ✅ SUCCESS (0 errors, 0 warnings) | **iOS 26.0+ | Swift 6.2**
@@ -13,7 +13,7 @@
 - **Building/Running?** → See [CLAUDE.md](./CLAUDE.md) (section: Building & Running)
 - **Need to Fix Something?** → See [CURRENT-STATUS.md](./CURRENT-STATUS.md) (status & next steps)
 - **Writing Code?** → Read `.claude/rules/` (project conventions)
-- **Planning Major Task?** → Use `/planning-with-files` (MANDATORY for >4 tool calls)
+- **Planning Major Task?** → Follow `.claude/rules/planning-mandatory.md` (required for >4 tool calls)
 
 ---
 
@@ -97,7 +97,7 @@ swiftwing/
 │   ├── Assets.xcassets/                 # App icons, colors, images
 │   ├── Fonts/                           # JetBrains Mono (brand)
 │   ├── Preview Content/                 # SwiftUI preview fixtures
-│   └── Info.plist                       # App config (camera permission)
+│   └── Info.plist                       # UIAppFonts only — camera permission is INFOPLIST_KEY_NSCameraUsageDescription in project.pbxproj
 │
 ├── 📡 API SPECIFICATION
 │   ├── OpenAPI/
@@ -141,11 +141,12 @@ This repository includes specialized AI skills for Swift/iOS development. See `s
 | `swift-concurrency-pro` | Concurrency correctness | Actor/async changes |
 | `new-feature-slice` | Vertical slice development | New feature/epic |
 | `run-contract-tests` | OpenAPI contract validation | API changes |
-| `planning-with-files` | Complex multi-step task planning | Architecture changes, debugging |
-| `find-docs` | Current library documentation | Version upgrades, API changes |
 
 **Location:** `.claude/skills/`  
 **Manifest:** `skills/available.json` (machine-readable catalog)
+
+Complex multi-step planning is a **policy**, not a skill slash-command: see
+`.claude/rules/planning-mandatory.md`.
 
 ### Agent Collaboration
 
@@ -200,21 +201,17 @@ This repository includes specialized AI skills for Swift/iOS development. See `s
    - ❌ NEVER: Raw xcodebuild output (unparseable)
    - ❌ NEVER: xcsift as build command (it's a formatter only)
 
-### 🟡 MANDATORY: Planning-with-Files
+### 🟡 MANDATORY: Planning files (policy)
 
 **Trigger:** Any task requiring >4 tool calls (>4 decisions)
 
-**What to do:**
-```bash
-/planning-with-files
-```
+**What to do:** Follow `.claude/rules/planning-mandatory.md`. Create:
 
-**Creates:**
 - `{task_name}_task_plan.md` - Phases, progress, decisions, errors table
 - `{task_name}_findings.md` - Root causes, expert advice, solutions
 - `{task_name}_progress.md` - Session log, test results (optional)
 
-**This prevents circular debugging.** Without planning:
+There is no `/planning-with-files` slash command in this repo. **This prevents circular debugging.** Without planning:
 - ❌ Repeat same fixes
 - ❌ Lose context
 - ❌ Waste hours
@@ -512,7 +509,7 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 2. Check .claude/rules/ (project conventions)
 3. Review CURRENT-STATUS.md (context)
 4. Check if task > 4 tool calls:
-   - YES → /planning-with-files first
+   - YES → create planning files per `.claude/rules/planning-mandatory.md`
    - NO → Proceed directly
 5. Execute with xcodebuild | xcsift
 6. Verify: 0 errors, 0 warnings
@@ -533,26 +530,24 @@ xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
 ### Managing Complex Tasks
 
 ```
-1. Run /planning-with-files
+1. Open .claude/rules/planning-mandatory.md
 2. Create {task}_task_plan.md (phases, decisions, errors)
 3. Create {task}_findings.md (research, expert advice)
 4. Launch specialist agent tasks (parallel when possible)
-5. Use PAL MCP tools (thinkdeep, codereview, debug)
-6. Document discoveries in planning files
-7. Execute implementation
-8. Verify with xcodebuild | xcsift
-9. Update planning files with completion status
+5. Document discoveries in planning files
+6. Execute implementation
+7. Verify with xcodebuild | xcsift
+8. Update planning files with completion status
 ```
 
 ### Debugging Build Failures
 
 ```
-1. /planning-with-files (mandatory)
+1. Create planning files (mandatory — planning-mandatory.md)
 2. Run xcodebuild ... | xcsift (get structured errors)
-3. Use mcp__pal__debug with error output
-4. Document root cause in *_findings.md
-5. Apply systematic fix
-6. Verify: xcodebuild ... | xcsift (0/0)
+3. Document root cause in *_findings.md
+4. Apply systematic fix
+5. Verify: xcodebuild ... | xcsift (0/0)
 ```
 
 ---
@@ -633,8 +628,7 @@ When using Task agents for parallel work, assign these roles:
 - Review `.claude/rules/` (all conventions)
 
 ### For Complex Debugging
-- Always use `/planning-with-files`
-- Use PAL MCP tools (mcp__pal__debug, mcp__pal__thinkdeep)
+- Always create planning files per `.claude/rules/planning-mandatory.md`
 - Document error attempts in planning files
 
 ---
@@ -705,7 +699,7 @@ docs/                           ← API docs, guides
 
 ## Last Updated
 
-**March 26, 2026**
+**2026-07-17**
 By: Claude Code (AI Agent Orchestration)
 
 ---

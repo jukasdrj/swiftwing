@@ -64,9 +64,11 @@ camSample/
 test_book_stack.jpg
 e2e_screenshots/
 
-# OpenAPI specs are committed to repo (not generated during build)
+# Canonical OpenAPI source of truth (committed):
 # See swiftwing/OpenAPI/talaria-openapi.yaml
 # Update with: scripts/update-api-spec.sh
+# Xcode "Copy OpenAPI Spec" build phase writes an ephemeral copy here:
+swiftwing/Generated/
 
 # Legacy/Archive
 flutter-legacy/

@@ -54,7 +54,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 | `Features/Library/LibraryGridView.swift` | Library grid display |
 | `Features/ReviewQueue/ReviewQueueView.swift` | Review queue container (~220 lines) |
 | `Features/ReviewQueue/ReviewCardView.swift` | Individual review card |
-| `Services/TalariaService.swift` | Network + SSE actor |
+| `Services/TalariaService.swift` | Network + HTTP polling actor |
 | `Models/Book.swift` | SwiftData model |
 
 ### Folder Organization
@@ -115,7 +115,7 @@ Use `@Environment(\.modelContext)` — not `\.modelContainer` (does not exist as
 
 ### Planning-with-Files (MANDATORY for complex tasks)
 
-Use `/planning-with-files` before any task requiring >4 tool calls. This is non-negotiable. See `.claude/rules/planning-mandatory.md` for the full policy.
+Use file-based planning before any task requiring >4 tool calls. This is non-negotiable. See `.claude/rules/planning-mandatory.md` for the full policy.
 
 ### Talaria Backend Integration
 
@@ -237,7 +237,7 @@ Button("Capture") {
 
 ```swift
 do {
-    let (jobId, sseUrl) = try await talariaService.uploadScan(imageData)
+    let (jobId, status) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
 } catch NetworkError.rateLimited(let retryAfter) {
     let delay = retryAfter ?? 60.0
     try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -284,13 +284,12 @@ See `docs/testing/TESTING-CHECKLIST.md` for regression checklist.
 | `swift-concurrency-pro` | Concurrency correctness | Actor/async changes |
 | `new-feature-slice` | Vertical slice development | New feature/epic |
 | `run-contract-tests` | OpenAPI contract validation | API changes |
-| `planning-with-files` | Complex multi-step task planning | Architecture changes, debugging |
-| `find-docs` | Current library documentation | Version upgrades, API changes |
 
 **Slash Commands:**
-- `/planning-with-files` — file-based planning (REQUIRED for >4 tool calls)
-- `/gogo` — quick commit + push
-- `/commit-push-pr` — commit → push → PR
+- `/build-sim` — build for the simulator
+- `/epic-status` — current epic status
+- `/update-api` — refresh the committed OpenAPI spec
+- `/gogo` — quick commit + push (skill, `.claude/skills/gogo.md`)
 
 **PAL MCP Tools:**
 - `mcp__pal__debug` — systematic debugging
@@ -314,4 +313,4 @@ See `docs/testing/TESTING-CHECKLIST.md` for regression checklist.
 
 ---
 
-**Last Updated:** April 7, 2026
+**Last Updated:** 2026-07-17

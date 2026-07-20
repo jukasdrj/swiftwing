@@ -57,7 +57,7 @@ private func sseLog(_ msg: String) {
 ///
 /// **Related:**
 /// - OpenAPI spec: `swiftwing/OpenAPI/talaria-openapi.yaml`
-/// - Integration tests: `swiftwingTests/TalariaIntegrationTests.swift`
+/// - Contract tests: `TalariaContractAdherenceTests`, `ScanResultsResponseContractTests`, `PollScanStatusResilienceTests`
 /// - Documentation: See CLAUDE.md "Swift OpenAPI Generator Integration" section
 actor TalariaService {
 

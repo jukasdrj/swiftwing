@@ -110,7 +110,7 @@ Easy to cut features without breaking the app.
 - UI: Progress overlays on processing queue
 - Logic: HTTP status polling + result handling
 - Data: SwiftData upsert (update existing records)
-- Network: Talaria API upload + SSE listener
+- Network: Talaria API upload + status polling + results fetch
 
 **Delivers:** Full AI-powered scanning
 **User Value:** Books automatically identified with titles, authors, covers

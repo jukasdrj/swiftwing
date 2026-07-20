@@ -78,9 +78,11 @@ SwiftWing uses a **committed specification** approach rather than auto-fetching 
      -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
      clean build 2>&1 | xcsift
 
-   # Run integration tests
+   # Run contract tests
    xcodebuild test \
-     -only-testing:swiftwingTests/TalariaIntegrationTests \
+     -only-testing:swiftwingTests/TalariaContractAdherenceTests \
+     -only-testing:swiftwingTests/ScanResultsResponseContractTests \
+     -only-testing:swiftwingTests/PollScanStatusResilienceTests \
      2>&1 | xcsift
    ```
 
@@ -98,7 +100,7 @@ SwiftWing uses a **committed specification** approach rather than auto-fetching 
    - Added new field: bookMetadata.publishedDate
    - Deprecated: bookMetadata.publicationYear (use publishedDate)
 
-   Tested with TalariaIntegrationTests - all pass."
+   Tested with the Talaria contract tests - all pass."
    ```
 
 ### Script Details: update-api-spec.sh
@@ -125,16 +127,10 @@ SwiftWing uses a **committed specification** approach rather than auto-fetching 
 **Live docs:** `https://api.oooefam.net/v3/docs`
 
 **Safety Features:**
-- Requires `--force` flag to overwrite existing spec
+- Prompts for confirmation before overwriting; `--force` skips the prompt
 - Shows full diff before updating
 - Verifies checksum after update
-- Preserves backup if update fails
-
-**Environment Variables:**
-```bash
-# Override Talaria API endpoint
-TALARIA_API_BASE_URL=https://staging.oooefam.net ./Scripts/update-api-spec.sh
-```
+- No backup is kept — recover a previous spec with `git checkout swiftwing/OpenAPI/`
 
 ## Build Integration
 
@@ -166,7 +162,7 @@ echo "✅ Copied OpenAPI spec to Generated/"
 **Why This Exists:**
 - Swift OpenAPI Generator expects spec in Generated/ (if using plugin)
 - Keeps committed spec in OpenAPI/ for clarity
-- Generated/ is .gitignored (ephemeral build artifacts)
+- `swiftwing/Generated/` is gitignored (ephemeral build copy of the committed OpenAPI spec)
 
 ## Verification
 
@@ -293,7 +289,7 @@ curl -I https://api.oooefam.net
 - **OpenAPI Spec:** [OpenAPI 3.0 Specification](https://spec.openapis.org/oas/v3.0.0)
 - **Swift OpenAPI Generator:** [GitHub Repository](https://github.com/apple/swift-openapi-generator)
 - **Talaria API Docs:** Contact backend team for documentation
-- **Integration Tests:** `swiftwingTests/TalariaIntegrationTests_README.md`
+- **Contract Tests:** `swiftwingTests/Unit/Services/TalariaContractAdherenceTests.swift`
 
 ## Best Practices
 
@@ -316,4 +312,4 @@ curl -I https://api.oooefam.net
 - **Spec update issues:** Check `Scripts/update-api-spec.sh` script logs
 - **Build integration:** See `Scripts/copy-openapi-spec.sh`
 - **General OpenAPI questions:** See [CLAUDE.md](../../CLAUDE.md)
-- **Integration testing:** See `swiftwingTests/TalariaIntegrationTests_README.md`
+- **Contract testing:** See `swiftwingTests/Unit/Services/TalariaContractAdherenceTests.swift`

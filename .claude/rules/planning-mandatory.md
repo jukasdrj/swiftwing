@@ -2,7 +2,7 @@
 
 ## When Planning is REQUIRED
 
-Use `/planning-with-files` before starting any task that involves >4 tool calls, >3 files, or any build failure diagnosis. This is not optional.
+Create planning files (see below) before starting any task that involves >4 tool calls, >3 files, or any build failure diagnosis. This is not optional. There is no `/planning-with-files` slash command in this repo — the policy lives in this rules file.
 
 ### Must use planning for:
 - Build failures

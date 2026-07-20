@@ -18,7 +18,7 @@
 | 6 | App Store Launch | In Progress |
 
 The app is production-ready with a working end-to-end flow:
-**Capture → Upload → SSE Stream → Review Queue → Library**
+**Capture → Upload → Poll Status → Fetch Results → Review Queue → Library**
 
 ---
 
@@ -63,7 +63,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 | `swiftwing/Features/Library/LibraryView.swift` | Library grid |
 | `swiftwing/Features/Library/LibraryViewModel.swift` | Library business logic (FetchDescriptor-based filtering) |
 | `swiftwing/Features/ReviewQueue/ReviewQueueView.swift` | Book review/approve UI |
-| `swiftwing/Services/TalariaService.swift` | Network + SSE actor |
+| `swiftwing/Services/TalariaService.swift` | Network + HTTP polling actor |
 | `swiftwing/Services/DataSyncActor.swift` | All SwiftData writes (@MainActor class) |
 | `swiftwing/Models/Book.swift` | SwiftData model |
 
@@ -142,4 +142,4 @@ SSE, firehose, and cleanup endpoints are removed. See `CLAUDE.md` for the full i
 
 **Bundle ID:** `com.ooheynerds.swiftwing`
 **Min Deployment:** iOS 26.0
-**Last Updated:** 2026-03-26
+**Last Updated:** 2026-07-17

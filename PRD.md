@@ -5,6 +5,8 @@
 **Status:** Draft
 **Target Platform:** iOS 17.0+ (Current Generation Devices)
 
+> **API contract of record: CLAUDE.md Talaria 3.9.0 section.** Where this PRD and CLAUDE.md disagree on endpoints or transport, CLAUDE.md wins.
+
 ---
 
 ## Executive Summary
@@ -79,15 +81,16 @@
 | Concurrency | **Swift 6 (async/await, actors)** | Thread-safe, compiler-enforced |
 | Camera | **AVFoundation** | Low-level control, maximum performance |
 | Networking | **URLSession** | Native, no third-party dependencies |
-| Real-time Updates | **Server-Sent Events (SSE)** | One-way streaming from backend |
+| Progress Updates | **HTTP status polling** | `GET /v3/jobs/scans/{jobId}` until completed |
 
 ### Backend Integration
 
 | Service | Endpoint | Purpose |
 |---------|----------|---------|
 | **Talaria API** | POST /v3/jobs/scans | Image upload & job creation |
-| **SSE Stream** | GET {streamUrl} | Real-time progress & results |
-| **Cleanup** | DELETE /v3/jobs/scans/{jobId}/cleanup | Resource cleanup |
+| **Status Poll** | GET /v3/jobs/scans/{jobId} | Progress (`progress` 0.0–1.0) |
+| **Results** | GET /v3/jobs/scans/{jobId}/results?format=lite\|full | Results when completed |
+| **Cancel** | DELETE /v3/jobs/scans/{jobId} | Cancel job |
 
 ### Minimum Requirements
 
@@ -120,7 +123,7 @@
 ┌────────────────▼────────────────────────────────────────┐
 │                 Actor-Based Services                    │
 │  • CameraActor (AVCaptureSession isolation)            │
-│  • NetworkActor (HTTP + SSE)                            │
+│  • NetworkActor (HTTP upload + status polling)           │
 │  • DataSyncActor (SwiftData writes)                     │
 └────────────────┬────────────────────────────────────────┘
                  │
@@ -136,14 +139,14 @@
 
 **Actors for Isolation:**
 - `CameraActor` - Manages AVCaptureSession, prevents data races
-- `NetworkActor` - Handles uploads and SSE streams
+- `NetworkActor` - Handles uploads and status polling
 - `DataSyncActor` - Coordinates SwiftData writes
 
-**AsyncStream for SSE:**
+**AsyncStream for status polling:**
 ```swift
 actor NetworkActor {
-    func streamEvents(from url: URL) -> AsyncThrowingStream<SSEEvent, Error> {
-        // Wrap SSE connection in async stream
+    func pollStatus(jobId: String) -> AsyncThrowingStream<JobStatus, Error> {
+        // Wrap the GET /v3/jobs/scans/{jobId} poll loop in an async stream
     }
 }
 ```
@@ -219,8 +222,8 @@ class CameraViewModel {
 
 **Scope:**
 - Multipart image upload
-- Server-Sent Events (SSE) listener
-- Real-time progress visualization
+- Job status polling loop
+- Progress visualization
 - Result handling & data persistence
 
 **API Flow:**
@@ -229,23 +232,25 @@ class CameraViewModel {
 1. Capture Image
    ↓
 2. POST /v3/jobs/scans
-   ← 202 { jobId, streamUrl }
+   ← 202 { jobId, status }
    ↓
-3. Open SSE Stream (streamUrl)
-   ← event: progress → "Looking..."
-   ← event: progress → "Reading..."
-   ← event: result → { isbn, title, author, ... }
-   ← event: complete
+3. Poll GET /v3/jobs/scans/{jobId}
+   ← { status: processing, progress: 0.2 } → "Looking..."
+   ← { status: processing, progress: 0.7 } → "Reading..."
+   ← { status: completed }
    ↓
-4. Save to SwiftData
+4. GET /v3/jobs/scans/{jobId}/results?format=lite
+   ← [ { isbn, title, author, ... } ]
    ↓
-5. DELETE /v3/jobs/scans/{jobId}/cleanup
+5. Save to SwiftData
+   ↓
+(cancel path only: DELETE /v3/jobs/scans/{jobId})
 ```
 
 **Error Handling:**
 - **429 Too Many Requests:** Disable shutter, show countdown
 - **Network Loss:** Queue locally, retry when online
-- **Timeout:** 5-minute max per SSE stream
+- **Timeout:** 5-minute max per job
 - **Retry Logic:** Exponential backoff (1s, 2s, 4s max 3 attempts)
 
 ---
@@ -452,7 +457,7 @@ thumbnailView
    - White flash
    - Thumbnail appears in queue (yellow border)
    ↓
-6. Image uploads → SSE stream opens
+6. Image uploads → status polling begins
    - Border turns blue
    - "Reading..." text overlay
    ↓
@@ -476,7 +481,7 @@ thumbnailView
    - UI never blocks
    ↓
 3. Processing happens in parallel
-   - Multiple SSE streams active
+   - Multiple jobs polled concurrently
    - Queue shows mixed states (yellow/blue/green)
    ↓
 4. Results arrive out-of-order
@@ -501,7 +506,7 @@ thumbnailView
 4. Network reconnects
    - "OFFLINE" indicator disappears
    - Queued images auto-upload
-   - SSE streams open for all queued jobs
+   - Status polling starts for all queued jobs
 ```
 
 ---
@@ -516,7 +521,7 @@ thumbnailView
 | Shutter responsiveness | < 50ms | Tap → haptic + flash |
 | Image processing | < 500ms | Capture → upload ready |
 | UI frame rate | > 55 FPS | During active scanning |
-| SSE connection time | < 200ms | Upload response → stream open |
+| Status poll round-trip | < 200ms | Poll request → status response |
 
 ### Reliability
 
@@ -600,7 +605,7 @@ thumbnailView
 
 - ✅ Camera launches in < 0.5s
 - ✅ Non-blocking shutter allows rapid scanning
-- ✅ SSE stream receives real-time updates
+- ✅ Status polling surfaces job progress
 - ✅ Books persist to SwiftData
 - ✅ Library grid displays with covers
 - ✅ Offline mode queues scans
@@ -651,8 +656,8 @@ thumbnailView
 
 ### Phase 3: Backend Integration (Week 5-6)
 - Talaria API client
-- SSE stream implementation
-- Real-time result handling
+- Status polling implementation
+- Result handling
 - **Milestone:** End-to-end scan → enrichment → library
 
 ### Phase 4: Library & Polish (Week 7-8)
@@ -694,7 +699,6 @@ thumbnailView
 
 | Term | Definition |
 |------|------------|
-| **SSE** | Server-Sent Events - one-way streaming protocol |
 | **SwiftData** | Apple's modern persistence framework (iOS 17+) |
 | **Actor** | Swift concurrency primitive for thread-safe isolation |
 | **Talaria** | Backend service providing AI book recognition |

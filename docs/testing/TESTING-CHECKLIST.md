@@ -97,7 +97,7 @@ This checklist ensures all Epic 4 (Talaria Integration) features remain function
 - [ ] Camera cold start < 3 seconds (target: < 0.5s)
 - [ ] Image processing < 500ms
 - [ ] Library grid scrolls smoothly (60 FPS)
-- [ ] SSE first event < 500ms
+- [ ] Status poll round-trip < 200ms P95
 
 ## Build Validation
 

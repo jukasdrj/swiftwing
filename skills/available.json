@@ -36,18 +36,6 @@
       "description": "Validates OpenAPI contract compliance between SwiftWing client and Talaria API",
       "location": ".claude/skills/run-contract-tests.md",
       "triggers": ["contract", "openapi", "api", "talaria", "test"]
-    },
-    {
-      "name": "planning-with-files",
-      "description": "Implements Manus-style file-based planning for complex tasks. Creates task_plan.md, findings.md, and progress.md",
-      "location": "system-provided",
-      "triggers": ["plan", "complex", "multi-step", "debug", "investigate"]
-    },
-    {
-      "name": "find-docs",
-      "description": "Retrieves up-to-date documentation, API references, and code examples for any developer technology",
-      "location": "system-provided",
-      "triggers": ["documentation", "docs", "library", "upgrade", "version"]
     }
   ]
 }

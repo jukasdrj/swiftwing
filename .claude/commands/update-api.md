@@ -21,7 +21,7 @@ cd /Users/juju/dev_repos/swiftwing
 - ✅ Manual updates only
 
 **Force Update** (`--force`):
-- Bypasses checksum check
+- Skips the interactive confirmation prompt
 - Overwrites existing spec
 - Use when Talaria API has breaking changes
 

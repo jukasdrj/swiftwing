@@ -56,7 +56,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 ### Vertical Slice Development
 Each epic delivers **complete feature** (UI → Logic → Data → Network):
 - ✅ Epic 2: Camera (full stack: CameraView → CameraViewModel → CameraManager → File I/O)
-- ✅ Epic 4: AI Integration (full stack: UI → TalariaService → SSE → SwiftData)
+- ✅ Epic 4: AI Integration (full stack: UI → TalariaService → HTTP polling → SwiftData)
 
 ❌ **NOT** horizontal layering:
 - Don't build all models first, then all services, then all views
@@ -152,17 +152,20 @@ previewLayer.videoGravity = .resizeAspectFill
 ### Image Processing Pipeline
 1. Capture UIImage from AVFoundation
 2. Compress to JPEG (0.8 quality)
-3. Upload to Talaria via chunked transfer
-4. Stream progress via SSE
+3. Upload to Talaria via `POST /v3/jobs/scans` (single multipart photo)
+4. Poll `GET /v3/jobs/scans/{jobId}` until `completed`, then fetch results
 5. Save metadata to SwiftData
 
 **Concurrency Pattern**:
 ```swift
 Task {
-    let image = await cameraManager.capturePhoto()
-    let compressed = await ImageProcessor.compress(image)
-    let jobId = await talariaService.startScan()
-    await talariaService.uploadImage(jobId, compressed)
+    let imageData = try await cameraManager.capturePhoto()
+    let result = await imagePreprocessor.preprocess(imageData)
+    let (jobId, _) = try await talariaService.uploadScan(
+        image: result.processedData,
+        deviceId: deviceId
+    )
+    let books = try await talariaService.pollScanStatus(jobId: jobId)
     // UI updates on MainActor automatically
 }
 ```
