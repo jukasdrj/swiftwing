@@ -4,9 +4,10 @@
 Verify that the Talaria backend and SwiftWing iOS app remain aligned on API contract, data models, and error handling; then document and prioritize GUI/function/usability improvements across both repos. Security improvements are explicitly out of scope.
 
 ## Status
-- **Phase:** 6 complete (truth pass + spec drift). Phase 7 (enrichment recovery) is next.
+- **Phase:** 6 complete + deployed and verified live. Phase 7 (enrichment recovery) is next.
 - **Started:** 2026-08-01
 - **Last Updated:** 2026-08-02
+- **Execution plan:** `talaria_swiftwing_alignment_execution_plan.md` (Tasks 1–3 done; 4–11 remain)
 
 ## Scope
 - Talaria repo: `/Users/juju/dev_repos/talaria`
@@ -41,6 +42,9 @@ Verify that the Talaria backend and SwiftWing iOS app remain aligned on API cont
 | 2026-08-02 | Closed the auto-approve "verify debug toggle" open question | It IS exposed — `FeatureFlagsDebugView.swift:6-45`. Not a gap. |
 | 2026-08-02 | Fixed Talaria spec drift at the source rather than noting it | `58ca6eb`: provider enum `isbndb` → `google_books`/`open_library`, results TTL 2h → 24h. Root cause was hand-maintained `openapi-static.json` drifting from `src/schemas/book.ts`. SwiftWing spec refresh is **blocked on deploy** — see findings §5 "Deploy ordering". |
 | 2026-08-02 | Recorded review provenance in findings §6 | Work was opencode/ollama-cloud, not Claude. Coverage was 116 SwiftWing paths vs 13 Talaria paths, which explains why Talaria claims didn't hold up. Future readers need that confidence signal. |
+| 2026-08-02 | Shipped the whole unshipped backlog rather than cherry-picking | Talaria had been undeployable since 2026-07-17: `npm run validate` is the deploy gate and `biome check` failed on one cosmetic array reflow in `src/router.ts`. Reviewed the production-source hunks of all four backed-up commits before pushing — `r2-multipart.ts` had zero references, `worker-configuration.d.ts` changed only a temp-path comment (identical type hash), and the three paths dropped from the served spec were routes that no longer exist. Nothing to discard. Fix pushed as `6288a5b`; run `30764565663` green through Post-Deploy Validation. |
+| 2026-08-02 | Found an unshipped CORS fix in `c639603` | It adds `X-Device-ID`/`X-Admin-Token`/`X-Request-ID` to `allowHeaders` and drops four dead WebSocket ones. Every v3 endpoint requires `X-Device-ID`, so browser clients had been broken since the Workflows cutover; native iOS was unaffected (no `Origin` header → `'*'`, no preflight), which is why SwiftWing never surfaced it. Verified live: preflight now returns `access-control-allow-headers: ...,X-Device-ID,...`. Health also went `3.8.0` → `3.9.0`. |
+| 2026-08-02 | Verified the deploy against live bytes, not the CI checkmark | `BookEnrichment.provider` enum is now `google_books`/`open_library`, results TTL reads 24 hours, and `firehose`/`{jobId}/upload`/`{jobId}/cleanup` are gone from the served paths. Only then ran `./Scripts/update-api-spec.sh` — running it before the deploy would have silently re-pulled the stale spec (findings §5). |
 
 ## Errors Encountered
 
@@ -50,6 +54,7 @@ Verify that the Talaria backend and SwiftWing iOS app remain aligned on API cont
 
 ## Next Actions
 
-1. **Deploy talaria `58ca6eb`**, then refresh `swiftwing/OpenAPI/talaria-openapi.yaml` via `./Scripts/update-api-spec.sh`. Do NOT run the script before the deploy — it fetches live and would re-pull the wrong spec (findings §5).
-2. Begin Phase 7 (enrichment recovery): create `enrichment_recovery_task_plan.md` per `.claude/rules/planning-mandatory.md`, fold Phase 8's four deletions into the same branch.
-3. Delete these three planning files once Phase 9 closes — do not leave them to become the next `talaria/task_plan.md`.
+1. ~~Deploy talaria, then refresh the committed spec.~~ ✅ Done 2026-08-02 — see Decision Log. Base is stable and pushed on both repos.
+2. Phase 8 then Phase 7 on branch `feature/enrichment-recovery` — Tasks 4–7 of `talaria_swiftwing_alignment_execution_plan.md`.
+3. Phase 9 on branch `feature/camera-ux` — Tasks 8–10. Independent of Tasks 4–7; can run in parallel.
+4. Delete **all four** planning files (these three plus the execution plan) once Phase 9 closes — do not leave them to become the next `talaria/task_plan.md`.

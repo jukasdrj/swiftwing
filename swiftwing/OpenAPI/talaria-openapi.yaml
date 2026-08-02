@@ -152,7 +152,7 @@ paths:
       - Scans
       summary: Get scan job results
       description: Fetch detected books from completed scan job. Results include book metadata, confidence
-        scores, bounding boxes, and enrichment data. Results cached in KV for 2 hours after completion.
+        scores, bounding boxes, and enrichment data. Results cached in KV for 24 hours after completion.
         Use ?format=lite for App Clip minimal response (excludes boundingBox).
       operationId: getScanJobResults
       parameters:
@@ -594,7 +594,7 @@ components:
           - success
           - not_found
           - error
-          description: ISBNdb enrichment status
+          description: Enrichment status
         isbn13:
           type: string
           description: ISBN-13
@@ -603,7 +603,7 @@ components:
           description: ISBN-10
         title:
           type: string
-          description: Book title from ISBNdb
+          description: Book title from the enrichment provider
         authors:
           type: array
           items:
@@ -628,7 +628,8 @@ components:
         provider:
           type: string
           enum:
-          - isbndb
+          - google_books
+          - open_library
           description: Data source provider
     BookSearchResult:
       type: object
