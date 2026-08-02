@@ -250,14 +250,14 @@ Done first, on the Phase 7 branch, so Task 7 wires the recovery sheet into a cle
 - `ConfidenceBadge` → **delete, don't adopt.** `ReviewCardView` already has a private `confidenceBadge` using thresholds 0.8/0.5 with icon + tinted background (Swiss Glass). `ConfidenceBadge` is a white-on-capsule design with thresholds 0.9/0.7. Adopting it would silently move the confidence bands users see and clash with the theme. Deleting removes the ambiguity the findings flagged. *(If you disagree, the alternative is a UX change and belongs in its own task, not a cleanup one.)*
 - `spineDetected()` belongs in the `onBookResult` callback — that is the moment a spine resolves into a book. Note `haptics.errorOccurred()` and `haptics.retryTriggered()` are already wired at lines 388/470/493/570, so `spineDetected()` is the only orphan.
 
-- [ ] **Step 1: Create the branch**
+- [x] **Step 1: Create the branch**
 
 ```bash
 cd /Users/juju/dev_repos/swiftwing
 /Library/Developer/CommandLineTools/usr/bin/git checkout -b feature/enrichment-recovery
 ```
 
-- [ ] **Step 2: Confirm the placeholder is unreferenced**
+- [x] **Step 2: Confirm the placeholder is unreferenced**
 
 ```bash
 grep -rn --include='*.swift' 'ProcessingItemDetailPlaceholder' .
@@ -265,7 +265,7 @@ grep -rn --include='*.swift' 'ProcessingItemDetailPlaceholder' .
 
 Expected: exactly one hit — the declaration at `ReviewQueueView.swift:318`. If there are call sites, stop; the finding was wrong.
 
-- [ ] **Step 3: Delete the placeholder**
+- [x] **Step 3: Delete the placeholder**
 
 Remove the whole block from `ReviewQueueView.swift`, starting at the comment header:
 
@@ -279,7 +279,7 @@ struct ProcessingItemDetailPlaceholder: View {
 
 …through its closing brace (ends just before `// Section header for confidence grouping with optional batch action`).
 
-- [ ] **Step 4: Confirm ConfidenceBadge is unreferenced, then delete it**
+- [x] **Step 4: Confirm ConfidenceBadge is unreferenced, then delete it**
 
 ```bash
 grep -rn --include='*.swift' 'ConfidenceBadge' . | grep -v 'UIComponents/ConfidenceBadge.swift'
@@ -293,7 +293,7 @@ Expected: no output (all hits are the file's own declaration and `#Preview`).
 
 Then remove the file reference from `swiftwing.xcodeproj` (open in Xcode and delete, or the build will fail on a missing file reference).
 
-- [ ] **Step 5: Call `spineDetected()`**
+- [x] **Step 5: Call `spineDetected()`**
 
 In `swiftwing/Features/Camera/CameraViewModel.swift`, in `buildScanCallbacks`:
 
@@ -304,7 +304,7 @@ In `swiftwing/Features/Camera/CameraViewModel.swift`, in `buildScanCallbacks`:
             },
 ```
 
-- [ ] **Step 6: Fix the stale SSE comment**
+- [x] **Step 6: Fix the stale SSE comment**
 
 In `swiftwing/Services/NetworkTypes.swift`, replace:
 
@@ -324,7 +324,7 @@ with:
 /// - SSE was removed in the Workflows cutover (talaria 3.9.0); there are no result events.
 ```
 
-- [ ] **Step 7: Build**
+- [x] **Step 7: Build**
 
 ```bash
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
@@ -335,7 +335,7 @@ xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
 
 Expected: `errors: 0, warnings: 0`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 /Library/Developer/CommandLineTools/usr/bin/git add -u
@@ -369,7 +369,7 @@ Expected: `errors: 0, warnings: 0`.
 
 **Error mapping decision:** 404 throws `NetworkError.apiError(problemDetails)`. Do **not** add a `NetworkError.notFound` case — `NetworkError` is switched exhaustively in several call sites and a new case is a wider change than this task warrants. Task 7 detects "no match" by inspecting `problem.status == 404`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `swiftwingTests/Unit/Services/BookSearchTests.swift`. It reuses the `SequencedURLProtocol` already defined in `swiftwingTests/Unit/Services/PollScanStatusResilienceTests.swift`.
 
@@ -438,7 +438,7 @@ import Testing
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
@@ -450,7 +450,7 @@ xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
 
 Expected: compile failure — `cannot find 'BookSearchResult' in scope`.
 
-- [ ] **Step 3: Add the model**
+- [x] **Step 3: Add the model**
 
 Append to `swiftwing/Services/NetworkTypes.swift`:
 
@@ -484,7 +484,7 @@ struct BookSearchResponse: Decodable {
 }
 ```
 
-- [ ] **Step 4: Add the service method**
+- [x] **Step 4: Add the service method**
 
 Append inside the `TalariaService` actor in `swiftwing/Services/TalariaService.swift`, before `// MARK: - Private Helpers`:
 
@@ -567,11 +567,11 @@ Append inside the `TalariaService` actor in `swiftwing/Services/TalariaService.s
     }
 ```
 
-- [ ] **Step 5: Add the test file to the Xcode project**
+- [x] **Step 5: Add the test file to the Xcode project**
 
 Add `swiftwingTests/Unit/Services/BookSearchTests.swift` to the `swiftwingTests` target in Xcode.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 ```bash
 xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
@@ -583,7 +583,7 @@ xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
 
 Expected: 3 tests pass, `errors: 0, warnings: 0`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 /Library/Developer/CommandLineTools/usr/bin/git add swiftwing/Services/NetworkTypes.swift swiftwing/Services/TalariaService.swift swiftwingTests/Unit/Services/BookSearchTests.swift swiftwing.xcodeproj
@@ -612,7 +612,7 @@ existing exhaustive switches intact."
   - `ReviewQueueManager.applyRecoveredMetadata(id: UUID, from result: BookSearchResult)`
   - Task 7 calls `applyRecoveredMetadata` and reads `resolvedMetadata`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `swiftwingTests/ReviewQueueManagerTests.swift`:
 
@@ -658,7 +658,7 @@ Append to `swiftwingTests/ReviewQueueManagerTests.swift`:
 
 If `ReviewQueueManager` requires init arguments or `pendingBooks` is not settable, mirror the setup used by the tests already in this file rather than the sketch above.
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 ```bash
 xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
@@ -670,7 +670,7 @@ xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
 
 Expected: compile failure — `value of type 'PendingBookResult' has no member 'resolvedMetadata'`.
 
-- [ ] **Step 3: Add the override to `PendingBookResult`**
+- [x] **Step 3: Add the override to `PendingBookResult`**
 
 In `swiftwing/Models/PendingBookResult.swift`, add the stored property alongside the existing edits and rewrite the resolvers to read through it:
 
@@ -706,7 +706,7 @@ Set `self.recoveredMetadata = nil` in `init`, and extend `==`:
     }
 ```
 
-- [ ] **Step 4: Add the manager method**
+- [x] **Step 4: Add the manager method**
 
 In `swiftwing/Features/ReviewQueue/ReviewQueueManager.swift`, next to `updatePendingBookEdits`:
 
@@ -738,7 +738,7 @@ In `swiftwing/Features/ReviewQueue/ReviewQueueManager.swift`, next to `updatePen
     }
 ```
 
-- [ ] **Step 5: Point approval at the resolved metadata**
+- [x] **Step 5: Point approval at the resolved metadata**
 
 `approveBook` currently reads `pendingBook.metadata`. Audit every use and switch the ones that feed the saved `Book` to `resolvedMetadata`, or a recovered book saves with its stale AI values:
 
@@ -748,7 +748,7 @@ grep -n '\.metadata' swiftwing/Features/ReviewQueue/ReviewQueueManager.swift
 
 For each hit inside `approveBook`, `autoApproveBook`, `addBookToLibraryIfNotDuplicate`, and `isDuplicateResult`, replace `pendingBook.metadata` with `pendingBook.resolvedMetadata`. Leave `handleBookResult`'s own `metadata:` parameter alone — that is the inbound AI result, before any pending item exists.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 ```bash
 xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
@@ -760,7 +760,7 @@ xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
 
 Expected: all pass, `errors: 0, warnings: 0`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 /Library/Developer/CommandLineTools/usr/bin/git add -u
@@ -787,7 +787,7 @@ manually looked-up book saves its looked-up values."
 
 **Entry condition:** the "Look up manually" button appears only when `book.resolvedMetadata.enrichmentStatus` is `.notFound` or `.circuitOpen`. Once a lookup succeeds, status becomes `.success` and the button disappears on its own.
 
-- [ ] **Step 1: Create the sheet**
+- [x] **Step 1: Create the sheet**
 
 Create `swiftwing/Features/ReviewQueue/ManualLookupSheet.swift`:
 
@@ -923,7 +923,7 @@ struct ManualLookupSheet: View {
 
 If `ProblemDetails.status` is not an `Int` (check `NetworkTypes.swift`), adjust the `where` clause to match its actual type.
 
-- [ ] **Step 2: Add the button to `ReviewCardView`**
+- [x] **Step 2: Add the button to `ReviewCardView`**
 
 Add a property and render it conditionally. In the `init` and stored properties:
 
@@ -966,7 +966,7 @@ Add the computed condition and button, placed just above the Approve/Reject `HSt
 
 Also switch the card's ISBN row from `book.metadata.isbn` to `book.resolvedMetadata.isbn` so a recovered ISBN shows.
 
-- [ ] **Step 3: Wire the sheet in `ReviewQueueView`**
+- [x] **Step 3: Wire the sheet in `ReviewQueueView`**
 
 Add state next to the existing sheet state:
 
@@ -995,11 +995,11 @@ Add the sheet alongside the existing `.sheet` modifiers:
 
 If `CameraViewModel` does not expose `talariaService`, add a `let talariaService: TalariaService` accessor rather than constructing a second instance — a fresh `TalariaService()` would generate a different device ID and get a 401.
 
-- [ ] **Step 4: Add the new file to the Xcode project**
+- [x] **Step 4: Add the new file to the Xcode project**
 
 Add `swiftwing/Features/ReviewQueue/ManualLookupSheet.swift` to the `swiftwing` target.
 
-- [ ] **Step 5: Build and run the full test suite**
+- [x] **Step 5: Build and run the full test suite**
 
 ```bash
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
@@ -1016,11 +1016,11 @@ xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
 
 Expected: `errors: 0, warnings: 0`, all tests pass.
 
-- [ ] **Step 6: Verify in the simulator**
+- [ ] **Step 6: Verify in the simulator** — NOT DONE, needs a human on a simulator
 
 Launch the app, get a book into the review queue with `not_found` or `circuit_open` (use `FeatureFlagsDebugView` or a fixture injection). Confirm: the button appears, a search returns a match, "Use this book" updates the card's title/author/ISBN, and the button then disappears.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 /Library/Developer/CommandLineTools/usr/bin/git add -A swiftwing/Features/ReviewQueue swiftwing.xcodeproj

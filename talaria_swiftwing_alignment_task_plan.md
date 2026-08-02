@@ -4,10 +4,10 @@
 Verify that the Talaria backend and SwiftWing iOS app remain aligned on API contract, data models, and error handling; then document and prioritize GUI/function/usability improvements across both repos. Security improvements are explicitly out of scope.
 
 ## Status
-- **Phase:** 6 complete + deployed and verified live. Phase 7 (enrichment recovery) is next.
+- **Phase:** 7 + 8 code complete on `feature/enrichment-recovery`; simulator verification of the recovery path outstanding. Phase 9 (camera UX) is next.
 - **Started:** 2026-08-01
 - **Last Updated:** 2026-08-02
-- **Execution plan:** `talaria_swiftwing_alignment_execution_plan.md` (Tasks 1–3 done; 4–11 remain)
+- **Execution plan:** `talaria_swiftwing_alignment_execution_plan.md` (Tasks 1–7 done; 8–11 remain)
 
 ## Scope
 - Talaria repo: `/Users/juju/dev_repos/talaria`
@@ -24,8 +24,8 @@ Verify that the Talaria backend and SwiftWing iOS app remain aligned on API cont
 | 4 | **Identify functional gaps** | Unused endpoints, retry flows, enrichment degradation | ✅ Complete |
 | 5 | **Create prioritized improvement roadmap** | Phase plan with effort + dependencies | ✅ Complete |
 | 6 | **Truth pass + spec drift** | Delete stale talaria stubs; correct refuted claims; fix `openapi-static.json` provider enum + TTL | ✅ Complete (2026-08-02) |
-| 7 | **Enrichment degradation recovery** | Wire `/v3/books/search` into a manual-lookup recovery sheet for `not_found` / `circuit_open` | 🔄 Next — not started |
-| 8 | **Review queue cleanup** | Delete `ProcessingItemDetailPlaceholder`; consolidate/remove unused `ConfidenceBadge`; call `spineDetected()` | ⏸ Queued (fold into Phase 7's branch) |
+| 7 | **Enrichment degradation recovery** | Wire `/v3/books/search` into a manual-lookup recovery sheet for `not_found` / `circuit_open` | ✅ Code complete (2026-08-02) — `bca7c15`, `541ebdd`, `452c5a4`, `9057591`. **Simulator verification (Task 7 Step 6) still outstanding.** |
+| 8 | **Review queue cleanup** | Delete `ProcessingItemDetailPlaceholder`; consolidate/remove unused `ConfidenceBadge`; call `spineDetected()` | ✅ Complete (2026-08-02) — `ee0a352` on `feature/enrichment-recovery` |
 | 9 | **Camera UX quick wins** | Zoom slider, AE/AF lock indicator, first-run guidance | ⏸ Queued |
 
 ## Decision Log
@@ -45,16 +45,19 @@ Verify that the Talaria backend and SwiftWing iOS app remain aligned on API cont
 | 2026-08-02 | Shipped the whole unshipped backlog rather than cherry-picking | Talaria had been undeployable since 2026-07-17: `npm run validate` is the deploy gate and `biome check` failed on one cosmetic array reflow in `src/router.ts`. Reviewed the production-source hunks of all four backed-up commits before pushing — `r2-multipart.ts` had zero references, `worker-configuration.d.ts` changed only a temp-path comment (identical type hash), and the three paths dropped from the served spec were routes that no longer exist. Nothing to discard. Fix pushed as `6288a5b`; run `30764565663` green through Post-Deploy Validation. |
 | 2026-08-02 | Found an unshipped CORS fix in `c639603` | It adds `X-Device-ID`/`X-Admin-Token`/`X-Request-ID` to `allowHeaders` and drops four dead WebSocket ones. Every v3 endpoint requires `X-Device-ID`, so browser clients had been broken since the Workflows cutover; native iOS was unaffected (no `Origin` header → `'*'`, no preflight), which is why SwiftWing never surfaced it. Verified live: preflight now returns `access-control-allow-headers: ...,X-Device-ID,...`. Health also went `3.8.0` → `3.9.0`. |
 | 2026-08-02 | Verified the deploy against live bytes, not the CI checkmark | `BookEnrichment.provider` enum is now `google_books`/`open_library`, results TTL reads 24 hours, and `firehose`/`{jobId}/upload`/`{jobId}/cleanup` are gone from the served paths. Only then ran `./Scripts/update-api-spec.sh` — running it before the deploy would have silently re-pulled the stale spec (findings §5). |
+| 2026-08-02 | Gave `BookSearchTests` its own `BookSearchURLProtocol` instead of reusing `SequencedURLProtocol` | The plan said to reuse it. Reuse passed when the suite ran alone and failed in the full run: `SequencedURLProtocol`'s script is *static*, and Swift Testing's `.serialized` only orders tests **within** one suite. Two suites driving that static state run in parallel and clobber each other — it took down both `BookSearchTests/decodesSuccess` and the pre-existing `PollScanStatusResilienceTests/transientBlipsAreAbsorbed`. The file's own doc comment asserted the invariant that a second user breaks. |
+| 2026-08-02 | `CameraViewModel.talariaService` `private let` → `let` | The lookup sheet needs the *same* instance; a fresh `TalariaService()` mints a new device ID and 401s. Narrower than adding a separate accessor. |
 
 ## Errors Encountered
 
 | Error | Attempt | Resolution | Status |
 |-------|---------|------------|--------|
-| None so far | — | — | — |
+| `BookSearchTests/decodesSuccess` + `PollScanStatusResilienceTests/transientBlipsAreAbsorbed` both fail in the full suite, both pass alone | 1 | Shared static `SequencedURLProtocol` script raced across two parallel suites. Gave the new suite its own protocol class. | ✅ |
+| Plan sketch used `manager.pendingBooks`; real property is `pendingReviewBooks` | 1 | Plan anticipated this ("mirror the setup used by the tests already in this file"); seeded via `handleBookResult`, which also requires non-empty title **and** author. | ✅ |
 
 ## Next Actions
 
 1. ~~Deploy talaria, then refresh the committed spec.~~ ✅ Done 2026-08-02 — see Decision Log. Base is stable and pushed on both repos.
-2. Phase 8 then Phase 7 on branch `feature/enrichment-recovery` — Tasks 4–7 of `talaria_swiftwing_alignment_execution_plan.md`.
+2. ~~Phase 8 then Phase 7 on branch `feature/enrichment-recovery` — Tasks 4–7.~~ ✅ Code complete 2026-08-02, branch pushed. **Outstanding: Task 7 Step 6** — drive a `not_found` / `circuit_open` book through the review queue in the simulator and confirm the button appears, search returns a match, "Use this book" updates title/author/ISBN, and the button then disappears. Everything else is verified by the 147-test suite at 0 errors / 0 warnings.
 3. Phase 9 on branch `feature/camera-ux` — Tasks 8–10. Independent of Tasks 4–7; can run in parallel.
 4. Delete **all four** planning files (these three plus the execution plan) once Phase 9 closes — do not leave them to become the next `talaria/task_plan.md`.
