@@ -110,7 +110,9 @@ final class CameraViewModel {
     private let deviceId: String
 
     // MARK: - Talaria Service (single shared instance)
-    private let talariaService: TalariaService
+    /// Exposed so the review queue's manual-lookup sheet reuses this instance —
+    /// a fresh `TalariaService()` would mint a different device ID and 401.
+    let talariaService: TalariaService
 
     // MARK: - Initialization
     init(deviceId: String = DeviceIdentifier.current, talariaService: TalariaService? = nil) {

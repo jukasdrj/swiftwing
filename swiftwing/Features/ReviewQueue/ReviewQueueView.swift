@@ -9,6 +9,7 @@ struct ReviewQueueView: View {
     @State private var selectedProcessingItem: ProcessingItem?
     // Bounding box overlay
     @State private var selectedBookForOverlay: PendingBookResult?
+    @State private var bookForManualLookup: PendingBookResult?
 
     private var sortedPendingBooks: [PendingBookResult] {
         viewModel.reviewQueueManager.pendingReviewBooks.sorted { a, b in
@@ -146,6 +147,14 @@ struct ReviewQueueView: View {
                     )
                 }
             }
+            .sheet(item: $bookForManualLookup) { book in
+                ManualLookupSheet(
+                    book: book,
+                    talariaService: viewModel.talariaService
+                ) { result in
+                    viewModel.reviewQueueManager.applyRecoveredMetadata(id: book.id, from: result)
+                }
+            }
             .toolbar {
                 if !viewModel.reviewQueueManager.pendingReviewBooks.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -194,7 +203,8 @@ struct ReviewQueueView: View {
                     author: editedAuthor
                 )
             },
-            onShowOverlay: hasOverlay ? { selectedBookForOverlay = book } : nil
+            onShowOverlay: hasOverlay ? { selectedBookForOverlay = book } : nil,
+            onManualLookup: { bookForManualLookup = book }
         )
     }
 

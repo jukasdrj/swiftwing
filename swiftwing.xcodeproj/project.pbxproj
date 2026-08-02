@@ -52,6 +52,7 @@
 		AA10BF010000000000000LV1 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LV1 /* LibraryViewModel.swift */; };
 		AA20BF0100000000000000001 /* CameraHapticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20FR0100000000000000001 /* CameraHapticsManager.swift */; };
 		AA30BF0100000000000000001 /* ReviewCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30FR0100000000000000001 /* ReviewCardView.swift */; };
+		AA30BF0100000000000000009 /* ManualLookupSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30FR0100000000000000009 /* ManualLookupSheet.swift */; };
 		AA30BF0100000000000000002 /* ReviewEditForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30FR0100000000000000002 /* ReviewEditForm.swift */; };
 		AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61AA37A8BF1D45E7A09593F7 /* DuplicateBookAlert.swift */; };
 		AA40BF010000000000000CV0 /* CameraOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA40FR010000000000000CV0 /* CameraOverlayView.swift */; };
@@ -139,6 +140,7 @@
 		AA10FR010000000000000LV1 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModel.swift; sourceTree = "<group>"; };
 		AA20FR0100000000000000001 /* CameraHapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraHapticsManager.swift; sourceTree = "<group>"; };
 		AA30FR0100000000000000001 /* ReviewCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewCardView.swift; sourceTree = "<group>"; };
+		AA30FR0100000000000000009 /* ManualLookupSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ManualLookupSheet.swift; sourceTree = "<group>"; };
 		AA30FR0100000000000000002 /* ReviewEditForm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewEditForm.swift; sourceTree = "<group>"; };
 		AA40FR010000000000000CV0 /* CameraOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraOverlayView.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTestLogger.swift; sourceTree = "<group>"; };
@@ -361,6 +363,7 @@
 			children = (
 				4213E4CF87C7BB46283EB591 /* ReviewQueueView.swift */,
 				AA30FR0100000000000000001 /* ReviewCardView.swift */,
+				AA30FR0100000000000000009 /* ManualLookupSheet.swift */,
 				AA30FR0100000000000000002 /* ReviewEditForm.swift */,
 				CB25D1B2E3814C39BDC893D8 /* ReviewQueueManager.swift */,
 				61AA37A8BF1D45E7A09593F7 /* DuplicateBookAlert.swift */,
@@ -665,6 +668,7 @@
 				B2484F92C9D489D1C6BC5394 /* OnboardingView.swift in Sources */,
 				47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */,
 				AA30BF0100000000000000001 /* ReviewCardView.swift in Sources */,
+				AA30BF0100000000000000009 /* ManualLookupSheet.swift in Sources */,
 				AA30BF0100000000000000002 /* ReviewEditForm.swift in Sources */,
 				701775C4C08E1E2D4E1ADD3C /* DeviceIdentifier.swift in Sources */,
 				NGSJ4CCSZTID46QJZTIZ1FGL /* ProcessingFeedbackView.swift in Sources */,

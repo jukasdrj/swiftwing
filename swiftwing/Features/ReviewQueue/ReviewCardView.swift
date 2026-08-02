@@ -6,6 +6,7 @@ struct ReviewCardView: View {
     let onReject: () -> Void
     let onEdit: (String?, String?) -> Void
     var onShowOverlay: (() -> Void)?
+    var onManualLookup: (() -> Void)?
 
     private let shadowColor = Color.black.opacity(0.15)
     private let shadowRadius: CGFloat = 8
@@ -19,15 +20,27 @@ struct ReviewCardView: View {
     init(
         book: PendingBookResult, onApprove: @escaping () -> Void, onReject: @escaping () -> Void,
         onEdit: @escaping (String?, String?) -> Void,
-        onShowOverlay: (() -> Void)? = nil
+        onShowOverlay: (() -> Void)? = nil,
+        onManualLookup: (() -> Void)? = nil
     ) {
         self.book = book
         self.onApprove = onApprove
         self.onReject = onReject
         self.onEdit = onEdit
         self.onShowOverlay = onShowOverlay
+        self.onManualLookup = onManualLookup
         self._editedTitle = State(initialValue: book.resolvedTitle)
         self._editedAuthor = State(initialValue: book.resolvedAuthor)
+    }
+
+    /// Enrichment left this book without usable metadata, so a manual lookup is
+    /// the only way forward. Once a lookup succeeds the status becomes `.success`
+    /// and the button disappears on its own.
+    private var needsRecovery: Bool {
+        switch book.resolvedMetadata.enrichmentStatus {
+        case .notFound, .circuitOpen: return true
+        default: return false
+        }
     }
 
     var body: some View {
@@ -80,10 +93,29 @@ struct ReviewCardView: View {
                 )
 
                 // ISBN (JetBrains Mono for data)
-                if let isbn = book.metadata.isbn {
+                if let isbn = book.resolvedMetadata.isbn {
                     Text("ISBN: \(isbn)")
                         .font(.custom("JetBrainsMono-Regular", size: 12))
                         .foregroundStyle(.swissText.opacity(0.6))
+                }
+
+                // Enrichment recovery — only while the lookup is still unresolved
+                if needsRecovery, let onManualLookup {
+                    Button(action: onManualLookup) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "magnifyingglass.circle")
+                            Text("Look up manually")
+                        }
+                        .font(.body.bold())
+                        .foregroundStyle(Color.internationalOrange)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.internationalOrange, lineWidth: 1)
+                        )
+                    }
+                    .accessibilityIdentifier("review_manual_lookup_button")
                 }
 
                 // Action Buttons
