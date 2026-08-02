@@ -268,4 +268,82 @@ struct ReviewQueueManagerTests {
         #expect(pending.editedTitle == nil)
         #expect(pending.editedAuthor == nil)
     }
+
+    // MARK: - applyRecoveredMetadata (enrichment recovery)
+
+    private func gatsbySearchResult() -> BookSearchResult {
+        BookSearchResult(
+            isbn: "0743273567",
+            isbn13: "9780743273565",
+            title: "The Great Gatsby",
+            authors: ["F. Scott Fitzgerald"],
+            publisher: "Scribner",
+            publishedDate: "2004-09-30",
+            coverUrl: URL(string: "https://example.com/cover.jpg"),
+            source: "google",
+            confidence: 0.97,
+            fuzzyMatched: false
+        )
+    }
+
+    @Test("applyRecoveredMetadata replaces title, author, isbn and cover on the pending book")
+    func applyRecoveredMetadata_graftsSearchResult() throws {
+        let manager = makeManager()
+        let context = try makeContext()
+        // A garbled spine that came back not_found — the recovery entry point.
+        let original = BookMetadata(
+            title: "Grat Gasby",
+            author: "F Fitzgerld",
+            confidence: 0.4,
+            enrichmentStatus: .notFound
+        )
+
+        manager.handleBookResult(metadata: original, rawJSON: nil, modelContext: context)
+        let pending = try #require(manager.pendingReviewBooks.first)
+
+        manager.applyRecoveredMetadata(id: pending.id, from: gatsbySearchResult())
+
+        let updated = try #require(manager.pendingReviewBooks.first)
+        #expect(updated.resolvedTitle == "The Great Gatsby")
+        #expect(updated.resolvedAuthor == "F. Scott Fitzgerald")
+        #expect(updated.resolvedISBN == "9780743273565")
+        #expect(updated.resolvedMetadata.coverUrl?.absoluteString == "https://example.com/cover.jpg")
+        #expect(updated.resolvedMetadata.publisher == "Scribner")
+        #expect(updated.resolvedMetadata.enrichmentStatus == .success)
+        // The original AI result stays intact for provenance.
+        #expect(updated.metadata.title == "Grat Gasby")
+        #expect(updated.metadata.enrichmentStatus == .notFound)
+    }
+
+    @Test("applyRecoveredMetadata clears prior inline edits so the card shows looked-up values")
+    func applyRecoveredMetadata_clearsEdits() throws {
+        let manager = makeManager()
+        let context = try makeContext()
+        let original = BookMetadata(title: "Grat Gasby", author: "F Fitzgerld", confidence: 0.4)
+
+        manager.handleBookResult(metadata: original, rawJSON: nil, modelContext: context)
+        let pending = try #require(manager.pendingReviewBooks.first)
+        manager.updatePendingBookEdits(id: pending.id, title: "Half Typed", author: "Guess")
+
+        manager.applyRecoveredMetadata(id: pending.id, from: gatsbySearchResult())
+
+        let updated = try #require(manager.pendingReviewBooks.first)
+        #expect(updated.editedTitle == nil)
+        #expect(updated.editedAuthor == nil)
+        #expect(updated.resolvedTitle == "The Great Gatsby")
+    }
+
+    @Test("applyRecoveredMetadata with an unknown id does nothing")
+    func applyRecoveredMetadata_unknownId_doesNothing() throws {
+        let manager = makeManager()
+        let context = try makeContext()
+        let original = BookMetadata(title: "Grat Gasby", author: "F Fitzgerld", confidence: 0.4)
+
+        manager.handleBookResult(metadata: original, rawJSON: nil, modelContext: context)
+        manager.applyRecoveredMetadata(id: UUID(), from: gatsbySearchResult())
+
+        let pending = try #require(manager.pendingReviewBooks.first)
+        #expect(pending.recoveredMetadata == nil)
+        #expect(pending.resolvedTitle == "Grat Gasby")
+    }
 }
