@@ -54,6 +54,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 | `Features/Library/LibraryGridView.swift` | Library grid display |
 | `Features/ReviewQueue/ReviewQueueView.swift` | Review queue container (~220 lines) |
 | `Features/ReviewQueue/ReviewCardView.swift` | Individual review card |
+| `Features/ReviewQueue/ManualLookupSheet.swift` | Manual `/v3/books/search` recovery for failed enrichment |
 | `Services/TalariaService.swift` | Network + HTTP polling actor |
 | `Models/Book.swift` | SwiftData model |
 
@@ -63,14 +64,14 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 swiftwing/
 ├── App/                  # SwiftwingApp.swift, RootView, LaunchScreen
 ├── Features/
-│   ├── Camera/           # Camera capture, preview, overlays (14 files)
-│   ├── Library/          # Book library grid, search, filtering (8 files)
-│   ├── ReviewQueue/      # Book review/approve workflow (5 files)
+│   ├── Camera/           # Camera capture, preview, overlays (17 files)
+│   ├── Library/          # Book library grid, search, filtering (9 files)
+│   ├── ReviewQueue/      # Book review/approve workflow (6 files)
 │   ├── Onboarding/       # First-run onboarding
 │   └── Settings/         # Debug feature flags
-├── UIComponents/         # Theme, shared views (AsyncImage, ConfidenceBadge)
-├── Services/             # TalariaService, network, caching (11 files)
-├── Models/               # SwiftData @Model classes (6 files)
+├── UIComponents/         # Theme, AsyncImageWithLoading, OfflineIndicatorView
+├── Services/             # TalariaService, network, caching (10 files)
+├── Models/               # SwiftData @Model classes (7 files)
 ├── Utilities/            # Performance test data
 ├── OpenAPI/              # Committed Talaria API spec
 │   └── talaria-openapi.yaml
@@ -169,6 +170,8 @@ Talaria runs **Cloudflare Workflows + HTTP polling** (SSE, firehose, and cleanup
 - `error` — Enrichment failed
 - Unknown values default to `pending` (backward-compatible)
 
+**Enrichment recovery:** `not_found` and `circuit_open` are no longer dead ends in the review queue. `ReviewCardView` shows a "Look up manually" button for those two states only; it opens `ManualLookupSheet`, which calls `GET /v3/books/search` and grafts the result onto the pending item via `ReviewQueueManager.applyRecoveredMetadata`. That sets `recoveredMetadata` (the original AI result stays on `metadata` for provenance) and flips status to `success`, so the button disappears on its own. **Read and persist `PendingBookResult.resolvedMetadata`, not `.metadata`** — `resolvedISBN` is the duplicate-detection key, and dedup must see a recovered ISBN.
+
 **Contract Validation & Testing:**
 - Use `TalariaContractFixtures.swift` for CI-safe testing (no live API dependency)
 - Contract adherence tests in `TalariaContractAdherenceTests.swift`
@@ -179,6 +182,7 @@ Talaria runs **Cloudflare Workflows + HTTP polling** (SSE, firehose, and cleanup
 - `GET /v3/jobs/scans/{jobId}` — status poll (`progress` 0.0–1.0; optional `error` on failure)
 - `GET /v3/jobs/scans/{jobId}/results?format=lite|full` — results when completed
 - `DELETE /v3/jobs/scans/{jobId}` — cancel job
+- `GET /v3/books/search?isbn=&title=&author=` — single best-match manual lookup; at least one param required. Backs the review queue's enrichment-recovery sheet (`ManualLookupSheet`). `404` = no match, surfaced as `NetworkError.apiError(status: 404)` — deliberately **not** a new `NetworkError` case, so existing exhaustive switches stay intact.
 - ~~SSE / firehose / cleanup~~ — removed (404)
 
 **Deduplication:** still required when processing results arrays (same book may appear once; guard by ISBN/title in `ScanJobCoordinator`).
@@ -313,4 +317,4 @@ See `docs/testing/TESTING-CHECKLIST.md` for regression checklist.
 
 ---
 
-**Last Updated:** 2026-07-17
+**Last Updated:** 2026-08-02
