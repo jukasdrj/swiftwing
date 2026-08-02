@@ -457,6 +457,7 @@ final class CameraViewModel {
                 self?.queueStateManager.updateProgress(id: itemId, message: message)
             },
             onBookResult: { [weak self] metadata, rawJSON, _, _ in
+                self?.haptics.spineDetected()
                 self?.reviewQueueManager.handleBookResult(metadata: metadata, rawJSON: rawJSON, thumbnailData: capturedThumbnailData, preScannedISBN: capturedISBN, originalPhotoURL: originalPhotoURL, modelContext: modelContext)
             },
             onScanComplete: { [weak self] booksAdded, thumbnailData in

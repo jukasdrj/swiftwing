@@ -311,40 +311,6 @@ Image(uiImage: thumbnail)
     }
 }
 
-// MARK: - US-B3: Processing Item Detail Placeholder
-
-/// Placeholder detail view for processing items
-/// Sprint 2 will implement full book detail editing here
-struct ProcessingItemDetailPlaceholder: View {
-    let item: ProcessingItem
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.swissBackground.ignoresSafeArea()
-
-                VStack(spacing: 20) {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .font(.system(size: 60))
-                        .foregroundStyle(.secondary)
-
-                    Text("Detail View")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.swissText)
-
-                    Text("Sprint 2 will implement book detail editing here")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-            }
-            .navigationTitle("Book Details")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-}
-
 // Section header for confidence grouping with optional batch action
 struct SectionHeader: View {
     let title: String
