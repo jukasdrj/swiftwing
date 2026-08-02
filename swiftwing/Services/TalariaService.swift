@@ -335,5 +335,82 @@ actor TalariaService {
         return resultsResponse.data.results
     }
 
+    /// Look up a single best-match book by ISBN, title, and/or author.
+    ///
+    /// Used by the enrichment-recovery flow: when a scanned spine returns
+    /// `not_found` or `circuit_open`, the user can search manually and graft
+    /// the result onto the pending review item.
+    ///
+    /// - Throws: `NetworkError.invalidResponse` if no search parameter is given;
+    ///   `NetworkError.apiError` (with `status == 404`) when nothing matches.
+    func searchBook(isbn: String?, title: String?, author: String?) async throws -> BookSearchResult {
+        var queryItems: [URLQueryItem] = []
+        if let isbn, !isbn.trimmingCharacters(in: .whitespaces).isEmpty {
+            queryItems.append(URLQueryItem(name: "isbn", value: isbn))
+        }
+        if let title, !title.trimmingCharacters(in: .whitespaces).isEmpty {
+            queryItems.append(URLQueryItem(name: "title", value: title))
+        }
+        if let author, !author.trimmingCharacters(in: .whitespaces).isEmpty {
+            queryItems.append(URLQueryItem(name: "author", value: author))
+        }
+
+        // The API 400s on an empty query; fail locally instead of burning a request.
+        guard !queryItems.isEmpty else {
+            throw NetworkError.invalidResponse
+        }
+
+        var components = URLComponents(string: "\(baseURL)/v3/books/search")
+        components?.queryItems = queryItems
+        guard let url = components?.url else {
+            throw NetworkError.invalidResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        do {
+            let (data, response) = try await urlSession.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw NetworkError.invalidResponse
+            }
+
+            switch httpResponse.statusCode {
+            case 200:
+                let decoded = try JSONDecoder().decode(BookSearchResponse.self, from: data)
+                guard decoded.success else { throw NetworkError.invalidResponse }
+                return decoded.data
+
+            case 400, 401, 404, 429, 500...599:
+                if let problem = try? JSONDecoder().decode(ProblemDetails.self, from: data) {
+                    if httpResponse.statusCode == 429 {
+                        throw NetworkError.rateLimited(
+                            retryAfter: problem.retryAfterMs.map { TimeInterval($0) / 1000.0 }
+                        )
+                    }
+                    throw NetworkError.apiError(problem)
+                }
+                throw NetworkError.serverError(httpResponse.statusCode)
+
+            default:
+                throw NetworkError.serverError(httpResponse.statusCode)
+            }
+        } catch let error as NetworkError {
+            throw error
+        } catch let urlError as URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                throw NetworkError.noConnection
+            case .timedOut:
+                throw NetworkError.timeout
+            default:
+                throw NetworkError.invalidResponse
+            }
+        } catch {
+            throw NetworkError.invalidResponse
+        }
+    }
+
     // MARK: - Private Helpers
 }

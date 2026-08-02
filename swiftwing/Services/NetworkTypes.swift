@@ -677,3 +677,31 @@ public struct ScanResultsData: Codable, Sendable {
     public let results: [BookMetadata]
 }
 
+// MARK: - Book Search (GET /v3/books/search)
+
+/// Single best-match result from Talaria's manual book lookup endpoint.
+/// Used by the enrichment-recovery flow when a scanned spine comes back
+/// `not_found` or `circuit_open`.
+public struct BookSearchResult: Sendable, Equatable, Codable {
+    public let isbn: String?
+    public let isbn13: String?
+    public let title: String
+    public let authors: [String]
+    public let publisher: String?
+    public let publishedDate: String?
+    public let coverUrl: URL?
+    /// `cache` | `google` | `fuzzy`
+    public let source: String
+    public let confidence: Double
+    public let fuzzyMatched: Bool
+
+    /// Authors joined for display, matching BookMetadata's singular `author` shape.
+    public var joinedAuthors: String { authors.joined(separator: ", ") }
+}
+
+/// Envelope for `GET /v3/books/search`.
+struct BookSearchResponse: Decodable {
+    let success: Bool
+    let data: BookSearchResult
+}
+
