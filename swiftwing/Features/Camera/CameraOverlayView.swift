@@ -15,6 +15,7 @@ struct CameraOverlayView: View {
             feedbackOverlays
             bannerOverlays
             statusOverlays
+            lockControl
 
             if !hasBottomOverlay {
                 zoomSlider
@@ -273,6 +274,48 @@ struct CameraOverlayView: View {
 
             Spacer()
         }
+    }
+
+    // MARK: - AE/AF Lock
+
+    /// Explicit exposure/focus lock. Sits above the status overlays so it never
+    /// competes with the offline indicator or the zoom readout.
+    private var lockControl: some View {
+        VStack {
+            HStack {
+                Spacer()
+
+                Button {
+                    viewModel.cameraManager.toggleExposureFocusLock()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(
+                            systemName: viewModel.cameraManager.isExposureFocusLocked
+                                ? "lock.fill" : "lock.open"
+                        )
+                        Text("AE/AF")
+                            .font(.caption.bold())
+                            .dynamicTypeSize(.xSmall ... .accessibility3)
+                    }
+                    .foregroundStyle(
+                        viewModel.cameraManager.isExposureFocusLocked
+                            ? Color.internationalOrange : .white
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                }
+                .accessibilityIdentifier("camera_ae_af_lock_button")
+                .accessibilityLabel(
+                    viewModel.cameraManager.isExposureFocusLocked
+                        ? "Unlock exposure and focus" : "Lock exposure and focus"
+                )
+                .padding(.trailing, 16)
+            }
+
+            Spacer()
+        }
+        .padding(.top, 8)
     }
 
     // MARK: - Zoom Slider

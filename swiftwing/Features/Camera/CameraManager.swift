@@ -15,6 +15,10 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "ca
 final class CameraManager {
     private(set) var captureSession: AVCaptureSession?
     var currentZoomFactor: CGFloat = 1.0
+
+    /// True when focus and exposure are pinned via toggleExposureFocusLock().
+    private(set) var isExposureFocusLocked = false
+
     var resolution: CGSize = .zero
     private var photoOutput: AVCapturePhotoOutput?
     private var videoOutput: AVCaptureVideoDataOutput?
@@ -232,8 +236,37 @@ final class CameraManager {
                 device.exposureMode = .autoExpose
             }
             device.unlockForConfiguration()
+            // Tapping to refocus overrides a manual lock. Cleared only after the
+            // device actually took the new mode, so the flag can't desync.
+            isExposureFocusLocked = false
         } catch {
             logger.warning("Failed to configure focus: \(error.localizedDescription)")
+        }
+    }
+
+    /// Pin or release focus + exposure. Locking holds the current values so a
+    /// burst of shelf captures doesn't re-hunt focus between frames.
+    func toggleExposureFocusLock() {
+        guard let device = videoDevice else { return }
+        let shouldLock = !isExposureFocusLocked
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+
+            if shouldLock {
+                if device.isFocusModeSupported(.locked) { device.focusMode = .locked }
+                if device.isExposureModeSupported(.locked) { device.exposureMode = .locked }
+            } else {
+                if device.isFocusModeSupported(.continuousAutoFocus) {
+                    device.focusMode = .continuousAutoFocus
+                }
+                if device.isExposureModeSupported(.continuousAutoExposure) {
+                    device.exposureMode = .continuousAutoExposure
+                }
+            }
+            isExposureFocusLocked = shouldLock
+        } catch {
+            logger.warning("Failed to toggle AE/AF lock: \(error.localizedDescription)")
         }
     }
 
