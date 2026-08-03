@@ -85,10 +85,19 @@ struct SwiftwingApp: App {
             UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
         }
 
+        if arguments.contains("FORCE_CAMERA_GUIDANCE") {
+            UserDefaults.standard.set(false, forKey: "hasSeenCameraGuidance")
+        }
+
         guard arguments.contains("UI_TESTING") else { return }
 
         // Skip onboarding for test determinism
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+        // Suppress the first-run camera coach unless a test explicitly asks for it
+        // (FORCE_CAMERA_GUIDANCE); otherwise it covers the camera tab for every test.
+        if !arguments.contains("FORCE_CAMERA_GUIDANCE") {
+            UserDefaults.standard.set(true, forKey: "hasSeenCameraGuidance")
+        }
         // Reset review filter to off for deterministic state
         UserDefaults.standard.set(false, forKey: "show_review_needed")
 
