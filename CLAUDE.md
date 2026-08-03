@@ -49,6 +49,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 | `Features/Camera/CameraViewModel.swift` | Camera business logic |
 | `Features/Camera/CameraOverlayView.swift` | Camera overlay composition |
 | `Features/Camera/CameraHapticsManager.swift` | Haptic feedback coordinator |
+| `Features/Camera/CameraFirstRunGuidance.swift` | One-time camera coach overlay (`hasSeenCameraGuidance`) |
 | `Features/Library/LibraryView.swift` |
 | `Features/Library/LibraryViewModel.swift` | Library business logic |
 | `Features/Library/LibraryGridView.swift` | Library grid display |
@@ -64,7 +65,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 swiftwing/
 ├── App/                  # SwiftwingApp.swift, RootView, LaunchScreen
 ├── Features/
-│   ├── Camera/           # Camera capture, preview, overlays (17 files)
+│   ├── Camera/           # Camera capture, preview, overlays (18 files)
 │   ├── Library/          # Book library grid, search, filtering (9 files)
 │   ├── ReviewQueue/      # Book review/approve workflow (6 files)
 │   ├── Onboarding/       # First-run onboarding
@@ -236,6 +237,25 @@ Button("Capture") {
     }
 }
 ```
+
+### Camera controls (Phase 9)
+
+`CameraOverlayView` owns the capture chrome: a **zoom slider** bound to
+`cameraManager.setZoom`/`currentZoomFactor` (the same pair the pinch gesture drives, so
+they stay in sync), and an **AE/AF lock** (`toggleExposureFocusLock`). The numeric zoom
+readout lives once, in `statusOverlays` — the slider is the control, not a second display.
+The slider hides while a scan-complete banner or segmented preview occupies the same
+bottom strip. Tapping the preview to refocus clears the lock, but only *after* the device
+accepts the new mode, so the flag can't desync from hardware.
+
+**Neither actuates in the Simulator** — `videoDevice` is nil, so `setZoom` and the lock
+both return early. UI tests assert the controls render and are hittable; real behaviour is
+a device check, tracked in `docs/testing/TESTING-CHECKLIST.md`.
+
+`CameraFirstRunGuidance` is modal and keyed on `hasSeenCameraGuidance`, separate from
+`hasCompletedOnboarding`. `UI_TESTING` presets that key so the overlay does not cover the
+camera tab for every other test; `FORCE_CAMERA_GUIDANCE` opts a test back in (mirrors
+`FORCE_ONBOARDING`).
 
 ### Error Handling (RFC 9457)
 

@@ -1,5 +1,32 @@
 # SwiftWing Testing Checklist
 
+## Device-Only Verification (outstanding)
+
+These paths cannot be verified by the automated suite or in the Simulator. Everything
+below them is unit- or UI-tested; only the hardware/live-service behaviour is open.
+
+### Enrichment recovery — manual lookup (Phase 7)
+
+Simulator, needs a book that comes back `not_found` or `circuit_open`:
+
+- [ ] "Look up manually" button appears on the review card for those two states only
+- [ ] `ManualLookupSheet` search returns a match
+- [ ] "Use this book" updates title / author / ISBN on the pending item
+- [ ] The button then disappears (status flipped to `success`)
+- [ ] A recovered ISBN is what duplicate detection sees (`resolvedMetadata`, not `metadata`)
+
+### Camera controls (Phase 9)
+
+Physical device — the Simulator has no capture device, so `setZoom` and the AE/AF
+lock both return early there. UI tests confirm the controls render and are hittable,
+not that they actuate.
+
+- [ ] Zoom slider actually changes the preview, 1.0x–4.0x
+- [ ] Pinching moves the slider (both drive `currentZoomFactor`)
+- [ ] AE/AF button fills its lock icon and turns orange when engaged
+- [ ] Focus and exposure visibly hold across a burst of captures
+- [ ] Tapping the preview to refocus releases the lock
+
 ## Epic 4 Feature Verification
 
 This checklist ensures all Epic 4 (Talaria Integration) features remain functional after code changes.
