@@ -16,7 +16,6 @@
 		369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5FA190CF9E5B8B778E942 /* CameraView.swift */; };
 		420A170E7A7CA72194C885D9 /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF5ABF3BBEB18F5D999C863 /* LaunchScreenView.swift */; };
 		47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4213E4CF87C7BB46283EB591 /* ReviewQueueView.swift */; };
-		49035047F4804AC18FE3316B /* ConfidenceBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52E4313BB7F44F7A6879536 /* ConfidenceBadge.swift */; };
 		4C8BFD6DFA4841D9A50BE0EF /* SegmentedPreviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */; };
 		4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */; };
 		5BBE000C15164F08B85C9DC8 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */; };
@@ -53,6 +52,7 @@
 		AA10BF010000000000000LV1 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LV1 /* LibraryViewModel.swift */; };
 		AA20BF0100000000000000001 /* CameraHapticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20FR0100000000000000001 /* CameraHapticsManager.swift */; };
 		AA30BF0100000000000000001 /* ReviewCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30FR0100000000000000001 /* ReviewCardView.swift */; };
+		AA30BF0100000000000000009 /* ManualLookupSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30FR0100000000000000009 /* ManualLookupSheet.swift */; };
 		AA30BF0100000000000000002 /* ReviewEditForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30FR0100000000000000002 /* ReviewEditForm.swift */; };
 		AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61AA37A8BF1D45E7A09593F7 /* DuplicateBookAlert.swift */; };
 		AA40BF010000000000000CV0 /* CameraOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA40FR010000000000000CV0 /* CameraOverlayView.swift */; };
@@ -125,7 +125,6 @@
 		8WLTL0KJ4WWES3DZQVWGV20V /* ProcessingFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessingFeedbackView.swift; sourceTree = "<group>"; };
 		90075E8758F64E3095FAE717 /* PerformanceTestData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTestData.swift; sourceTree = "<group>"; };
 		A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
-		A52E4313BB7F44F7A6879536 /* ConfidenceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceBadge.swift; sourceTree = "<group>"; };
 		A58930792F268AA000629770 /* swiftwingTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swiftwingTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A589308A2F26D83900629770 /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
 		A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryPrefetchCoordinator.swift; sourceTree = "<group>"; };
@@ -141,6 +140,7 @@
 		AA10FR010000000000000LV1 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModel.swift; sourceTree = "<group>"; };
 		AA20FR0100000000000000001 /* CameraHapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraHapticsManager.swift; sourceTree = "<group>"; };
 		AA30FR0100000000000000001 /* ReviewCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewCardView.swift; sourceTree = "<group>"; };
+		AA30FR0100000000000000009 /* ManualLookupSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ManualLookupSheet.swift; sourceTree = "<group>"; };
 		AA30FR0100000000000000002 /* ReviewEditForm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewEditForm.swift; sourceTree = "<group>"; };
 		AA40FR010000000000000CV0 /* CameraOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraOverlayView.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTestLogger.swift; sourceTree = "<group>"; };
@@ -283,7 +283,6 @@
 			children = (
 				8F38536DACB936224AB7F798 /* Theme.swift */,
 				7F0000230000000000000001 /* AsyncImageWithLoading.swift */,
-				A52E4313BB7F44F7A6879536 /* ConfidenceBadge.swift */,
 				F184A4CAD286EF04FAB2CA01 /* OfflineIndicatorView.swift */,
 			);
 			path = UIComponents;
@@ -364,6 +363,7 @@
 			children = (
 				4213E4CF87C7BB46283EB591 /* ReviewQueueView.swift */,
 				AA30FR0100000000000000001 /* ReviewCardView.swift */,
+				AA30FR0100000000000000009 /* ManualLookupSheet.swift */,
 				AA30FR0100000000000000002 /* ReviewEditForm.swift */,
 				CB25D1B2E3814C39BDC893D8 /* ReviewQueueManager.swift */,
 				61AA37A8BF1D45E7A09593F7 /* DuplicateBookAlert.swift */,
@@ -668,12 +668,12 @@
 				B2484F92C9D489D1C6BC5394 /* OnboardingView.swift in Sources */,
 				47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */,
 				AA30BF0100000000000000001 /* ReviewCardView.swift in Sources */,
+				AA30BF0100000000000000009 /* ManualLookupSheet.swift in Sources */,
 				AA30BF0100000000000000002 /* ReviewEditForm.swift in Sources */,
 				701775C4C08E1E2D4E1ADD3C /* DeviceIdentifier.swift in Sources */,
 				NGSJ4CCSZTID46QJZTIZ1FGL /* ProcessingFeedbackView.swift in Sources */,
 				73KE6WVAWL51SGLD8AHCZGA1 /* FeatureFlagsDebugView.swift in Sources */,
 				BB2A8613CFAF4F8A818A8E01 /* BookDetailSheetView.swift in Sources */,
-				49035047F4804AC18FE3316B /* ConfidenceBadge.swift in Sources */,
 				9210946CD99CD733FA6B4412 /* BoundingBoxOverlay.swift in Sources */,
 				0BA9DDE3357624AF97B828FE /* BoundingBox+CGRect.swift in Sources */,
 				6BF7C40386123EFEAA480312 /* QueueStateManager.swift in Sources */,

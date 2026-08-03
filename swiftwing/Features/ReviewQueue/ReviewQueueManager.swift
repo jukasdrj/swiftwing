@@ -124,9 +124,9 @@ final class ReviewQueueManager {
         let isbn = metadata.isbn ?? ""
         return pendingReviewBooks.contains { pending in
             // Match on ISBN OR (title + author) within last 60 seconds
-            let matchesISBN = !isbn.isEmpty && pending.metadata.isbn == isbn
-            let matchesTitleAuthor = pending.metadata.title == metadata.title &&
-                                     pending.metadata.author == metadata.author
+            let matchesISBN = !isbn.isEmpty && pending.resolvedMetadata.isbn == isbn
+            let matchesTitleAuthor = pending.resolvedMetadata.title == metadata.title &&
+                                     pending.resolvedMetadata.author == metadata.author
             let isRecent = pending.scannedDate.timeIntervalSinceNow > -60
             return (matchesISBN || matchesTitleAuthor) && isRecent
         }
@@ -177,7 +177,7 @@ final class ReviewQueueManager {
         do {
             if let duplicate = try DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
                 pendingBookBeingApproved = pendingBook
-                pendingBookMetadata = pendingBook.metadata
+                pendingBookMetadata = pendingBook.resolvedMetadata
                 pendingRawJSON = pendingBook.rawJSON
                 pendingPreScannedISBN = pendingBook.preScannedISBN
                 duplicateBook = duplicate
@@ -190,11 +190,11 @@ final class ReviewQueueManager {
             logger.warning("Duplicate detection failed, proceeding with add: \(error)")
         }
 
-        // Use resolved values (prefers user edits over AI results)
+        // Use resolved values (prefers user edits over recovery over AI results)
         addBookToLibrary(
             title: pendingBook.resolvedTitle,
             author: pendingBook.resolvedAuthor,
-            metadata: pendingBook.metadata,
+            metadata: pendingBook.resolvedMetadata,
             rawJSON: pendingBook.rawJSON,
             preScannedISBN: pendingBook.preScannedISBN,
             modelContext: modelContext
@@ -323,7 +323,7 @@ final class ReviewQueueManager {
         addBookToLibrary(
             title: pendingBook.resolvedTitle,
             author: pendingBook.resolvedAuthor,
-            metadata: pendingBook.metadata,
+            metadata: pendingBook.resolvedMetadata,
             rawJSON: pendingBook.rawJSON,
             preScannedISBN: pendingBook.preScannedISBN,
             modelContext: modelContext
@@ -337,6 +337,32 @@ final class ReviewQueueManager {
             pendingReviewBooks[index].editedTitle = title
             pendingReviewBooks[index].editedAuthor = author
         }
+    }
+
+    /// Graft a manual `/v3/books/search` result onto a pending review item.
+    ///
+    /// Clears any prior inline edits so the card shows the looked-up values
+    /// rather than a half-edited mix, and marks enrichment `.success` — the
+    /// data now comes from a real lookup, not a failed enrichment pass.
+    func applyRecoveredMetadata(id: UUID, from result: BookSearchResult) {
+        guard let index = pendingReviewBooks.firstIndex(where: { $0.id == id }) else { return }
+        let existing = pendingReviewBooks[index]
+
+        pendingReviewBooks[index].recoveredMetadata = BookMetadata(
+            title: result.title,
+            author: result.joinedAuthors,
+            isbn: result.isbn13 ?? result.isbn,
+            coverUrl: result.coverUrl,
+            publisher: result.publisher,
+            publishedDate: result.publishedDate,
+            pageCount: existing.metadata.pageCount,
+            format: existing.metadata.format,
+            confidence: result.confidence,
+            boundingBox: existing.metadata.boundingBox,
+            enrichmentStatus: .success
+        )
+        pendingReviewBooks[index].editedTitle = nil
+        pendingReviewBooks[index].editedAuthor = nil
     }
 
     // MARK: - Duplicate Alert Management

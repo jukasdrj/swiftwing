@@ -361,9 +361,11 @@ public struct BoundingBox: Codable, Sendable, Equatable {
 /// - `confidence: Double?` — AI confidence score (0.0-1.0)
 /// - `boundingBox: BoundingBox?` — Pixel coordinates on shelf image
 ///
-/// **SSE vs. Results Endpoint:**
-/// - **SSE `result` events:** Includes title, author, isbn, coverUrl, enrichmentStatus, confidence, boundingBox
-/// - **Results endpoint:** Same fields plus optional pageCount, format, publishedDate
+/// **Results endpoint (`GET /v3/jobs/scans/{jobId}/results`):**
+/// - `?format=lite` (what the client requests): title, author, isbn, coverUrl,
+///   enrichmentStatus, confidence — no boundingBox
+/// - `?format=full`: the above plus boundingBox, pageCount, format, publishedDate
+/// - SSE was removed in the Workflows cutover (talaria 3.9.0); there are no result events.
 /// - Not all fields are guaranteed; use resolvedTitle/resolvedAuthor for UI display
 ///
 /// **Field Semantics:**
@@ -673,5 +675,33 @@ public struct ScanResultsData: Codable, Sendable {
     public let jobId: String
     public let status: JobStatus
     public let results: [BookMetadata]
+}
+
+// MARK: - Book Search (GET /v3/books/search)
+
+/// Single best-match result from Talaria's manual book lookup endpoint.
+/// Used by the enrichment-recovery flow when a scanned spine comes back
+/// `not_found` or `circuit_open`.
+public struct BookSearchResult: Sendable, Equatable, Codable {
+    public let isbn: String?
+    public let isbn13: String?
+    public let title: String
+    public let authors: [String]
+    public let publisher: String?
+    public let publishedDate: String?
+    public let coverUrl: URL?
+    /// `cache` | `google` | `fuzzy`
+    public let source: String
+    public let confidence: Double
+    public let fuzzyMatched: Bool
+
+    /// Authors joined for display, matching BookMetadata's singular `author` shape.
+    public var joinedAuthors: String { authors.joined(separator: ", ") }
+}
+
+/// Envelope for `GET /v3/books/search`.
+struct BookSearchResponse: Decodable {
+    let success: Bool
+    let data: BookSearchResult
 }
 

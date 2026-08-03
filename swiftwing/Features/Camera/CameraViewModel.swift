@@ -110,7 +110,9 @@ final class CameraViewModel {
     private let deviceId: String
 
     // MARK: - Talaria Service (single shared instance)
-    private let talariaService: TalariaService
+    /// Exposed so the review queue's manual-lookup sheet reuses this instance —
+    /// a fresh `TalariaService()` would mint a different device ID and 401.
+    let talariaService: TalariaService
 
     // MARK: - Initialization
     init(deviceId: String = DeviceIdentifier.current, talariaService: TalariaService? = nil) {
@@ -457,6 +459,7 @@ final class CameraViewModel {
                 self?.queueStateManager.updateProgress(id: itemId, message: message)
             },
             onBookResult: { [weak self] metadata, rawJSON, _, _ in
+                self?.haptics.spineDetected()
                 self?.reviewQueueManager.handleBookResult(metadata: metadata, rawJSON: rawJSON, thumbnailData: capturedThumbnailData, preScannedISBN: capturedISBN, originalPhotoURL: originalPhotoURL, modelContext: modelContext)
             },
             onScanComplete: { [weak self] booksAdded, thumbnailData in

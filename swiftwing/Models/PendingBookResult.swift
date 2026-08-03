@@ -17,12 +17,20 @@ struct PendingBookResult: Identifiable, Equatable {
     var editedTitle: String?         // NEW
     var editedAuthor: String?        // NEW
 
-    // Resolved values (prefer edit over original)
-    var resolvedTitle: String { editedTitle ?? metadata.resolvedTitle }
-    var resolvedAuthor: String { editedAuthor ?? metadata.resolvedAuthor }
+    /// Whole-metadata override from a manual `/v3/books/search` lookup.
+    /// Kept separate from `metadata` so the original AI result stays available
+    /// for provenance and debugging.
+    var recoveredMetadata: BookMetadata?
 
-    /// ISBN resolution: prefer AI result, fall back to Vision barcode, then generate placeholder
-    var resolvedISBN: String { metadata.isbn ?? preScannedISBN ?? "UNKNOWN-\(id.uuidString)" }
+    /// Metadata to display and persist: manual lookup wins over the AI result.
+    var resolvedMetadata: BookMetadata { recoveredMetadata ?? metadata }
+
+    // Resolved values (prefer edit over recovery over original)
+    var resolvedTitle: String { editedTitle ?? resolvedMetadata.resolvedTitle }
+    var resolvedAuthor: String { editedAuthor ?? resolvedMetadata.resolvedAuthor }
+
+    /// ISBN resolution: prefer resolved metadata, fall back to Vision barcode, then generate placeholder
+    var resolvedISBN: String { resolvedMetadata.isbn ?? preScannedISBN ?? "UNKNOWN-\(id.uuidString)" }
 
     init(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil) {
         self.id = UUID()
@@ -35,9 +43,13 @@ struct PendingBookResult: Identifiable, Equatable {
         self.originalPhotoURL = originalPhotoURL
         self.editedTitle = nil
         self.editedAuthor = nil
+        self.recoveredMetadata = nil
     }
 
     static func == (lhs: PendingBookResult, rhs: PendingBookResult) -> Bool {
-        lhs.id == rhs.id && lhs.editedTitle == rhs.editedTitle && lhs.editedAuthor == rhs.editedAuthor
+        lhs.id == rhs.id
+            && lhs.editedTitle == rhs.editedTitle
+            && lhs.editedAuthor == rhs.editedAuthor
+            && lhs.recoveredMetadata == rhs.recoveredMetadata
     }
 }
