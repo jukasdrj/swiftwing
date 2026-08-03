@@ -56,6 +56,7 @@
 		AA30BF0100000000000000002 /* ReviewEditForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30FR0100000000000000002 /* ReviewEditForm.swift */; };
 		AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61AA37A8BF1D45E7A09593F7 /* DuplicateBookAlert.swift */; };
 		AA40BF010000000000000CV0 /* CameraOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA40FR010000000000000CV0 /* CameraOverlayView.swift */; };
+		AA40BF010000000000000CG1 /* CameraFirstRunGuidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA40FR010000000000000CG1 /* CameraFirstRunGuidance.swift */; };
 		ACBEEDDC92CAE5BFB17A2AFB /* OfflineQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CABBB6D46005235B0EE24D0 /* OfflineQueueManager.swift */; };
 		B2484F92C9D489D1C6BC5394 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D36FFC3AF4B7AF115115DEC /* OnboardingView.swift */; };
 		B5FC60E62832460294054400 /* ImagePreprocessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */; };
@@ -143,6 +144,7 @@
 		AA30FR0100000000000000001 /* ReviewCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewCardView.swift; sourceTree = "<group>"; };
 		AA30FR0100000000000000002 /* ReviewEditForm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewEditForm.swift; sourceTree = "<group>"; };
 		AA40FR010000000000000CV0 /* CameraOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraOverlayView.swift; sourceTree = "<group>"; };
+		AA40FR010000000000000CG1 /* CameraFirstRunGuidance.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraFirstRunGuidance.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTestLogger.swift; sourceTree = "<group>"; };
 		BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreprocessor.swift; sourceTree = "<group>"; };
 		BBAB4A6B0846BA3231888A50 /* TalariaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalariaService.swift; sourceTree = "<group>"; };
@@ -304,6 +306,7 @@
 			children = (
 				8FF5FA190CF9E5B8B778E942 /* CameraView.swift */,
 				AA40FR010000000000000CV0 /* CameraOverlayView.swift */,
+				AA40FR010000000000000CG1 /* CameraFirstRunGuidance.swift */,
 				A589308A2F26D83900629770 /* CameraViewModel.swift */,
 				AA20FR0100000000000000001 /* CameraHapticsManager.swift */,
 				733AF8F390562E0E6977AD18 /* CameraManager.swift */,
@@ -643,6 +646,7 @@
 				2E9C5C68CCE99F44D82796D9 /* CameraPreviewView.swift in Sources */,
 				369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */,
 				AA40BF010000000000000CV0 /* CameraOverlayView.swift in Sources */,
+				AA40BF010000000000000CG1 /* CameraFirstRunGuidance.swift in Sources */,
 				BBFC697E2E23D044AC8EF131 /* ProcessingItem.swift in Sources */,
 				6F97989D8D79A34FDE104ECA /* ProcessingQueueView.swift in Sources */,
 				4C8BFD6DFA4841D9A50BE0EF /* SegmentedPreviewOverlay.swift in Sources */,

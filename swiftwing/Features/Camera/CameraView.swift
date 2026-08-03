@@ -16,6 +16,10 @@ struct CameraView: View {
     @State private var showProcessingFeedback = false
     @State private var isShutterPressed = false
 
+    // Phase 9c: one-time camera coach overlay, keyed separately from app onboarding
+    @AppStorage("hasSeenCameraGuidance") private var hasSeenCameraGuidance = false
+    @State private var showGuidance = false
+
     var body: some View {
         ZStack {
             // Camera preview (edge-to-edge)
@@ -91,8 +95,18 @@ Button {
                 .padding(.bottom, 40)
             }
 
+            // Phase 9c: first-run coach overlay, drawn above every other layer
+            if showGuidance {
+                CameraFirstRunGuidance {
+                    withAnimation(.swissSpring) { showGuidance = false }
+                }
+                .zIndex(200)
+            }
         }
         .statusBar(hidden: true)  // Full immersion
+        .onAppear {
+            if !hasSeenCameraGuidance { showGuidance = true }
+        }
         .task {
             viewModel.modelContext = modelContext
             await viewModel.setupCamera()
