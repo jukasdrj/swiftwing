@@ -15,7 +15,20 @@ struct CameraOverlayView: View {
             feedbackOverlays
             bannerOverlays
             statusOverlays
+
+            if !hasBottomOverlay {
+                zoomSlider
+            }
         }
+    }
+
+    /// True while a transient overlay occupies the bottom of the frame. The zoom
+    /// slider shares that space, so it yields rather than stacking underneath.
+    private var hasBottomOverlay: Bool {
+        viewModel.reviewQueueManager.scanCompleteBanner != nil
+            || viewModel.processingQueue.contains {
+                $0.segmentedPreview != nil && $0.state == .analyzing
+            }
     }
 
     // MARK: - Loading, Error, Flash, Focus, Processing Overlays
@@ -259,6 +272,46 @@ struct CameraOverlayView: View {
             }
 
             Spacer()
+        }
+    }
+
+    // MARK: - Zoom Slider
+
+    /// Zoom control. Mirrors the pinch gesture already wired in CameraView so the
+    /// two stay in sync through cameraManager.currentZoomFactor. The numeric
+    /// readout lives in statusOverlays — this is the control, not a second display.
+    private var zoomSlider: some View {
+        VStack {
+            Spacer()
+
+            HStack(spacing: 10) {
+                Image(systemName: "minus.magnifyingglass")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.8))
+
+                Slider(
+                    value: Binding(
+                        get: { viewModel.cameraManager.currentZoomFactor },
+                        set: { viewModel.cameraManager.setZoom($0) }
+                    ),
+                    in: 1.0...4.0
+                )
+                .tint(.internationalOrange)
+                .accessibilityIdentifier("camera_zoom_slider")
+                .accessibilityLabel("Zoom")
+                .accessibilityValue(
+                    String(format: "%.1fx", viewModel.cameraManager.currentZoomFactor)
+                )
+
+                Image(systemName: "plus.magnifyingglass")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial, in: Capsule())
+            .padding(.horizontal, 32)
+            .padding(.bottom, 140)  // clears the shutter button
         }
     }
 }
