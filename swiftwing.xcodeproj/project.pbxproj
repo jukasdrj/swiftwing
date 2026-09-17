@@ -38,7 +38,6 @@
 		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
 		9210946CD99CD733FA6B4412 /* BoundingBoxOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D0145EB45628F7B43F5D6F2 /* BoundingBoxOverlay.swift */; };
 		9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */; };
-		A1B2C3D4E5F60718293A4B5C /* IntegrationTestLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */; };
 		A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */; };
 		A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A589308A2F26D83900629770 /* CameraViewModel.swift */; };
 		A5A480302F23C145006CD05C /* LibraryPrefetchCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */; };
@@ -47,7 +46,6 @@
 		AA10BF010000000000000BC1 /* BookCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000BC1 /* BookCardView.swift */; };
 		AA10BF010000000000000LE1 /* LibraryExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LE1 /* LibraryExporter.swift */; };
 		AA10BF010000000000000LG1 /* LibraryGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LG1 /* LibraryGridView.swift */; };
-		AA10BF010000000000000LP1 /* LibraryPerformanceOptimizations.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LP1 /* LibraryPerformanceOptimizations.swift */; };
 		AA10BF010000000000000LT1 /* LibraryToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LT1 /* LibraryToolbar.swift */; };
 		AA10BF010000000000000LV1 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10FR010000000000000LV1 /* LibraryViewModel.swift */; };
 		AA20BF0100000000000000001 /* CameraHapticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20FR0100000000000000001 /* CameraHapticsManager.swift */; };
@@ -136,7 +134,6 @@
 		AA10FR010000000000000BC1 /* BookCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookCardView.swift; sourceTree = "<group>"; };
 		AA10FR010000000000000LE1 /* LibraryExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryExporter.swift; sourceTree = "<group>"; };
 		AA10FR010000000000000LG1 /* LibraryGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryGridView.swift; sourceTree = "<group>"; };
-		AA10FR010000000000000LP1 /* LibraryPerformanceOptimizations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryPerformanceOptimizations.swift; sourceTree = "<group>"; };
 		AA10FR010000000000000LT1 /* LibraryToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryToolbar.swift; sourceTree = "<group>"; };
 		AA10FR010000000000000LV1 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModel.swift; sourceTree = "<group>"; };
 		AA20FR0100000000000000001 /* CameraHapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraHapticsManager.swift; sourceTree = "<group>"; };
@@ -145,7 +142,6 @@
 		AA30FR0100000000000000002 /* ReviewEditForm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewEditForm.swift; sourceTree = "<group>"; };
 		AA40FR010000000000000CV0 /* CameraOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraOverlayView.swift; sourceTree = "<group>"; };
 		AA40FR010000000000000CG1 /* CameraFirstRunGuidance.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraFirstRunGuidance.swift; sourceTree = "<group>"; };
-		B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTestLogger.swift; sourceTree = "<group>"; };
 		BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreprocessor.swift; sourceTree = "<group>"; };
 		BBAB4A6B0846BA3231888A50 /* TalariaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalariaService.swift; sourceTree = "<group>"; };
 		BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedPreviewOverlay.swift; sourceTree = "<group>"; };
@@ -347,7 +343,6 @@
 				AA10FR010000000000000BC1 /* BookCardView.swift */,
 				AA10FR010000000000000LE1 /* LibraryExporter.swift */,
 				A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */,
-				AA10FR010000000000000LP1 /* LibraryPerformanceOptimizations.swift */,
 				348655348F0B4268945B43D2 /* BookDetailSheetView.swift */,
 			);
 			path = Library;
@@ -386,7 +381,6 @@
 			isa = PBXGroup;
 			children = (
 				90075E8758F64E3095FAE717 /* PerformanceTestData.swift */,
-				B2C3D4E5F6071829A3B4C5D6 /* IntegrationTestLogger.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -633,7 +627,6 @@
 				AA10BF010000000000000LT1 /* LibraryToolbar.swift in Sources */,
 				AA10BF010000000000000BC1 /* BookCardView.swift in Sources */,
 				AA10BF010000000000000LE1 /* LibraryExporter.swift in Sources */,
-				AA10BF010000000000000LP1 /* LibraryPerformanceOptimizations.swift in Sources */,
 				7F00001E0000000000000001 /* RootView.swift in Sources */,
 				7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */,
 				7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */,
@@ -655,7 +648,6 @@
 				7B2A93E4D8FF47B0A02715CD /* DuplicateDetection.swift in Sources */,
 				AA39CA26AE1946FCA5954F21 /* DuplicateBookAlert.swift in Sources */,
 				671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */,
-				A1B2C3D4E5F60718293A4B5C /* IntegrationTestLogger.swift in Sources */,
 				E45C07BB1B11437EBD3E70CF /* ReviewQueueManager.swift in Sources */,
 				DE27FC4955CE4E1BB2B3100C /* ScanJobCoordinator.swift in Sources */,
 				A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */,

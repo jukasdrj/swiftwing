@@ -53,7 +53,6 @@ swiftwing/
 │
 ├── 📚 LIBRARY & BROWSING
 │   ├── LibraryView.swift                # Library grid (47KB, optimized)
-│   ├── LibraryPerformanceOptimizations.swift  # Query strategies
 │   └── LibraryPrefetchCoordinator.swift # Image prefetching logic
 │
 ├── 🔧 SERVICES & NETWORK

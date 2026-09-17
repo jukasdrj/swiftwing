@@ -80,16 +80,10 @@ actor ScanJobCoordinator {
     /// Upload image to Talaria and return job info
     func uploadScan(imageData: Data, deviceId: String) async throws -> ScanUploadResult {
         e2eLogger.info("📤 Starting upload to Talaria...")
-        #if DEBUG
-        integrationLog("UPLOAD: Starting upload to Talaria...")
-        #endif
 
         let (jobId, _) = try await talariaService.uploadScan(image: imageData, deviceId: deviceId)
 
         e2eLogger.info("📤 Upload success! jobId=\(jobId)")
-        #if DEBUG
-        integrationLog("UPLOAD: Success! jobId=\(jobId)")
-        #endif
 
         return ScanUploadResult(jobId: jobId)
     }
@@ -105,9 +99,6 @@ actor ScanJobCoordinator {
         callbacks: ScanJobCallbacks
     ) async throws -> Int {
         e2eLogger.info("📡 Starting polling for jobId=\(jobId)...")
-        #if DEBUG
-        integrationLog("POLLING: Starting status polls for jobId=\(jobId)")
-        #endif
 
         // Trigger progress callback to keep UI loader alive
         await callbacks.onProgress("Processing spine...")
@@ -117,9 +108,6 @@ actor ScanJobCoordinator {
             let books = try await talariaService.pollScanStatus(jobId: jobId)
 
             e2eLogger.info("📡 Polling complete! Received \(books.count) books.")
-            #if DEBUG
-            integrationLog("POLLING: Success! Received \(books.count) books")
-            #endif
 
             if Task.isCancelled {
                 e2eLogger.warning("Polling job cancelled")

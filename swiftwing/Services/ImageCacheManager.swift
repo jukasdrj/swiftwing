@@ -1,6 +1,4 @@
 import Foundation
-import SwiftUI
-import UIKit
 import os
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "image-cache")
@@ -152,76 +150,5 @@ actor ImageCacheManager {
     func clearCachedImage(url: URL) {
         let request = URLRequest(url: url)
         _urlSession.configuration.urlCache?.removeCachedResponse(for: request)
-    }
-}
-
-// MARK: - SwiftUI Integration
-
-/// Custom AsyncImage replacement that uses optimized URLSession with caching
-/// Drop-in replacement for AsyncImage with identical API
-struct CachedAsyncImage<Content: View, Placeholder: View>: View {
-    let url: URL?
-    let content: (Image) -> Content
-    let placeholder: () -> Placeholder
-
-    @State private var loadedImage: UIImage?
-    @State private var isLoading = false
-
-    init(
-        url: URL?,
-        @ViewBuilder content: @escaping (Image) -> Content,
-        @ViewBuilder placeholder: @escaping () -> Placeholder
-    ) {
-        self.url = url
-        self.content = content
-        self.placeholder = placeholder
-    }
-
-    var body: some View {
-        Group {
-            if let image = loadedImage {
-                content(Image(uiImage: image))
-            } else {
-                placeholder()
-            }
-        }
-        .task(id: url) {
-            await loadImage()
-        }
-    }
-
-    private func loadImage() async {
-        guard let url = url?.upgradedToHTTPS else { return }
-        guard !isLoading else { return }
-
-        isLoading = true
-
-        // Use ImageCacheManager's URLSession for automatic caching
-        do {
-            let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
-            let session = ImageCacheManager.shared.urlSession
-            let (data, _) = try await session.data(for: request)
-
-            if let uiImage = UIImage(data: data) {
-                loadedImage = uiImage
-            }
-        } catch {
-            // Failed to load image
-        }
-
-        isLoading = false
-    }
-}
-
-// MARK: - Convenience Initializer
-
-extension CachedAsyncImage where Content == Image, Placeholder == Color {
-    /// Convenience initializer with default placeholder
-    init(url: URL?) {
-        self.init(
-            url: url,
-            content: { $0 },
-            placeholder: { Color.gray.opacity(0.2) }
-        )
     }
 }

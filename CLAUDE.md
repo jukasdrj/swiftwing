@@ -176,7 +176,6 @@ Talaria runs **Cloudflare Workflows + HTTP polling** (SSE, firehose, and cleanup
 **Contract Validation & Testing:**
 - Use `TalariaContractFixtures.swift` for CI-safe testing (no live API dependency)
 - Contract adherence tests in `TalariaContractAdherenceTests.swift`
-- Manual live poll: `swift test_talaria_backend.swift`
 
 **API Endpoints (3.9.0):**
 - `POST /v3/jobs/scans` — upload one photo → `{ jobId, status }`

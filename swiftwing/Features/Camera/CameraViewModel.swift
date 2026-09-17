@@ -334,9 +334,6 @@ final class CameraViewModel {
             return false
         } catch {
             e2eLogger.error("❌ processCaptureWithImageData error: \(error.localizedDescription)")
-            #if DEBUG
-            integrationLog("ERROR: processCaptureWithImageData catch: \(error) - \(error.localizedDescription)")
-            #endif
             if let networkError = error as? NetworkError,
                case .rateLimited(let retryAfter) = networkError {
                 await handleRateLimitError(retryAfter: retryAfter, imageData: imageData, capturedISBN: capturedISBN, queueItem: queueItem, tempFileURL: tempFileURL)
