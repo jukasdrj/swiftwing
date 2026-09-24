@@ -99,6 +99,7 @@ enum AppTab: Int, Hashable {
 }
 
 // MARK: - Main Tab View
+
 /// TabView with Library, Review, and Camera tabs
 /// Review tab shows pending book count badge
 struct MainTabView: View {
@@ -130,7 +131,7 @@ struct MainTabView: View {
                     .onDisappear { refreshBookCount() }
             }
         }
-        .tint(.internationalOrange)  // Swiss Glass accent color for selected tab
+        .tint(.internationalOrange) // Swiss Glass accent color for selected tab
         .onAppear { refreshBookCount() }
         .onChange(of: viewModel.requestedTab) { _, newTab in
             if let tab = newTab {

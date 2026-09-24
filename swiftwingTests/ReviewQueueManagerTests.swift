@@ -1,12 +1,11 @@
 import Foundation
-import Testing
 import SwiftData
 @testable import swiftwing
+import Testing
 
 @Suite("ReviewQueueManager")
 @MainActor
 struct ReviewQueueManagerTests {
-
     private func makeContext() throws -> ModelContext {
         try makeSwiftDataContext()
     }

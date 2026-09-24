@@ -1,7 +1,7 @@
 #!/usr/bin/env swift
 
-import Foundation
 import CoreGraphics
+import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -20,9 +20,9 @@ let context = CGContext(
 )!
 
 // Swiss Colors
-let black = CGColor(red: 0x0D/255.0, green: 0x0D/255.0, blue: 0x0D/255.0, alpha: 1.0)
+let black = CGColor(red: 0x0D / 255.0, green: 0x0D / 255.0, blue: 0x0D / 255.0, alpha: 1.0)
 let white = CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)
-let internationalOrange = CGColor(red: 0xFF/255.0, green: 0x4F/255.0, blue: 0x00/255.0, alpha: 1.0)
+let internationalOrange = CGColor(red: 0xFF / 255.0, green: 0x4F / 255.0, blue: 0x00 / 255.0, alpha: 1.0)
 
 // Fill black background
 context.setFillColor(black)
@@ -34,7 +34,7 @@ let spineHeight: CGFloat = 720
 let spineX = (size - spineWidth) / 2
 let spineY = (size - spineHeight) / 2
 
-// Orange stripe (left edge of spine, 40px wide)
+/// Orange stripe (left edge of spine, 40px wide)
 let stripeWidth: CGFloat = 40
 context.setFillColor(internationalOrange)
 context.fill(CGRect(x: spineX, y: spineY, width: stripeWidth, height: spineHeight))
@@ -49,7 +49,7 @@ guard let cgImage = context.makeImage() else {
     exit(1)
 }
 
-// Save to PNG
+/// Save to PNG
 let outputURL = URL(fileURLWithPath: "swiftwing/Assets.xcassets/AppIcon.appiconset/AppIcon.png")
 
 guard let destination = CGImageDestinationCreateWithURL(

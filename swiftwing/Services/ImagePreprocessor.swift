@@ -8,9 +8,9 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import ImageIO
+import os
 import UIKit
 import UniformTypeIdentifiers
-import os
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "image-preprocessor")
 
@@ -21,7 +21,6 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "im
 /// Performance target: < 500ms for 1920px max dimension images
 /// Memory: Uses CIContext with RGBA8 working format for GPU optimization
 actor ImagePreprocessor {
-
     /// Shared CIContext for filter rendering (reused across calls)
     private let ciContext: CIContext
 
@@ -35,9 +34,9 @@ actor ImagePreprocessor {
 
     init() {
         // Use RGBA8 working format for optimized GPU/CPU handoff
-        self.ciContext = CIContext(options: [
+        ciContext = CIContext(options: [
             .workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
-            .highQualityDownsample: true
+            .highQualityDownsample: true,
         ])
     }
 
@@ -47,7 +46,8 @@ actor ImagePreprocessor {
         let startTime = CFAbsoluteTimeGetCurrent()
 
         guard let uiImage = UIImage(data: imageData),
-              let cgImage = uiImage.cgImage else {
+              let cgImage = uiImage.cgImage
+        else {
             return PreprocessingResult(
                 processedData: imageData,
                 wasRotated: false,
@@ -198,20 +198,20 @@ actor ImagePreprocessor {
 
         // Render single pixel to bitmap
         var bitmap = [UInt8](repeating: 0, count: 4)
-        context.render(outputImage,
-                       toBitmap: &bitmap,
-                       rowBytes: 4,
-                       bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-                       format: .RGBA8,
-                       colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
+        context.render(
+            outputImage,
+            toBitmap: &bitmap,
+            rowBytes: 4,
+            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+            format: .RGBA8,
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
+        )
 
         // Calculate luminance: 0.299*R + 0.587*G + 0.114*B
         let r = Float(bitmap[0])
         let g = Float(bitmap[1])
         let b = Float(bitmap[2])
-        let luminance = 0.299 * r + 0.587 * g + 0.114 * b
-
-        return luminance
+        return 0.299 * r + 0.587 * g + 0.114 * b
     }
 
     /// Apply light noise reduction while preserving text detail
@@ -251,25 +251,25 @@ actor ImagePreprocessor {
         guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let pixelWidth = props[kCGImagePropertyPixelWidth] as? CGFloat,
-              let pixelHeight = props[kCGImagePropertyPixelHeight] as? CGFloat else {
+              let pixelHeight = props[kCGImagePropertyPixelHeight] as? CGFloat
+        else {
             throw ImageProcessingError.invalidImageData
         }
 
         // Compute thumbnail size preserving aspect ratio
         let longestEdge = max(pixelWidth, pixelHeight)
-        let thumbnailMaxPixels: Int
-        if longestEdge <= maxDimension {
+        let thumbnailMaxPixels = if longestEdge <= maxDimension {
             // No resize needed — still re-encode to normalise orientation/format
-            thumbnailMaxPixels = Int(longestEdge)
+            Int(longestEdge)
         } else {
-            thumbnailMaxPixels = Int(maxDimension)
+            Int(maxDimension)
         }
 
         let options: [CFString: Any] = [
             kCGImageSourceThumbnailMaxPixelSize: thumbnailMaxPixels,
             kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,  // Honour EXIF orientation
-            kCGImageSourceShouldCacheImmediately: false
+            kCGImageSourceCreateThumbnailWithTransform: true, // Honour EXIF orientation
+            kCGImageSourceShouldCacheImmediately: false,
         ]
 
         guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
@@ -288,7 +288,7 @@ actor ImagePreprocessor {
         }
 
         let destOptions: [CFString: Any] = [
-            kCGImageDestinationLossyCompressionQuality: compressionQuality
+            kCGImageDestinationLossyCompressionQuality: compressionQuality,
         ]
         CGImageDestinationAddImage(destination, thumbnail, destOptions as CFDictionary)
 

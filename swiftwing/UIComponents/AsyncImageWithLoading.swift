@@ -5,6 +5,7 @@ import UIKit
 #endif
 
 // MARK: - URL ATS Helper
+
 extension URL {
     /// Upgrades http:// to https:// to satisfy iOS App Transport Security.
     /// Talaria may return http:// cover URLs; ATS blocks them without this upgrade.
@@ -17,6 +18,7 @@ extension URL {
 }
 
 // MARK: - Shimmer Effect View
+
 /// Animated gradient shimmer for loading states
 /// Matches Swiss Glass aesthetic with white glow on black
 struct ShimmerView: View {
@@ -30,7 +32,7 @@ struct ShimmerView: View {
                     .init(color: .white.opacity(0.3), location: 0.4),
                     .init(color: .white.opacity(0.5), location: 0.5),
                     .init(color: .white.opacity(0.3), location: 0.6),
-                    .init(color: .clear, location: 1)
+                    .init(color: .clear, location: 1),
                 ]),
                 startPoint: .leading,
                 endPoint: .trailing
@@ -39,7 +41,7 @@ struct ShimmerView: View {
             .onAppear {
                 withAnimation(
                     .linear(duration: 1.5)
-                    .repeatForever(autoreverses: false)
+                        .repeatForever(autoreverses: false)
                 ) {
                     animationPhase = 1
                 }
@@ -49,6 +51,7 @@ struct ShimmerView: View {
 }
 
 // MARK: - Async Image with Loading States
+
 /// AsyncImage wrapper with skeleton shimmer, error states, and retry functionality
 /// Uses ImageCacheManager's optimized URLSession for caching
 ///
@@ -136,6 +139,7 @@ struct AsyncImageWithLoading: View {
     }
 
     // MARK: - Loading State
+
     private var loadingStateView: some View {
         ZStack {
             // Base layer: Black + ultraThinMaterial for glass effect
@@ -150,6 +154,7 @@ struct AsyncImageWithLoading: View {
     }
 
     // MARK: - Error State
+
     private var errorStateView: some View {
         ZStack {
             // Base layer: Dark background
@@ -190,32 +195,33 @@ struct AsyncImageWithLoading: View {
     }
 
     // MARK: - No Cover Placeholder
-    private var noCoverPlaceholderView: some View {
-        Group {
-            if let title = title, let author = author {
-                GeneratedCoverView(title: title, author: author)
-            } else if let title = title {
-                GeneratedCoverView(title: title, author: "")
-            } else {
-                ZStack {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.15))
-                        .background(.ultraThinMaterial)
 
-                    VStack(spacing: 6) {
-                        Image(systemName: "book.closed")
-                            .font(.title2)
-                            .foregroundStyle(.gray.opacity(0.6))
-                        Text("No Cover")
-                            .font(.caption2)
-                            .foregroundStyle(.gray.opacity(0.6))
-                    }
+    @ViewBuilder
+    private var noCoverPlaceholderView: some View {
+        if let title, let author {
+            GeneratedCoverView(title: title, author: author)
+        } else if let title {
+            GeneratedCoverView(title: title, author: "")
+        } else {
+            ZStack {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.15))
+                    .background(.ultraThinMaterial)
+
+                VStack(spacing: 6) {
+                    Image(systemName: "book.closed")
+                        .font(.title2)
+                        .foregroundStyle(.gray.opacity(0.6))
+                    Text("No Cover")
+                        .font(.caption2)
+                        .foregroundStyle(.gray.opacity(0.6))
                 }
             }
         }
     }
 
     // MARK: - Actions
+
     private func retryLoad() {
         withAnimation(Animation.swissSpring) {
             loadFailed = false
@@ -257,6 +263,7 @@ struct AsyncImageWithLoading: View {
 }
 
 // MARK: - Preview
+
 #Preview("Loading State") {
     VStack(spacing: 20) {
         // Loading shimmer (nil URL triggers .empty state)

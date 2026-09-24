@@ -1,6 +1,7 @@
 import SwiftUI
 
 // MARK: - Library Toolbar Content
+
 struct LibraryToolbarContent: ToolbarContent {
     let isSelectionMode: Bool
     let showReviewNeeded: Bool

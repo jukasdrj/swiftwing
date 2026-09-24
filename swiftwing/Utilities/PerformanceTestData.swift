@@ -1,15 +1,16 @@
 import Foundation
-import SwiftData
 import os
+import SwiftData
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "perf-test")
 
 // MARK: - Performance Test Data Generator
+
 /// US-321: Generator for creating large test datasets to profile library performance
 /// Creates realistic book data with mock covers for performance testing
-struct PerformanceTestData {
-
+enum PerformanceTestData {
     // MARK: - Sample Book Data
+
     private static let sampleTitles = [
         "The Swift Programming Language", "Design Patterns", "Clean Code",
         "The Pragmatic Programmer", "Introduction to Algorithms",
@@ -32,7 +33,7 @@ struct PerformanceTestData {
         "Spring in Action", "Python Crash Course", "Fluent Python",
         "Learning Python", "Automate the Boring Stuff", "Deep Learning",
         "Hands-On Machine Learning", "Pattern Recognition",
-        "Artificial Intelligence", "Natural Language Processing"
+        "Artificial Intelligence", "Natural Language Processing",
     ]
 
     private static let sampleAuthors = [
@@ -52,7 +53,7 @@ struct PerformanceTestData {
         "Craig Walls", "Eric Matthes", "Luciano Ramalho",
         "Mark Lutz", "Al Sweigart", "Ian Goodfellow",
         "Aurélien Géron", "Christopher Bishop", "Stuart Russell",
-        "Dan Jurafsky"
+        "Dan Jurafsky",
     ]
 
     private static let formats = ["Hardcover", "Paperback", "eBook", "Audiobook"]
@@ -60,10 +61,10 @@ struct PerformanceTestData {
     private static let publishers = [
         "O'Reilly Media", "Addison-Wesley", "Pragmatic Bookshelf",
         "Manning Publications", "Packt Publishing", "Apress",
-        "No Starch Press", "MIT Press", "Wiley", "Pearson"
+        "No Starch Press", "MIT Press", "Wiley", "Pearson",
     ]
 
-    // Mock cover URLs from Open Library (real covers for realistic loading)
+    /// Mock cover URLs from Open Library (real covers for realistic loading)
     private static let sampleISBNs = [
         "9780134092669", "9780201633610", "9780132350884",
         "9780201616224", "9780262033848", "9780735619678",
@@ -72,7 +73,7 @@ struct PerformanceTestData {
         "9780201657883", "9780201835953", "9780321278654",
         "9780132931755", "9780201485677", "9780321503626",
         "9780321601919", "9781942788003", "9781491929483",
-        "9781491903995", "9781449373320", "9780201633610"
+        "9781491903995", "9781449373320", "9780201633610",
     ]
 
     // MARK: - Test Dataset Generation
@@ -114,11 +115,11 @@ struct PerformanceTestData {
             let confidence: Double
             let rand = Double.random(in: 0...1)
             if rand < 0.8 {
-                confidence = Double.random(in: 0.85...0.99)  // High confidence
+                confidence = Double.random(in: 0.85...0.99) // High confidence
             } else if rand < 0.95 {
-                confidence = Double.random(in: 0.6...0.84)   // Medium confidence
+                confidence = Double.random(in: 0.6...0.84) // Medium confidence
             } else {
-                confidence = Double.random(in: 0.3...0.59)   // Low confidence
+                confidence = Double.random(in: 0.3...0.59) // Low confidence
             }
 
             // Random publication dates (last 20 years)

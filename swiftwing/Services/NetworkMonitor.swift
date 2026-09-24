@@ -14,7 +14,6 @@ private final class TaskBox: @unchecked Sendable {
 @MainActor
 @Observable
 final class NetworkMonitor: Sendable {
-
     // MARK: - Published State
 
     /// Current network availability status
@@ -24,7 +23,7 @@ final class NetworkMonitor: Sendable {
     // MARK: - Private Properties
 
     private let monitor = NWPathMonitor()
-    // Stored as a nonisolated let so deinit (nonisolated) can cancel without actor hop
+    /// Stored as a nonisolated let so deinit (nonisolated) can cancel without actor hop
     private let taskBox = TaskBox()
 
     // MARK: - Initialization
@@ -59,8 +58,8 @@ final class NetworkMonitor: Sendable {
     }
 
     private func updateStatus(_ nowConnected: Bool) {
-        let wasConnected = self.isConnected
-        self.isConnected = nowConnected
+        let wasConnected = isConnected
+        isConnected = nowConnected
 
         if wasConnected != nowConnected {
             if nowConnected {

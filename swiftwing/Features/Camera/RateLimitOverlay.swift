@@ -33,7 +33,7 @@ struct RateLimitOverlay: View {
                 Text("\(remainingSeconds)")
                     .font(.system(size: 72, weight: .bold, design: .rounded))
                     .foregroundStyle(.internationalOrange)
-                    .monospacedDigit()  // Prevents jitter during countdown
+                    .monospacedDigit() // Prevents jitter during countdown
 
                 Text("seconds")
                     .font(.body)

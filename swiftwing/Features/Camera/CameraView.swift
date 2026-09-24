@@ -59,35 +59,35 @@ struct CameraView: View {
                 // US-408: Disabled during rate limit cooldown
                 // Task 2.2: Disable when camera is interrupted
                 // US-B2: Enhanced with processing feedback overlay
-Button {
-    // Trigger capture
-    viewModel.captureImage()
+                Button {
+                    // Trigger capture
+                    viewModel.captureImage()
 
-    // US-B2: Show processing feedback (count derived from live queue)
-    Task {
-        showProcessingFeedback = true
+                    // US-B2: Show processing feedback (count derived from live queue)
+                    Task {
+                        showProcessingFeedback = true
 
-        // Auto-dismiss after 2 seconds
-        try? await Task.sleep(for: .seconds(2))
-        showProcessingFeedback = false
-    }
-} label: {
-    Circle()
-        .strokeBorder(
-            viewModel.isRateLimited || viewModel.isInterrupted ? .gray : .white,
-            lineWidth: 4
-        )
-        .frame(width: 80, height: 80)
-        .contentShape(Circle())
-        .opacity(viewModel.isRateLimited || viewModel.isInterrupted ? 0.3 : 1.0)
-        .scaleEffect(isShutterPressed ? 0.95 : 1.0)
-        .animation(.spring(duration: 0.15), value: isShutterPressed)
-}
-.simultaneousGesture(
-    DragGesture(minimumDistance: 0)
-        .onChanged { _ in isShutterPressed = true }
-        .onEnded { _ in isShutterPressed = false }
-)
+                        // Auto-dismiss after 2 seconds
+                        try? await Task.sleep(for: .seconds(2))
+                        showProcessingFeedback = false
+                    }
+                } label: {
+                    Circle()
+                        .strokeBorder(
+                            viewModel.isRateLimited || viewModel.isInterrupted ? .gray : .white,
+                            lineWidth: 4
+                        )
+                        .frame(width: 80, height: 80)
+                        .contentShape(Circle())
+                        .opacity(viewModel.isRateLimited || viewModel.isInterrupted ? 0.3 : 1.0)
+                        .scaleEffect(isShutterPressed ? 0.95 : 1.0)
+                        .animation(.spring(duration: 0.15), value: isShutterPressed)
+                }
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in isShutterPressed = true }
+                        .onEnded { _ in isShutterPressed = false }
+                )
                 .accessibilityIdentifier("camera_shutter")
                 .accessibilityLabel("Capture")
                 .disabled(viewModel.isRateLimited || viewModel.isInterrupted)
@@ -103,9 +103,11 @@ Button {
                 .zIndex(200)
             }
         }
-        .statusBar(hidden: true)  // Full immersion
+        .statusBar(hidden: true) // Full immersion
         .onAppear {
-            if !hasSeenCameraGuidance { showGuidance = true }
+            if !hasSeenCameraGuidance {
+                showGuidance = true
+            }
         }
         .task {
             viewModel.modelContext = modelContext
@@ -144,12 +146,12 @@ Button {
                     debugLog("INJECT_TEST_IMAGE: Bundle lookup failed, trying filesystem")
                     let paths = [
                         "/Users/juju/dev_repos/swiftwing/test_book_stack.jpg",
-                        ProcessInfo.processInfo.environment["TEST_IMAGE_PATH"]
-                    ].compactMap { $0 }
+                        ProcessInfo.processInfo.environment["TEST_IMAGE_PATH"],
+                    ].compactMap(\.self)
                     imageData = paths.compactMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }.first
                 }
 
-                if let imageData = imageData {
+                if let imageData {
                     debugLog("INJECT_TEST_IMAGE: Loaded \(imageData.count) bytes")
                     debugLog("INJECT_TEST_IMAGE: Launching scan (fire-and-forget)...")
                     let itemId = UUID()
@@ -181,7 +183,7 @@ Button {
         .onDisappear {
             viewModel.stopCamera()
         }
-        .onChange(of: scenePhase) { oldPhase, newPhase in
+        .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
                 viewModel.cancelAllStreamingTasks()
             }
@@ -193,6 +195,7 @@ Button {
 }
 
 // MARK: - Errors
+
 enum ImageProcessingError: LocalizedError {
     case invalidImageData
     case compressionFailed
@@ -200,14 +203,15 @@ enum ImageProcessingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidImageData:
-            return "Invalid image data"
+            "Invalid image data"
         case .compressionFailed:
-            return "Failed to compress image"
+            "Failed to compress image"
         }
     }
 }
 
 // MARK: - Focus Indicator
+
 /// White square brackets [ ] that appear at tap location
 /// Shows for 1 second with fade out animation
 struct FocusIndicatorView: View {
@@ -254,6 +258,7 @@ struct FocusIndicatorView: View {
 }
 
 // MARK: - Scan Complete Banner
+
 struct ScanCompleteBannerView: View {
     let bookCount: Int
     let thumbnailData: Data?

@@ -10,7 +10,7 @@ struct OfflineIndicatorView: View {
             Image(systemName: "wifi.slash")
                 .font(.caption)
                 .foregroundStyle(.swissError)
-                .accessibilityHidden(true)  // Hide redundant icon from VoiceOver
+                .accessibilityHidden(true) // Hide redundant icon from VoiceOver
 
             Text("OFFLINE")
                 .font(.jetBrainsMono)

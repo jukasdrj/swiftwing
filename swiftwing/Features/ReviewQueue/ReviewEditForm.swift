@@ -16,7 +16,7 @@ struct ReviewEditForm: View {
                 TextField("Title", text: $editedTitle)
                     .textFieldStyle(.roundedBorder)
                     .font(.title3.bold())
-                    .onChange(of: editedTitle) { oldValue, newValue in
+                    .onChange(of: editedTitle) { _, newValue in
                         onEdit(newValue, editedAuthor)
                     }
             } else {
@@ -30,7 +30,7 @@ struct ReviewEditForm: View {
                 TextField("Author", text: $editedAuthor)
                     .textFieldStyle(.roundedBorder)
                     .font(.body)
-                    .onChange(of: editedAuthor) { oldValue, newValue in
+                    .onChange(of: editedAuthor) { _, newValue in
                         onEdit(editedTitle, newValue)
                     }
             } else {

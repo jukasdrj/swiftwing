@@ -1,6 +1,7 @@
 import SwiftUI
 
 // MARK: - Library Grid View
+
 struct LibraryGridView: View {
     let books: [Book]
     let uniqueAuthorsCount: Int
@@ -14,9 +15,9 @@ struct LibraryGridView: View {
     let onPrefetch: (Book) -> Void
     let onRefresh: () async -> Void
 
-    // Adaptive grid: iPhone portrait 3 cols, iPad landscape 7 cols
+    /// Adaptive grid: iPhone portrait 3 cols, iPad landscape 7 cols
     private let adaptiveColumns = [
-        GridItem(.adaptive(minimum: 100, maximum: 150), spacing: 16)
+        GridItem(.adaptive(minimum: 100, maximum: 150), spacing: 16),
     ]
 
     @State private var renderStartTime: CFAbsoluteTime?
@@ -96,6 +97,7 @@ struct LibraryGridView: View {
 }
 
 // MARK: - Library Stats Header
+
 struct LibraryStatsHeader: View {
     let bookCount: Int
     let uniqueAuthorsCount: Int
@@ -128,6 +130,7 @@ struct LibraryStatsHeader: View {
 }
 
 // MARK: - Stat Card Component
+
 struct StatCard: View {
     let title: String
     let value: String

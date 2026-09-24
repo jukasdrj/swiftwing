@@ -4,13 +4,12 @@ import XCTest
 /// Enable individual tests as needed — not part of regular test suite
 @MainActor
 final class DebugHierarchyTest: XCTestCase {
-
     override func setUpWithError() throws {
         // Skip all debug tests by default — enable manually when debugging
         try XCTSkipIf(true, "Debug hierarchy tests are disabled by default")
     }
 
-    func testDumpAccessibilityTree() throws {
+    func testDumpAccessibilityTree() {
         let app = XCUIApplication()
         app.launchArguments = ["UI_TESTING", "SEED_LIBRARY"]
         app.launch()

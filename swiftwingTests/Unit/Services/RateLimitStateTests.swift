@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import swiftwing
+import Testing
 
 @Suite("Rate-limit temp files")
 struct RateLimitStateTests {

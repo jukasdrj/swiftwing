@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import os
+import SwiftData
+import SwiftUI
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "book-detail")
 
@@ -132,14 +132,22 @@ struct ProcessingItemDetailSheet: View {
     }
 
     private func confidenceIcon(_ confidence: Double) -> String {
-        if confidence >= 0.8 { return "checkmark.circle.fill" }
-        if confidence >= 0.5 { return "exclamationmark.triangle.fill" }
+        if confidence >= 0.8 {
+            return "checkmark.circle.fill"
+        }
+        if confidence >= 0.5 {
+            return "exclamationmark.triangle.fill"
+        }
         return "xmark.octagon.fill"
     }
 
     private func confidenceColor(_ confidence: Double) -> Color {
-        if confidence >= 0.8 { return .green }
-        if confidence >= 0.5 { return .orange }
+        if confidence >= 0.8 {
+            return .green
+        }
+        if confidence >= 0.5 {
+            return .orange
+        }
         return .red
     }
 }

@@ -4,8 +4,8 @@ import XCTest
 /// These tests do not pass UI_TESTING, so the camera permission gate stays on.
 @MainActor
 final class OnboardingUITests: XCTestCase {
-    // See SwiftwingUITestCase.app. This class does not inherit that setup,
-    // because it must launch without the UI_TESTING argument.
+    /// See SwiftwingUITestCase.app. This class does not inherit that setup,
+    /// because it must launch without the UI_TESTING argument.
     nonisolated(unsafe) var app: XCUIApplication!
 
     override func setUpWithError() throws {
@@ -58,7 +58,7 @@ final class OnboardingUITests: XCTestCase {
     }
 
     /// Denying the system camera prompt must replace Continue with the Open Settings primer.
-    func testDenyingSystemPromptShowsOpenSettingsPrimer() throws {
+    func testDenyingSystemPromptShowsOpenSettingsPrimer() {
         app.resetAuthorizationStatus(for: .camera)
         app.launchArguments = ["FORCE_ONBOARDING"]
         app.launch()
@@ -87,7 +87,7 @@ final class OnboardingUITests: XCTestCase {
     /// The UI test process cannot call simctl, so this drives the Settings switch.
     /// This simulator keeps the old status for the running process, so the check
     /// is the following launch. RootView also re-reads when the scene becomes active.
-    func testGrantingCameraInSettingsReplacesPrimerOnNextRead() throws {
+    func testGrantingCameraInSettingsReplacesPrimerOnNextRead() {
         addUIInterruptionMonitor(withDescription: "Deny camera") { alert in
             for label in ["Don’t Allow", "Don't Allow"] {
                 let button = alert.buttons[label]
@@ -163,9 +163,15 @@ final class OnboardingUITests: XCTestCase {
         let deadline = Date().addingTimeInterval(6)
         while Date() < deadline {
             for label in labels {
-                if tapIfPresent(app.buttons[label]) { return true }
-                if tapIfPresent(app.alerts.buttons[label]) { return true }
-                if tapIfPresent(springboard.buttons[label]) { return true }
+                if tapIfPresent(app.buttons[label]) {
+                    return true
+                }
+                if tapIfPresent(app.alerts.buttons[label]) {
+                    return true
+                }
+                if tapIfPresent(springboard.buttons[label]) {
+                    return true
+                }
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
@@ -219,8 +225,12 @@ final class OnboardingUITests: XCTestCase {
 
     private func isOn(_ element: XCUIElement) -> Bool {
         let value = element.value
-        if let number = value as? NSNumber { return number.intValue == 1 }
-        if let string = value as? String { return string == "1" }
+        if let number = value as? NSNumber {
+            return number.intValue == 1
+        }
+        if let string = value as? String {
+            return string == "1"
+        }
         return false
     }
 }

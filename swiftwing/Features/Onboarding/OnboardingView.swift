@@ -92,6 +92,7 @@ struct OnboardingView: View {
 }
 
 // MARK: - Slide 1: Welcome
+
 struct Slide1Welcome: View {
     var body: some View {
         VStack(spacing: 32) {
@@ -130,6 +131,7 @@ struct Slide1Welcome: View {
 }
 
 // MARK: - Slide 2: Camera Permission
+
 struct Slide2CameraPermission: View {
     var body: some View {
         VStack(spacing: 32) {
@@ -166,6 +168,7 @@ struct Slide2CameraPermission: View {
 }
 
 // MARK: - Slide 3: Core Features
+
 struct Slide3CoreFeatures: View {
     var body: some View {
         VStack(spacing: 32) {
@@ -208,6 +211,7 @@ struct Slide3CoreFeatures: View {
 }
 
 // MARK: - Feature Row Component
+
 struct FeatureRow: View {
     let icon: String
     let title: String

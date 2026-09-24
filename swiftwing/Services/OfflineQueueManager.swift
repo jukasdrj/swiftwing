@@ -6,7 +6,6 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "of
 /// Manages offline scan queue persistence using FileManager
 /// Thread-safe actor for storing and retrieving queued scan images
 actor OfflineQueueManager {
-
     // MARK: - Properties
 
     /// Directory for storing offline queued scans
@@ -25,7 +24,7 @@ actor OfflineQueueManager {
     init() {
         // Create offline queue directory in app's documents folder
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        self.queueDirectory = documentsDir.appendingPathComponent("OfflineQueue", isDirectory: true)
+        queueDirectory = documentsDir.appendingPathComponent("OfflineQueue", isDirectory: true)
 
         // Create directory if it doesn't exist (non-blocking)
         Task {
@@ -95,7 +94,7 @@ actor OfflineQueueManager {
     nonisolated func streamQueuedScans() -> AsyncThrowingStream<(metadata: QueuedScanMetadata, imageData: Data), Error> {
         // Capture queue directory path at method call time
         // This allows the method to be nonisolated while still respecting injected test directories
-        let queuePath = self.queueDirectory
+        let queuePath = queueDirectory
 
         return AsyncThrowingStream { continuation in
             // Disk I/O runs in a detached task so stream creation never blocks
@@ -119,7 +118,9 @@ actor OfflineQueueManager {
                     // Load and decode all metadata first to sort by date
                     var metadataList: [QueuedScanMetadata] = []
                     for metadataFile in metadataFiles {
-                        if Task.isCancelled { break }
+                        if Task.isCancelled {
+                            break
+                        }
                         do {
                             let metadataData = try Data(contentsOf: metadataFile)
                             let metadata = try JSONDecoder().decode(QueuedScanMetadata.self, from: metadataData)
@@ -134,7 +135,9 @@ actor OfflineQueueManager {
 
                     // Stream each scan one at a time
                     for metadata in sorted {
-                        if Task.isCancelled { break }
+                        if Task.isCancelled {
+                            break
+                        }
                         let imageURL = queuePath.appendingPathComponent(metadata.imageFileName)
                         if let imageData = try? Data(contentsOf: imageURL) {
                             continuation.yield((metadata: metadata, imageData: imageData))
@@ -180,8 +183,7 @@ actor OfflineQueueManager {
         )
 
         // Count metadata files (one per scan)
-        let count = contents.filter { $0.pathExtension == "json" }.count
-        return count
+        return contents.filter { $0.pathExtension == "json" }.count
     }
 
     // MARK: - Private Helpers

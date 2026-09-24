@@ -4,11 +4,12 @@ import os
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "performance")
 
 // MARK: - Performance Logger
+
 /// US-321: Performance measurement and logging for library rendering
 /// Tracks rendering times, scroll FPS, and cache efficiency
-struct PerformanceLogger {
-
+enum PerformanceLogger {
     // MARK: - Measurement Categories
+
     enum Category: String {
         case libraryRendering = "Library Rendering"
         case scrollPerformance = "Scroll Performance"
@@ -126,7 +127,7 @@ struct PerformanceLogger {
     ) {
         logger.info("Image Cache Statistics: Memory \(memoryUsed / 1024 / 1024, privacy: .public)MB / 50MB, Disk \(diskUsed / 1024 / 1024, privacy: .public)MB / 200MB")
 
-        if let hitRate = hitRate {
+        if let hitRate {
             if hitRate > 0.8 {
                 logger.info("Cache hit rate: \(String(format: "%.1f", hitRate * 100), privacy: .public)%")
             } else if hitRate > 0.5 {
@@ -147,7 +148,7 @@ struct PerformanceLogger {
         case .libraryRendering:
             return milliseconds > 500
         case .scrollPerformance:
-            return milliseconds > 33  // Below 30 FPS
+            return milliseconds > 33 // Below 30 FPS
         case .imageLoading:
             return milliseconds > 1000
         case .dataFetch:
@@ -166,7 +167,7 @@ struct PerformanceLogger {
         let operation: String
 
         init(category: Category, operation: String) {
-            self.startTime = CFAbsoluteTimeGetCurrent()
+            startTime = CFAbsoluteTimeGetCurrent()
             self.category = category
             self.operation = operation
         }
@@ -190,7 +191,6 @@ struct PerformanceLogger {
 // MARK: - Performance Monitoring Extensions
 
 extension PerformanceLogger {
-
     /// Monitor view rendering performance
     /// Usage: Add to view's onAppear or body
     static func monitorViewRender(viewName: String) {

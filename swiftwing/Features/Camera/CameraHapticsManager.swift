@@ -4,11 +4,10 @@ import UIKit
 /// Wraps UIImpactFeedbackGenerator so callers never create generators inline.
 @MainActor
 final class CameraHapticsManager {
-
     // MARK: - Generators
 
     private let mediumImpact = UIImpactFeedbackGenerator(style: .medium)
-    private let heavyImpact  = UIImpactFeedbackGenerator(style: .heavy)
+    private let heavyImpact = UIImpactFeedbackGenerator(style: .heavy)
 
     // MARK: - Lifecycle
 

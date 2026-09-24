@@ -30,7 +30,7 @@ final class AutoApproveSettings {
         // Register defaults so isEnabled starts as true on first launch
         UserDefaults.standard.register(defaults: [
             "autoApproveEnabled": true,
-            "autoApproveShowToast": true
+            "autoApproveShowToast": true,
         ])
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
-import Testing
 import SwiftData
 @testable import swiftwing
+import Testing
 
 @Suite("LibraryViewModel low-confidence filter")
 @MainActor

@@ -1,10 +1,11 @@
 import Foundation
 
 // MARK: - Library Export Utilities (US-318)
-// Emits Hardcover.app's custom CSV import format. Hardcover rejects files whose
-// header row doesn't contain every expected column with exact case-sensitive names,
-// so the header below must not be reordered or renamed.
-struct LibraryExporter {
+
+/// Emits Hardcover.app's custom CSV import format. Hardcover rejects files whose
+/// header row doesn't contain every expected column with exact case-sensitive names,
+/// so the header below must not be reordered or renamed.
+enum LibraryExporter {
     static let hardcoverHeader = "Title,Author,Series,Status,Privacy,Hardcover Book ID,Hardcover Edition ID,ISBN 10,ISBN 13,ASIN,Media,Country Code,Language Code,Binding,Pages,Duration in Seconds,Publish Date,Publisher,Genres,Moods,Tags,Content Warnings,Lists,Date Added,Date Started,Date Finished,Rating,Review,Review Contains Spoilers,Sponsored Review,Review Date,Review URL,Review Media URL,Private Notes,Owned,Compilation,Review Slate"
 
     static func generateCSV(from books: [Book]) -> String {
@@ -19,43 +20,43 @@ struct LibraryExporter {
     static func hardcoverRow(for book: Book) -> [String] {
         let (isbn10, isbn13) = classifyISBN(book.isbn)
         return [
-            escapeCSVField(book.title),                 // Title
-            escapeCSVField(book.author),                // Author
-            "",                                         // Series
-            statusField(for: book.readingStatus),       // Status
-            "",                                         // Privacy
-            "",                                         // Hardcover Book ID
-            "",                                         // Hardcover Edition ID
-            isbn10,                                     // ISBN 10
-            isbn13,                                     // ISBN 13
-            "",                                         // ASIN
-            mediaField(for: book.format),               // Media
-            "",                                         // Country Code
-            "",                                         // Language Code
-            escapeCSVField(book.format ?? ""),          // Binding
-            book.pageCount.map(String.init) ?? "",      // Pages
-            "",                                         // Duration in Seconds
+            escapeCSVField(book.title), // Title
+            escapeCSVField(book.author), // Author
+            "", // Series
+            statusField(for: book.readingStatus), // Status
+            "", // Privacy
+            "", // Hardcover Book ID
+            "", // Hardcover Edition ID
+            isbn10, // ISBN 10
+            isbn13, // ISBN 13
+            "", // ASIN
+            mediaField(for: book.format), // Media
+            "", // Country Code
+            "", // Language Code
+            escapeCSVField(book.format ?? ""), // Binding
+            book.pageCount.map(String.init) ?? "", // Pages
+            "", // Duration in Seconds
             book.publishedDate.map(formatPublishDate) ?? "", // Publish Date
-            escapeCSVField(book.publisher ?? ""),       // Publisher
-            "",                                         // Genres
-            "",                                         // Moods
-            "",                                         // Tags
-            "",                                         // Content Warnings
-            "",                                         // Lists
-            formatDate(book.addedDate),                 // Date Added
-            "",                                         // Date Started
-            book.dateRead.map(formatDate) ?? "",        // Date Finished
-            book.userRating.map(String.init) ?? "",     // Rating
-            "",                                         // Review
-            "",                                         // Review Contains Spoilers
-            "",                                         // Sponsored Review
-            "",                                         // Review Date
-            "",                                         // Review URL
-            "",                                         // Review Media URL
-            escapeCSVField(book.notes ?? ""),           // Private Notes
-            "Yes",                                      // Owned
-            "",                                         // Compilation
-            ""                                          // Review Slate
+            escapeCSVField(book.publisher ?? ""), // Publisher
+            "", // Genres
+            "", // Moods
+            "", // Tags
+            "", // Content Warnings
+            "", // Lists
+            formatDate(book.addedDate), // Date Added
+            "", // Date Started
+            book.dateRead.map(formatDate) ?? "", // Date Finished
+            book.userRating.map(String.init) ?? "", // Rating
+            "", // Review
+            "", // Review Contains Spoilers
+            "", // Sponsored Review
+            "", // Review Date
+            "", // Review URL
+            "", // Review Media URL
+            escapeCSVField(book.notes ?? ""), // Private Notes
+            "Yes", // Owned
+            "", // Compilation
+            "", // Review Slate
         ]
     }
 
@@ -67,13 +68,16 @@ struct LibraryExporter {
         let cleaned = raw
             .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: " ", with: "")
-        func isASCIIDigit(_ c: Character) -> Bool { c.isASCII && c.isNumber }
+        func isASCIIDigit(_ c: Character) -> Bool {
+            c.isASCII && c.isNumber
+        }
         if cleaned.count == 13, cleaned.allSatisfy(isASCIIDigit) {
             return ("", cleaned)
         }
         if cleaned.count == 10, let check = cleaned.last,
            cleaned.dropLast().allSatisfy(isASCIIDigit),
-           isASCIIDigit(check) || check == "X" || check == "x" {
+           isASCIIDigit(check) || check == "X" || check == "x"
+        {
             return (cleaned.uppercased(), "")
         }
         return ("", "")
@@ -82,8 +86,12 @@ struct LibraryExporter {
     /// Maps the free-form `format` field to Hardcover's Media enum (Book / Ebook / Audiobook).
     static func mediaField(for format: String?) -> String {
         let normalized = (format ?? "").lowercased()
-        if normalized.contains("ebook") || normalized.contains("e-book") { return "Ebook" }
-        if normalized.contains("audio") { return "Audiobook" }
+        if normalized.contains("ebook") || normalized.contains("e-book") {
+            return "Ebook"
+        }
+        if normalized.contains("audio") {
+            return "Audiobook"
+        }
         return "Book"
     }
 
@@ -91,11 +99,11 @@ struct LibraryExporter {
     /// import as "Read" — the whole shelf is treated as read (user decision).
     static func statusField(for status: ReadingStatus?) -> String {
         switch status {
-        case .completed: return "Read"
-        case .reading: return "Currently Reading"
-        case .toRead: return "Want to Read"
-        case .dnf: return "Did Not Finish"
-        case nil: return "Read"
+        case .completed: "Read"
+        case .reading: "Currently Reading"
+        case .toRead: "Want to Read"
+        case .dnf: "Did Not Finish"
+        case nil: "Read"
         }
     }
 

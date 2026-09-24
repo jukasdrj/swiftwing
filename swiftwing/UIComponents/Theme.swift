@@ -1,5 +1,5 @@
-import SwiftUI
 import os
+import SwiftUI
 
 #if canImport(UIKit)
 import UIKit
@@ -8,6 +8,7 @@ import UIKit
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "theme")
 
 // MARK: - Swiss Glass Design System
+
 //
 // SwiftWing's design language: 60% Swiss Utility + 40% Liquid Glass
 // - Black base (#0D0D0D) for OLED optimization
@@ -17,13 +18,14 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "th
 // - JetBrains Mono for data/IDs, SF Pro for UI
 
 // MARK: - Color Extensions
+
 extension Color {
     // Base Colors
     static let swissBackground = Color(red: 0.05, green: 0.05, blue: 0.05) // #0D0D0D
     static let swissText = Color.white
     static let internationalOrange = Color(red: 1.0, green: 0.31, blue: 0.0) // #FF4F00
 
-    // State Colors (Processing Queue & UI Feedback)
+    /// State Colors (Processing Queue & UI Feedback)
     /// Yellow - Processing state (image being compressed/resized)
     /// Example: `.foregroundColor(.swissProcessing)`
     static let swissProcessing = Color.yellow
@@ -42,18 +44,40 @@ extension Color {
 }
 
 // MARK: - ShapeStyle Extensions
-// Enables dot-shorthand syntax with foregroundStyle (e.g. .foregroundStyle(.swissText))
+
+/// Enables dot-shorthand syntax with foregroundStyle (e.g. .foregroundStyle(.swissText))
 extension ShapeStyle where Self == Color {
-    static var swissBackground: Color { .swissBackground }
-    static var swissText: Color { .swissText }
-    static var internationalOrange: Color { .internationalOrange }
-    static var swissProcessing: Color { .swissProcessing }
-    static var swissUploading: Color { .swissUploading }
-    static var swissDone: Color { .swissDone }
-    static var swissError: Color { .swissError }
+    static var swissBackground: Color {
+        .swissBackground
+    }
+
+    static var swissText: Color {
+        .swissText
+    }
+
+    static var internationalOrange: Color {
+        .internationalOrange
+    }
+
+    static var swissProcessing: Color {
+        .swissProcessing
+    }
+
+    static var swissUploading: Color {
+        .swissUploading
+    }
+
+    static var swissDone: Color {
+        .swissDone
+    }
+
+    static var swissError: Color {
+        .swissError
+    }
 }
 
 // MARK: - Font Extensions
+
 extension Font {
     /// Cached check for whether JetBrains Mono font is available
     /// Performed once at app launch to avoid repeated file system checks
@@ -66,7 +90,7 @@ extension Font {
         }
         return true
         #else
-        return true  // Assume available on non-UIKit platforms
+        return true // Assume available on non-UIKit platforms
         #endif
     }()
 
@@ -95,6 +119,7 @@ extension Font {
 }
 
 // MARK: - ViewModifiers
+
 /// Swiss Glass Card - Black background with ultra-thin material overlay
 ///
 /// Usage:
@@ -154,6 +179,7 @@ struct SwissGlassButton: ViewModifier {
 }
 
 // MARK: - Animation Extensions
+
 extension Animation {
     /// Swiss Spring - Standard spring animation for all UI transitions
     /// Duration: 0.2s for snappy, fluid feel
@@ -168,6 +194,7 @@ extension Animation {
 }
 
 // MARK: - View Extensions
+
 extension View {
     /// Applies Swiss Glass Card styling
     func swissGlassCard() -> some View {
@@ -192,7 +219,7 @@ extension View {
     /// Button("Capture") { showFlash.toggle() }
     ///     .haptic(.impact, trigger: showFlash)
     /// ```
-    func haptic<T: Equatable>(_ feedback: SensoryFeedback, trigger: T) -> some View {
-        self.sensoryFeedback(feedback, trigger: trigger)
+    func haptic(_ feedback: SensoryFeedback, trigger: some Equatable) -> some View {
+        sensoryFeedback(feedback, trigger: trigger)
     }
 }

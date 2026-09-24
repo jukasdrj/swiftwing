@@ -230,7 +230,6 @@ struct CameraOverlayView: View {
 
     // MARK: - Zoom Level + Offline Indicator
 
-    @ViewBuilder
     private var statusOverlays: some View {
         VStack {
             HStack {
@@ -334,7 +333,7 @@ struct CameraOverlayView: View {
             .padding(.vertical, 10)
             .background(.ultraThinMaterial, in: Capsule())
             .padding(.horizontal, 32)
-            .padding(.bottom, 140)  // clears the shutter button
+            .padding(.bottom, 140) // clears the shutter button
         }
     }
 }

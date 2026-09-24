@@ -1,5 +1,5 @@
-import XCTest
 @testable import swiftwing
+import XCTest
 
 /// Contract adherence tests for Talaria API integration
 ///
@@ -14,13 +14,12 @@ import XCTest
 /// - Ensures graceful degradation for missing/malformed fields
 /// - No live API dependency (CI-safe)
 final class TalariaContractAdherenceTests: XCTestCase {
-    
     func test_userAgentNamesShippingOS() {
         XCTAssertEqual(TalariaService.userAgent, "SwiftWing/1.0 iOS/27.0")
     }
 
     // MARK: - UploadResponse Tests
-    
+
     func test_decodeUploadResponse_withStandardSchema() throws {
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseJSON)
@@ -30,7 +29,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertEqual(response.data.jobId, "550e8400-e29b-41d4-a716-446655440000")
         XCTAssertEqual(response.data.status, .queued)
     }
-    
+
     func test_decodeUploadResponse_withProcessingStatus() throws {
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseProcessingJSON)
@@ -38,7 +37,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
         // Assert
         XCTAssertEqual(response.data.status, .processing)
     }
-    
+
     func test_uploadResponseData_hasAllRequiredFields() throws {
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseJSON)
@@ -47,13 +46,13 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertFalse(response.data.jobId.isEmpty, "jobId cannot be empty")
         XCTAssertNotNil(response.data.status, "status is required")
     }
-    
+
     // MARK: - BookMetadata Tests (Singular Author)
-    
+
     func test_decodeBookMetadata_withSingularAuthor() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataFullJSON)
-        
+
         // Assert
         XCTAssertEqual(book.title, "The Great Gatsby")
         XCTAssertEqual(book.author, "F. Scott Fitzgerald")
@@ -62,19 +61,19 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertEqual(book.enrichmentStatus, .success)
         XCTAssertEqual(book.confidence, 0.98)
     }
-    
+
     func test_decodeBookMetadata_withPublicationYearAsInt() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataFullJSON)
-        
+
         // Assert - publicationYear should be converted to ISO date
         XCTAssertEqual(book.publishedDate, "1925-01-01")
     }
-    
+
     func test_decodeBookMetadata_withBoundingBox() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataFullJSON)
-        
+
         // Assert
         XCTAssertNotNil(book.boundingBox)
         XCTAssertEqual(book.boundingBox?.x, 0.027)
@@ -109,25 +108,25 @@ final class TalariaContractAdherenceTests: XCTestCase {
         let rect = box.toCGRect(in: CGSize(width: 200, height: 100))
         XCTAssertEqual(rect, CGRect(x: 0, y: 0, width: 100, height: 25))
     }
-    
+
     // MARK: - BookMetadata Tests (Plural Authors - Forward Compatibility)
-    
+
     func test_decodeBookMetadata_withPluralAuthors_singleAuthor() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataPluralAuthorsJSON)
-        
+
         // Assert - Plural authors should be joined into single string
         XCTAssertEqual(book.author, "Donald E. Knuth")
     }
-    
+
     func test_decodeBookMetadata_withPluralAuthors_multipleAuthors() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataMultipleAuthorsJSON)
-        
+
         // Assert - Multiple authors should be joined with ", "
         XCTAssertEqual(book.author, "Robert C. Martin, Reviewed by James O. Coplien")
     }
-    
+
     func test_decodeBookMetadata_prefersSingularAuthorOverPlural() throws {
         // Arrange - Create JSON with both singular and plural author
         let json = """
@@ -140,17 +139,17 @@ final class TalariaContractAdherenceTests: XCTestCase {
         }
         """
         let book = try TalariaContractFixtures.decodeBookMetadata(from: json)
-        
+
         // Assert - Singular author should take precedence
         XCTAssertEqual(book.author, "Singular Author")
     }
-    
+
     // MARK: - BookMetadata Tests (EnrichmentStatus Variations)
-    
+
     func test_decodeBookMetadata_withReviewNeededStatus() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataReviewNeededJSON)
-        
+
         // Assert
         XCTAssertEqual(book.enrichmentStatus, .reviewNeeded)
         XCTAssertNil(book.title, "title should be nil when review_needed")
@@ -158,32 +157,32 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertEqual(book.resolvedTitle, "Unknown Title", "resolvedTitle should provide fallback")
         XCTAssertEqual(book.resolvedAuthor, "Unknown Author", "resolvedAuthor should provide fallback")
     }
-    
+
     func test_decodeBookMetadata_withCircuitOpenStatus() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataCircuitOpenJSON)
-        
+
         // Assert
         XCTAssertEqual(book.enrichmentStatus, .circuitOpen)
         XCTAssertNotNil(book.title, "title should be present (enrichment partial)")
         XCTAssertNotNil(book.author, "author should be present (enrichment partial)")
         XCTAssertNil(book.coverUrl, "coverUrl should be nil (enrichment failed)")
     }
-    
+
     func test_decodeBookMetadata_withNotFoundStatus() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataMinimalJSON)
-        
+
         // Assert
         XCTAssertEqual(book.enrichmentStatus, .notFound)
     }
-    
+
     // MARK: - BookMetadata Tests (Resilient Decoding)
-    
+
     func test_decodeBookMetadata_withMissingOptionalFields() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataMinimalJSON)
-        
+
         // Assert - Should not fail when optional fields are missing
         XCTAssertNotNil(book.title)
         XCTAssertNil(book.isbn)
@@ -191,26 +190,26 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertNil(book.publisher)
         XCTAssertNil(book.boundingBox)
     }
-    
+
     func test_decodeBookMetadata_resilientToMalformedURL() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataMalformedURLJSON)
-        
+
         // Assert - Malformed URL should be skipped, other fields should parse
         XCTAssertNil(book.coverUrl, "Malformed URL should fail to decode")
         XCTAssertEqual(book.title, "Test Book", "Other fields should parse successfully")
         XCTAssertEqual(book.author, "Test Author")
     }
-    
+
     func test_decodeBookMetadata_resilientToUnexpectedFieldType() throws {
         // Arrange
         let book = try TalariaContractFixtures.decodeBookMetadata(from: TalariaContractFixtures.bookMetadataUnexpectedConfidenceJSON)
-        
+
         // Assert - String confidence should fail to decode, but book should parse
         XCTAssertNil(book.confidence, "String confidence should fail to decode")
         XCTAssertEqual(book.title, "Test Book", "Other fields should parse successfully")
     }
-    
+
     // MARK: - ISBN "unknown" Placeholder Guard (S2)
 
     func test_decodeBookMetadata_unknownISBN_normalizedToNil() throws {
@@ -330,26 +329,26 @@ final class TalariaContractAdherenceTests: XCTestCase {
     }
 
     // MARK: - Error Response Tests
-    
+
     func test_decodeProblemDetails_rateLimitError() throws {
         // Arrange
         let error = try TalariaContractFixtures.decodeProblemDetails(from: TalariaContractFixtures.errorRateLimitedJSON)
-        
+
         // Assert
         XCTAssertEqual(error.status, 429)
         XCTAssertEqual(error.code, "RATE_LIMITED")
-        XCTAssertEqual(error.retryable, .some(true))  // Optional field, fixture provides true
+        XCTAssertEqual(error.retryable, .some(true)) // Optional field, fixture provides true
         XCTAssertEqual(error.retryAfterMs, 30000)
     }
-    
+
     func test_decodeProblemDetails_serverError() throws {
         // Arrange
         let error = try TalariaContractFixtures.decodeProblemDetails(from: TalariaContractFixtures.errorServerErrorJSON)
-        
+
         // Assert
         XCTAssertEqual(error.status, 500)
         XCTAssertEqual(error.code, "EXTERNAL_API_ERROR")
-        XCTAssertTrue(error.retryable ?? false)  // Optional, but fixture provides it
+        XCTAssertTrue(error.retryable ?? false) // Optional, but fixture provides it
     }
 
     func test_decodeProblemDetails_invalidRequest() throws {
@@ -357,11 +356,11 @@ final class TalariaContractAdherenceTests: XCTestCase {
 
         XCTAssertEqual(error.status, 422)
         XCTAssertEqual(error.code, "INVALID_IMAGE_SIZE")
-        XCTAssertFalse(error.retryable ?? false)  // Optional, but fixture provides it
+        XCTAssertFalse(error.retryable ?? false) // Optional, but fixture provides it
     }
-    
+
     // MARK: - Contract Version Detection
-    
+
     func test_uploadResponse_containsRequiredFields_forVersionDetection() throws {
         // Arrange
         let response = try TalariaContractFixtures.decodeUploadResponse(from: TalariaContractFixtures.uploadResponseJSON)
@@ -385,9 +384,9 @@ final class TalariaContractAdherenceTests: XCTestCase {
         XCTAssertEqual(jobId, "550e8400-e29b-41d4-a716-446655440000")
         XCTAssertEqual(status, .queued)
     }
-    
+
     // MARK: - Backward Compatibility Tests
-    
+
     func test_enrichmentStatus_defaultsToUnknownValue() throws {
         // Arrange - Create JSON with unknown enrichment status
         let json = """
@@ -397,12 +396,12 @@ final class TalariaContractAdherenceTests: XCTestCase {
           "enrichmentStatus": "unknown_future_status"
         }
         """
-        
+
         // Act & Assert - Should not throw, should default to .pending
         let book = try TalariaContractFixtures.decodeBookMetadata(from: json)
         XCTAssertEqual(book.enrichmentStatus, .pending, "Unknown status should default to pending")
     }
-    
+
     func test_jobStatus_acceptsAllDefinedValues() throws {
         // Arrange
         let statuses: [(String, JobStatus)] = [
@@ -413,7 +412,7 @@ final class TalariaContractAdherenceTests: XCTestCase {
             ("failed", .failed),
             ("canceled", .canceled),
         ]
-        
+
         // Act & Assert
         for (statusString, expectedStatus) in statuses {
             let json = """

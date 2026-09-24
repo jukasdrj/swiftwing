@@ -1,11 +1,11 @@
 import Foundation
 import SwiftData
 
-// Epic 5: Reading status tracking
+/// Epic 5: Reading status tracking
 public enum ReadingStatus: String, Codable, Sendable {
     case toRead = "to_read"
-    case reading = "reading"
-    case completed = "completed"
+    case reading
+    case completed
     case dnf = "did_not_finish"
 }
 
@@ -25,10 +25,10 @@ public final class Book {
     var publishedDate: Date?
     var pageCount: Int?
 
-    // AI confidence scoring
+    /// AI confidence scoring
     var spineConfidence: Double?
 
-    // Tracking
+    /// Tracking
     var addedDate: Date
 
     // Epic 5: Reading status tracking
@@ -36,21 +36,21 @@ public final class Book {
     var dateRead: Date?
     var userRating: Int? // 1-5 stars
 
-    // Personal annotations
+    /// Personal annotations
     var notes: String?
 
-    // Debug/raw data
+    /// Debug/raw data
     var rawJSON: String?
 
-    // Talaria enrichment status tracking (Epic 4)
+    /// Talaria enrichment status tracking (Epic 4)
     var enrichmentStatus: String?
 
-    // Computed property for review threshold
+    /// Computed property for review threshold
     var needsReview: Bool {
         (spineConfidence ?? 1.0) < 0.8
     }
 
-    // Computed property for enrichment review needs
+    /// Computed property for enrichment review needs
     var needsEnrichmentReview: Bool {
         enrichmentStatus == "review_needed" || enrichmentStatus == "not_found"
     }

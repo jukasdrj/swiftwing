@@ -57,7 +57,9 @@ struct ManualLookupSheet: View {
                     Section {
                         Button(action: { Task { await search() } }) {
                             HStack {
-                                if isSearching { ProgressView().padding(.trailing, 4) }
+                                if isSearching {
+                                    ProgressView().padding(.trailing, 4)
+                                }
                                 Text(isSearching ? "Searching…" : "Search")
                             }
                         }
@@ -116,7 +118,7 @@ struct ManualLookupSheet: View {
                 title: title.isEmpty ? nil : title,
                 author: author.isEmpty ? nil : author
             )
-        } catch NetworkError.apiError(let problem) where problem.status == 404 {
+        } catch let NetworkError.apiError(problem) where problem.status == 404 {
             message = "No match found. Try a different spelling, or search by ISBN."
         } catch NetworkError.noConnection {
             message = "No connection. Check your network and try again."

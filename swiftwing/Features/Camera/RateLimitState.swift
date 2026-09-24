@@ -6,7 +6,6 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "ra
 /// Thread-safe actor for managing API rate limit state
 /// Handles 429 Too Many Requests responses with countdown and queued scans
 actor RateLimitState {
-
     // MARK: - Properties
 
     /// Whether currently rate limited
@@ -38,7 +37,7 @@ actor RateLimitState {
     /// Get remaining seconds until rate limit expires
     /// - Returns: Seconds remaining (0 if expired or not rate limited)
     func getRemainingSeconds() -> Int {
-        guard let retryAfterDate = retryAfterDate else {
+        guard let retryAfterDate else {
             return 0
         }
 
@@ -69,7 +68,8 @@ actor RateLimitState {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try imageData.write(to: tempURL)
             queuedScans.append((imageUrl: tempURL, preScannedISBN: preScannedISBN))
-            logger.info("Queued scan to temp file (\(self.queuedScans.count) total in queue)")
+            let queuedCount = queuedScans.count
+            logger.info("Queued scan to temp file (\(queuedCount) total in queue)")
         } catch {
             logger.error("Failed to write queued scan to temp file: \(error.localizedDescription)")
         }

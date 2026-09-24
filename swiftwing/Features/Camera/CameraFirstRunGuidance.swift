@@ -17,7 +17,7 @@ struct CameraFirstRunGuidance: View {
         (
             "checklist", "Review before saving",
             "Everything lands in the review queue first — nothing is added without your approval."
-        )
+        ),
     ]
 
     var body: some View {

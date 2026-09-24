@@ -1,7 +1,7 @@
-import SwiftUI
 import AVFoundation
-import UIKit
 import Combine
+import SwiftUI
+import UIKit
 
 /// UIViewRepresentable wrapper for AVCaptureVideoPreviewLayer
 /// Displays live camera feed with edge-to-edge layout
@@ -40,7 +40,7 @@ struct CameraPreviewView: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: PreviewView, context: Context) {
+    func updateUIView(_: PreviewView, context _: Context) {
         // Automatic frame sizing - no manual updates needed with backing layer
     }
 
@@ -116,7 +116,7 @@ struct CameraPreviewView: UIViewRepresentable {
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-            guard let previewLayer = previewLayer else { return }
+            guard let previewLayer else { return }
 
             // Get tap location in view coordinates
             let tapPoint = gesture.location(in: gesture.view)

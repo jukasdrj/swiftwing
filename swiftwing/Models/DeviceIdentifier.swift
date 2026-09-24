@@ -5,7 +5,7 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "de
 
 /// Persistent device identifier stored in UserDefaults
 /// Generates UUID v4 on first access, then persists across app sessions
-struct DeviceIdentifier {
+enum DeviceIdentifier {
     private static let key = "com.swiftwing.deviceId"
 
     /// Retrieve or generate persistent device ID

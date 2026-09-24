@@ -1,7 +1,7 @@
 import Foundation
+import os
 import SwiftData
 import SwiftUI
-import os
 
 #if canImport(UIKit)
 import UIKit
@@ -16,23 +16,28 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "re
 @Observable
 final class ReviewQueueManager {
     // MARK: - Auto-Approve
+
     let autoApproveSettings = AutoApproveSettings()
     var autoApprovedBookTitle: String?
     var showAutoApproveToastFlag = false
 
     // MARK: - Review Queue State
+
     var pendingReviewBooks: [PendingBookResult] = []
     var pendingBookBeingApproved: PendingBookResult?
 
     // MARK: - Scan Complete Banner
+
     struct ScanCompleteBanner: Identifiable {
         let id = UUID()
         let bookCount: Int
         let thumbnailData: Data?
     }
+
     var scanCompleteBanner: ScanCompleteBanner?
 
     // MARK: - Scan Batch Summary
+
     struct ScanBatch {
         let timestamp: Date
         let totalBooks: Int
@@ -40,9 +45,11 @@ final class ReviewQueueManager {
         let lowConfidenceCount: Int
         let thumbnailData: Data?
     }
+
     var lastScanBatch: ScanBatch?
 
     // MARK: - Duplicate Detection State (used during approve flow)
+
     var duplicateBook: Book?
     var showDuplicateAlert = false
     var pendingBookMetadata: BookMetadata?
@@ -50,10 +57,12 @@ final class ReviewQueueManager {
     var pendingPreScannedISBN: String?
 
     // MARK: - Error Display (for handleBookResult validation errors)
+
     var processingErrorMessage: String?
     var showProcessingError = false
 
     // MARK: - US-405: Book Result Handling
+
     func handleBookResult(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil, modelContext: ModelContext) {
         logger.debug("handleBookResult called for: \(metadata.resolvedTitle)")
 
@@ -67,7 +76,8 @@ final class ReviewQueueManager {
         // Smart auto-approve: high-confidence results bypass review queue
         if autoApproveSettings.isEnabled,
            let confidence = metadata.confidence,
-           confidence >= autoApproveSettings.confidenceThreshold {
+           confidence >= autoApproveSettings.confidenceThreshold
+        {
             autoApproveBook(metadata: metadata, rawJSON: rawJSON, thumbnailData: thumbnailData, preScannedISBN: preScannedISBN, originalPhotoURL: originalPhotoURL, modelContext: modelContext)
             return
         }
@@ -129,14 +139,15 @@ final class ReviewQueueManager {
             // Match on ISBN OR (title + author) within last 60 seconds
             let matchesISBN = !isbn.isEmpty && pending.resolvedMetadata.isbn == isbn
             let matchesTitleAuthor = pending.resolvedMetadata.title == metadata.title &&
-                                     pending.resolvedMetadata.author == metadata.author
+                pending.resolvedMetadata.author == metadata.author
             let isRecent = pending.scannedDate.timeIntervalSinceNow > -60
             return (matchesISBN || matchesTitleAuthor) && isRecent
         }
     }
 
     // MARK: - Auto-Approve
-    private func autoApproveBook(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data?, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil, modelContext: ModelContext) {
+
+    private func autoApproveBook(metadata: BookMetadata, rawJSON: String?, thumbnailData _: Data?, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil, modelContext: ModelContext) {
         let confidence = metadata.confidence ?? 0
         logger.info("Auto-approving high-confidence book: \(metadata.resolvedTitle) (confidence: \(confidence))")
 
@@ -173,6 +184,7 @@ final class ReviewQueueManager {
     }
 
     // MARK: - Review Queue Actions
+
     func approveBook(_ pendingBook: PendingBookResult, modelContext: ModelContext) {
         let isbn = pendingBook.resolvedISBN
 
@@ -257,7 +269,9 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll { removedIds.contains($0.id) }
         }
 
-        for url in photoURLs { cleanupPhoto(url) }
+        for url in photoURLs {
+            cleanupPhoto(url)
+        }
 
         if pendingReviewBooks.isEmpty {
             UserDefaults.standard.set(false, forKey: "show_review_needed")
@@ -285,7 +299,9 @@ final class ReviewQueueManager {
             pendingReviewBooks.removeAll { approvedIds.contains($0.id) }
         }
 
-        for url in photoURLs { cleanupPhoto(url) }
+        for url in photoURLs {
+            cleanupPhoto(url)
+        }
 
         if pendingReviewBooks.isEmpty {
             UserDefaults.standard.set(false, forKey: "show_review_needed")
@@ -368,6 +384,7 @@ final class ReviewQueueManager {
     }
 
     // MARK: - Pending Book Edits
+
     func updatePendingBookEdits(id: UUID, title: String?, author: String?) {
         if let index = pendingReviewBooks.firstIndex(where: { $0.id == id }) {
             pendingReviewBooks[index].editedTitle = title
@@ -402,6 +419,7 @@ final class ReviewQueueManager {
     }
 
     // MARK: - Duplicate Alert Management
+
     func dismissDuplicateAlert() {
         withAnimation(.swissSpring) {
             showDuplicateAlert = false
@@ -416,9 +434,8 @@ final class ReviewQueueManager {
     func addDuplicateAnyway(modelContext: ModelContext) {
         withAnimation(.swissSpring) {
             showDuplicateAlert = false
-            let saved: Bool
-            if let metadata = pendingBookMetadata {
-                saved = addBookToLibrary(
+            let saved: Bool = if let metadata = pendingBookMetadata {
+                addBookToLibrary(
                     title: pendingBookBeingApproved?.resolvedTitle,
                     author: pendingBookBeingApproved?.resolvedAuthor,
                     metadata: metadata,
@@ -427,7 +444,7 @@ final class ReviewQueueManager {
                     modelContext: modelContext
                 )
             } else {
-                saved = false
+                false
             }
             // A refused save leaves the card on screen.
             if saved, let pending = pendingBookBeingApproved {
@@ -445,6 +462,7 @@ final class ReviewQueueManager {
     }
 
     // MARK: - Banner Management
+
     func dismissScanCompleteBanner() {
         withAnimation(.swissSpring) {
             scanCompleteBanner = nil
@@ -504,6 +522,7 @@ final class ReviewQueueManager {
     }
 
     // MARK: - Error Display
+
     private func showProcessingErrorOverlay(_ message: String) async {
         processingErrorMessage = message
         withAnimation(.swissSpring) {

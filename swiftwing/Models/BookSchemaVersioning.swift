@@ -1,13 +1,13 @@
 import Foundation
 import SwiftData
 
-/// Schema versioning for Book model
-/// Enables safe, incremental model evolution without data loss
+// Schema versioning for Book model
+// Enables safe, incremental model evolution without data loss
 
 // MARK: - V1 Schema (frozen snapshot of original Book model)
 
 enum BookSchemaV1: VersionedSchema {
-    static let versionIdentifier: Schema.Version = Schema.Version(1, 0, 0)
+    static let versionIdentifier: Schema.Version = .init(1, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [BookV1.self]
@@ -85,7 +85,7 @@ enum BookSchemaV1: VersionedSchema {
 // MARK: - V2 Schema (current — readingStatus typed as enum, added indexes)
 
 enum BookSchemaV2: VersionedSchema {
-    static let versionIdentifier: Schema.Version = Schema.Version(2, 0, 0)
+    static let versionIdentifier: Schema.Version = .init(2, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [Book.self]

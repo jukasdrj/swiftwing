@@ -1,13 +1,13 @@
 import Foundation
-import Testing
 @testable import swiftwing
+import Testing
 
 /// Serves a scripted sequence of HTTP responses, one per intercepted request.
 /// Static state is guarded by a lock and the suite runs `.serialized`, so
 /// Swift Testing's default parallelism can't interleave sequences.
 final class SequencedURLProtocol: URLProtocol {
-    nonisolated(unsafe) private static var responses: [(status: Int, body: Data)] = []
-    nonisolated(unsafe) private(set) static var requestCount = 0
+    private nonisolated(unsafe) static var responses: [(status: Int, body: Data)] = []
+    private(set) nonisolated(unsafe) static var requestCount = 0
     private static let lock = NSLock()
 
     static func script(_ sequence: [(status: Int, body: Data)]) {
@@ -23,8 +23,13 @@ final class SequencedURLProtocol: URLProtocol {
         return requestCount
     }
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override class func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
 
     override func startLoading() {
         Self.lock.lock()
@@ -94,7 +99,7 @@ final class SequencedURLProtocol: URLProtocol {
             _ = try await makeService().pollScanStatus(jobId: Self.jobId)
             Issue.record("expected serverError after the transient budget is spent")
         } catch let error as NetworkError {
-            guard case .serverError(let code) = error else {
+            guard case let .serverError(code) = error else {
                 Issue.record("expected serverError, got \(error)")
                 return
             }
@@ -108,13 +113,13 @@ final class SequencedURLProtocol: URLProtocol {
 
     @Test func failedStatusThrowsScanFailedImmediately() async {
         SequencedURLProtocol.script([
-            (200, Data(TalariaContractFixtures.jobStatusFailedWithErrorJSON.utf8))
+            (200, Data(TalariaContractFixtures.jobStatusFailedWithErrorJSON.utf8)),
         ])
         do {
             _ = try await makeService().pollScanStatus(jobId: Self.jobId)
             Issue.record("expected scanFailed")
         } catch let error as NetworkError {
-            guard case .scanFailed(let code, _) = error else {
+            guard case let .scanFailed(code, _) = error else {
                 Issue.record("expected scanFailed, got \(error)")
                 return
             }

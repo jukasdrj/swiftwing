@@ -1,5 +1,5 @@
-import SwiftUI
 import Foundation
+import SwiftUI
 
 /// US-321: Coordinates image prefetching for smooth library scrolling
 /// Prefetches cover images for upcoming books to improve perceived performance
@@ -15,7 +15,7 @@ class LibraryPrefetchCoordinator {
     func prefetchUpcoming(books: [Book], maxCount: Int = 20) {
         let urlsToPrefetch = books
             .prefix(maxCount)
-            .compactMap { $0.coverUrl }
+            .compactMap(\.coverUrl)
             .filter { !prefetchedURLs.contains($0) }
 
         guard !urlsToPrefetch.isEmpty else { return }
@@ -35,7 +35,7 @@ class LibraryPrefetchCoordinator {
             await ImageCacheManager.shared.cancelAllPrefetches()
         }
     }
-    
+
     /// Reset prefetch state (useful for when sort/filter changes)
     func reset() {
         cancelAll()

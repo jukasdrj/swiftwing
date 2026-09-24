@@ -16,27 +16,36 @@ public enum AnyCodableValue: Codable, Sendable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let v = try? container.decode(String.self) { self = .string(v) }
-        else if let v = try? container.decode(Int.self) { self = .int(v) }
-        else if let v = try? container.decode(Double.self) { self = .double(v) }
-        else if let v = try? container.decode(Bool.self) { self = .bool(v) }
-        else if container.decodeNil() { self = .null }
-        else { self = .null }
+        if let v = try? container.decode(String.self) {
+            self = .string(v)
+        } else if let v = try? container.decode(Int.self) {
+            self = .int(v)
+        } else if let v = try? container.decode(Double.self) {
+            self = .double(v)
+        } else if let v = try? container.decode(Bool.self) {
+            self = .bool(v)
+        } else if container.decodeNil() {
+            self = .null
+        } else {
+            self = .null
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
-        case .string(let v): try container.encode(v)
-        case .int(let v): try container.encode(v)
-        case .double(let v): try container.encode(v)
-        case .bool(let v): try container.encode(v)
+        case let .string(v): try container.encode(v)
+        case let .int(v): try container.encode(v)
+        case let .double(v): try container.encode(v)
+        case let .bool(v): try container.encode(v)
         case .null: try container.encodeNil()
         }
     }
 
     public var stringValue: String? {
-        if case .string(let v) = self { return v }
+        if case let .string(v) = self {
+            return v
+        }
         return nil
     }
 }
@@ -132,26 +141,26 @@ public enum NetworkError: Error {
     public var localizedDescription: String {
         switch self {
         case .noConnection:
-            return "No internet connection available"
+            "No internet connection available"
         case .timeout:
-            return "Request timed out"
-        case .serverError(let code):
-            return "Server error (HTTP \(code))"
+            "Request timed out"
+        case let .serverError(code):
+            "Server error (HTTP \(code))"
         case .invalidResponse:
-            return "Invalid server response"
-        case .rateLimited(let retryAfter):
-            if let retryAfter = retryAfter {
-                return "Rate limited - retry after \(Int(retryAfter))s"
+            "Invalid server response"
+        case let .rateLimited(retryAfter):
+            if let retryAfter {
+                "Rate limited - retry after \(Int(retryAfter))s"
             } else {
-                return "Rate limited - retry later"
+                "Rate limited - retry later"
             }
-        case .apiError(let problem):
-            return problem.detail ?? "Unknown API error"
-        case .scanFailed(let code, let message):
+        case let .apiError(problem):
+            problem.detail ?? "Unknown API error"
+        case let .scanFailed(code, message):
             // The generic fallback code adds no information for the user —
             // surface just the message; real codes (IMAGE_QUALITY_LOW, ...)
             // keep the "CODE: message" shape the UI and tests pin.
-            return code == "SCAN_FAILED" ? message : "\(code): \(message)"
+            code == "SCAN_FAILED" ? message : "\(code): \(message)"
         }
     }
 }
@@ -160,7 +169,9 @@ extension NetworkError: LocalizedError {
     /// Surface the structured message through Error.localizedDescription
     /// (without this, NSError bridging returns a generic "operation couldn't
     /// be completed" string and the server's failure reason never reaches the UI).
-    public var errorDescription: String? { localizedDescription }
+    public var errorDescription: String? {
+        localizedDescription
+    }
 }
 
 // MARK: - Status Enums
@@ -189,8 +200,8 @@ public enum JobStatus: String, Codable, Sendable {
     case canceled
 }
 
-extension JobStatus {
-    public init(from decoder: Decoder) throws {
+public extension JobStatus {
+    init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
 
@@ -403,9 +414,14 @@ public struct BookMetadata: Sendable, Equatable {
     let enrichmentStatus: EnrichmentStatus?
 
     /// Title with fallback for display purposes
-    var resolvedTitle: String { title ?? "Unknown Title" }
+    var resolvedTitle: String {
+        title ?? "Unknown Title"
+    }
+
     /// Author with fallback for display purposes
-    var resolvedAuthor: String { author ?? "Unknown Author" }
+    var resolvedAuthor: String {
+        author ?? "Unknown Author"
+    }
 
     public init(
         title: String? = nil,
@@ -464,7 +480,7 @@ extension BookMetadata: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         title = try container.decodeIfPresent(String.self, forKey: .title)
-        
+
         // Forward-compatible: accept both singular author and plural authors[]
         let authorString = try container.decodeIfPresent(String.self, forKey: .author)
         if let a = authorString {
@@ -474,7 +490,7 @@ extension BookMetadata: Codable {
         } else {
             author = nil
         }
-        
+
         // Guard against placeholder ISBNs: the server currently sends the literal
         // string "unknown" when it cannot resolve an ISBN. Treating that as a real
         // ISBN would poison deduplication keys and the SwiftData unique constraint
@@ -500,7 +516,8 @@ extension BookMetadata: Codable {
            let candidateURL = URL(string: coverUrlString),
            let scheme = candidateURL.scheme?.lowercased(),
            ["http", "https"].contains(scheme),
-           candidateURL.host != nil {
+           candidateURL.host != nil
+        {
             coverUrl = candidateURL
         } else {
             coverUrl = nil
@@ -539,13 +556,14 @@ extension BookMetadata: Codable {
 }
 
 // MARK: - Legacy progress / SSE-shaped types
+
 // Retained for UI callback compatibility after the Talaria 3.9.0 move to HTTP polling.
 // Production path does not open SSE streams.
 
 /// Progress information (historically from SSE; now synthesized during poll)
 public struct ProgressInfo: Sendable, Equatable {
     let message: String
-    let progress: Double?        // 0.0 - 1.0
+    let progress: Double? // 0.0 - 1.0
     let processedCount: Int?
     let totalCount: Int?
 }
@@ -597,30 +615,30 @@ public struct SSEErrorInfo: Codable, Sendable {
 
 /// Historical SSE event union (unused by production poll path; kept for tests/fixtures)
 public enum SSEEvent: Sendable {
-    case progress(ProgressInfo)     // Real-time status with optional progress fraction and counts
-    case result(BookMetadata)       // Book metadata from AI (legacy - some API versions send in stream)
-    case complete(resultsUrl: String?, books: [BookMetadata]?, summary: ScanSummary?, duration: ScanDuration?, truncation: TruncationMetadata?)  // Job finished successfully
-    case error(SSEErrorInfo)        // Job failed with error information
-    case canceled                   // Job was canceled by user or system
-    case segmented(SegmentedPreview)    // Segmented image with detected regions
+    case progress(ProgressInfo) // Real-time status with optional progress fraction and counts
+    case result(BookMetadata) // Book metadata from AI (legacy - some API versions send in stream)
+    case complete(resultsUrl: String?, books: [BookMetadata]?, summary: ScanSummary?, duration: ScanDuration?, truncation: TruncationMetadata?) // Job finished successfully
+    case error(SSEErrorInfo) // Job failed with error information
+    case canceled // Job was canceled by user or system
+    case segmented(SegmentedPreview) // Segmented image with detected regions
     case bookProgress(BookProgressInfo) // Per-book processing progress
     case enrichmentDegraded(EnrichmentDegradedInfo) // Enrichment degraded event
-    case ping                       // SSE keepalive ping
+    case ping // SSE keepalive ping
 }
 
 // MARK: - Progressive Results Types
 
 /// Segmented image preview from backend after initial detection
 public struct SegmentedPreview: Sendable, Codable {
-    let imageData: Data       // JPEG data of annotated image with bounding boxes
-    let totalBooks: Int        // Number of book spines detected
+    let imageData: Data // JPEG data of annotated image with bounding boxes
+    let totalBooks: Int // Number of book spines detected
 }
 
 /// Per-book processing progress update
 public struct BookProgressInfo: Sendable, Codable {
-    let current: Int           // Which book is being processed (1-based)
-    let total: Int             // Total books detected
-    let stage: String?         // Optional stage description
+    let current: Int // Which book is being processed (1-based)
+    let total: Int // Total books detected
+    let stage: String? // Optional stage description
 }
 
 // MARK: - SSE Error
@@ -632,22 +650,22 @@ public enum SSEError: Error, Equatable {
     case connectionFailed
     case unauthorized
     case maxRetriesExceeded
-    case unknownEvent(String)   // Forward-compatibility: unknown event type from server
+    case unknownEvent(String) // Forward-compatibility: unknown event type from server
 
     public var localizedDescription: String {
         switch self {
         case .streamTimeout:
-            return "SSE stream timed out (5 minute maximum)"
+            "SSE stream timed out (5 minute maximum)"
         case .invalidEventFormat:
-            return "Invalid SSE event format"
+            "Invalid SSE event format"
         case .connectionFailed:
-            return "Failed to establish SSE connection"
+            "Failed to establish SSE connection"
         case .unauthorized:
-            return "SSE stream authorization expired"
+            "SSE stream authorization expired"
         case .maxRetriesExceeded:
-            return "Maximum reconnection attempts exceeded"
-        case .unknownEvent(let name):
-            return "Unknown SSE event type: \(name)"
+            "Maximum reconnection attempts exceeded"
+        case let .unknownEvent(name):
+            "Unknown SSE event type: \(name)"
         }
     }
 }
@@ -708,7 +726,9 @@ public struct BookSearchResult: Sendable, Equatable, Codable {
     public let fuzzyMatched: Bool
 
     /// Authors joined for display, matching BookMetadata's singular `author` shape.
-    public var joinedAuthors: String { authors.joined(separator: ", ") }
+    public var joinedAuthors: String {
+        authors.joined(separator: ", ")
+    }
 }
 
 /// Envelope for `GET /v3/books/search`.
@@ -716,4 +736,3 @@ struct BookSearchResponse: Decodable {
     let success: Bool
     let data: BookSearchResult
 }
-

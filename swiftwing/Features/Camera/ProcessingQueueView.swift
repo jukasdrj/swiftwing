@@ -1,6 +1,6 @@
+import os
 import SwiftUI
 import UIKit
-import os
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "processing-queue")
 
@@ -8,7 +8,7 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "pr
 /// Horizontal scrolling view above shutter button
 struct ProcessingQueueView: View {
     let items: [ProcessingItem]
-    let onRetry: (ProcessingItem) -> Void  // US-407: Retry callback for failed items
+    let onRetry: (ProcessingItem) -> Void // US-407: Retry callback for failed items
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -22,7 +22,7 @@ struct ProcessingQueueView: View {
                     }
                     .padding(.horizontal, 16)
                 }
-                .frame(height: 60)  // Accommodate larger thumbnails
+                .frame(height: 60) // Accommodate larger thumbnails
             }
 
             // Count badge (only show if > 3 items)
@@ -45,7 +45,7 @@ struct ProcessingQueueView: View {
 /// 60x90px with state-based border color and progress text overlay
 struct ProcessingThumbnailView: View {
     let item: ProcessingItem
-    let onRetry: (ProcessingItem) -> Void  // US-407: Retry callback
+    let onRetry: (ProcessingItem) -> Void // US-407: Retry callback
 
     var body: some View {
         ZStack {
@@ -130,7 +130,7 @@ struct ProcessingThumbnailView: View {
                         .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .offset(y: 20)  // Position below center
+                .offset(y: 20) // Position below center
                 .accessibilityLabel("Retry processing")
                 .accessibilityHint("Retries the failed book scan")
             }
@@ -138,7 +138,7 @@ struct ProcessingThumbnailView: View {
         .transition(.scale.combined(with: .opacity))
     }
 
-    // Computed property for accessibility description
+    /// Computed property for accessibility description
     private var accessibilityDescription: String {
         var description = "Book scan: "
 
@@ -175,7 +175,7 @@ struct ProcessingThumbnailView: View {
         ProcessingItem(imageData: sampleData, state: .uploading, progressMessage: "Uploading..."),
         ProcessingItem(imageData: sampleData, state: .analyzing, progressMessage: "Looking..."),
         ProcessingItem(imageData: sampleData, state: .done),
-        errorItem
+        errorItem,
     ]
 
     return ZStack {
@@ -187,7 +187,7 @@ struct ProcessingThumbnailView: View {
             ProcessingQueueView(items: items, onRetry: { item in
                 logger.debug("Retry item: \(item.id, privacy: .public)")
             })
-                .padding(.bottom, 140)
+            .padding(.bottom, 140)
         }
     }
     .preferredColorScheme(.dark)

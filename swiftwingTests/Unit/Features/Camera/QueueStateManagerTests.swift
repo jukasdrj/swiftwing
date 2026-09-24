@@ -1,5 +1,5 @@
-import Testing
 @testable import swiftwing
+import Testing
 
 @Suite("QueueStateManager")
 @MainActor

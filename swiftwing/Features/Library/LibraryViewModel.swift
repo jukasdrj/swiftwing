@@ -1,10 +1,11 @@
-import SwiftUI
-import SwiftData
 import os
+import SwiftData
+import SwiftUI
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "library-viewmodel")
 
 // MARK: - Sort Options
+
 enum LibrarySortOption: String, CaseIterable {
     case newestFirst = "Newest First"
     case oldestFirst = "Oldest First"
@@ -14,47 +15,49 @@ enum LibrarySortOption: String, CaseIterable {
     var sortDescriptors: [SortDescriptor<Book>] {
         switch self {
         case .newestFirst:
-            return [SortDescriptor(\Book.addedDate, order: .reverse)]
+            [SortDescriptor(\Book.addedDate, order: .reverse)]
         case .oldestFirst:
-            return [SortDescriptor(\Book.addedDate, order: .forward)]
+            [SortDescriptor(\Book.addedDate, order: .forward)]
         case .titleAZ:
-            return [SortDescriptor(\Book.title, order: .forward)]
+            [SortDescriptor(\Book.title, order: .forward)]
         case .authorAZ:
-            return [SortDescriptor(\Book.author, order: .forward)]
+            [SortDescriptor(\Book.author, order: .forward)]
         }
     }
 
     var icon: String {
         switch self {
         case .newestFirst:
-            return "calendar.badge.clock"
+            "calendar.badge.clock"
         case .oldestFirst:
-            return "calendar"
+            "calendar"
         case .titleAZ:
-            return "textformat"
+            "textformat"
         case .authorAZ:
-            return "person.text.rectangle"
+            "person.text.rectangle"
         }
     }
 }
 
 // MARK: - Library ViewModel
+
 @MainActor
 @Observable
 final class LibraryViewModel {
-
     // MARK: - Sort / Filter State
+
     var searchText: String = ""
     var showReviewNeeded: Bool {
         get { _showReviewNeeded }
         set { _showReviewNeeded = newValue }
     }
+
     var sortOptionRaw: String {
         get { _sortOptionRaw }
         set { _sortOptionRaw = newValue }
     }
 
-    // AppStorage-backed backing properties (bridged via computed vars above)
+    /// AppStorage-backed backing properties (bridged via computed vars above)
     @ObservationIgnored
     @AppStorage("library_sort_option") private var _sortOptionRaw: String = LibrarySortOption.newestFirst.rawValue
     @ObservationIgnored
@@ -65,11 +68,13 @@ final class LibraryViewModel {
     }
 
     // MARK: - Selection State (US-320)
+
     var isSelectionMode: Bool = false
     var selectedBookIDs: Set<UUID> = []
     var showBulkDeleteConfirmation: Bool = false
 
     // MARK: - Sheet / Alert State
+
     var selectedBook: Book?
     var bookToDelete: Book?
     var showDeleteConfirmation: Bool = false
@@ -78,9 +83,11 @@ final class LibraryViewModel {
     var showEmptyLibraryAlert: Bool = false
 
     // MARK: - Refresh State
+
     var isRefreshing: Bool = false
 
     // MARK: - Loading Task Lifecycle
+
     @ObservationIgnored
     private var loadingTask: Task<Void, Never>?
 
@@ -90,38 +97,49 @@ final class LibraryViewModel {
     }
 
     // MARK: - Performance (US-321)
+
     var prefetchCoordinator = LibraryPrefetchCoordinator()
     var renderStartTime: CFAbsoluteTime?
 
     // MARK: - Cached Stats (US-321)
+
     private(set) var cachedUniqueAuthorsCount: Int = 0
     private(set) var cachedReviewNeededCount: Int = 0
     private(set) var cachedMostCommonFormat: String = "N/A"
 
     // MARK: - Cached Filtered Books
+
     private(set) var cachedFilteredBooks: [Book] = []
 
     // MARK: - Derived Properties
 
-    var uniqueAuthorsCount: Int { cachedUniqueAuthorsCount }
-    var reviewNeededCount: Int { cachedReviewNeededCount }
-    var mostCommonFormatText: String { cachedMostCommonFormat }
+    var uniqueAuthorsCount: Int {
+        cachedUniqueAuthorsCount
+    }
+
+    var reviewNeededCount: Int {
+        cachedReviewNeededCount
+    }
+
+    var mostCommonFormatText: String {
+        cachedMostCommonFormat
+    }
 
     func sortedBooks(from books: [Book]) -> [Book] {
         switch sortOption {
         case .newestFirst:
-            return books.sorted { $0.addedDate > $1.addedDate }
+            books.sorted { $0.addedDate > $1.addedDate }
         case .oldestFirst:
-            return books.sorted { $0.addedDate < $1.addedDate }
+            books.sorted { $0.addedDate < $1.addedDate }
         case .titleAZ:
-            return books.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            books.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
         case .authorAZ:
-            return books.sorted { $0.author.localizedStandardCompare($1.author) == .orderedAscending }
+            books.sorted { $0.author.localizedStandardCompare($1.author) == .orderedAscending }
         }
     }
 
     func filteredBooks(from books: [Book]) -> [Book] {
-        if cachedFilteredBooks.isEmpty && searchText.isEmpty && !showReviewNeeded && !books.isEmpty {
+        if cachedFilteredBooks.isEmpty, searchText.isEmpty, !showReviewNeeded, !books.isEmpty {
             return sortedBooks(from: books)
         }
         return cachedFilteredBooks
@@ -144,16 +162,16 @@ final class LibraryViewModel {
 
         var descriptor = FetchDescriptor<Book>()
 
-        if !searchQuery.isEmpty && reviewOnly {
+        if !searchQuery.isEmpty, reviewOnly {
             descriptor.predicate = #Predicate<Book> { book in
                 (book.title.localizedStandardContains(searchQuery) ||
-                 book.author.localizedStandardContains(searchQuery)) &&
-                (book.spineConfidence ?? 1.0) < 0.8
+                    book.author.localizedStandardContains(searchQuery)) &&
+                    (book.spineConfidence ?? 1.0) < 0.8
             }
         } else if !searchQuery.isEmpty {
             descriptor.predicate = #Predicate<Book> { book in
                 book.title.localizedStandardContains(searchQuery) ||
-                book.author.localizedStandardContains(searchQuery)
+                    book.author.localizedStandardContains(searchQuery)
             }
         } else if reviewOnly {
             descriptor.predicate = #Predicate<Book> { book in
@@ -166,10 +184,10 @@ final class LibraryViewModel {
     }
 
     func updateLibraryStats(from books: [Book]) {
-        cachedUniqueAuthorsCount = Set(books.map { $0.author }).count
+        cachedUniqueAuthorsCount = Set(books.map(\.author)).count
         cachedReviewNeededCount = books.lazy.filter { ($0.spineConfidence ?? 1.0) < 0.8 }.count
 
-        let formatCounts = Dictionary(grouping: books.compactMap { $0.format }, by: { $0 })
+        let formatCounts = Dictionary(grouping: books.compactMap(\.format), by: { $0 })
             .mapValues { $0.count }
 
         if let mostCommon = formatCounts.max(by: { $0.value < $1.value }), !books.isEmpty {
@@ -208,7 +226,7 @@ final class LibraryViewModel {
 
     func selectAllBooks(from filteredBooks: [Book]) {
         withAnimation(.swissSpring) {
-            selectedBookIDs = Set(filteredBooks.map { $0.id })
+            selectedBookIDs = Set(filteredBooks.map(\.id))
         }
     }
 

@@ -1,12 +1,11 @@
 import Foundation
-import Testing
 @testable import swiftwing
+import Testing
 
 // MARK: - StreamManager Tests
 
 @Suite("StreamManager")
 struct StreamManagerTests {
-
     // MARK: - Helpers
 
     private func makeManager(maxStreams: Int = 3) -> StreamManager {

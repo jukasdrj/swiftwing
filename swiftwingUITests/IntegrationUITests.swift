@@ -88,11 +88,14 @@ final class IntegrationUITests: SwiftwingUITestCase {
         // App starts on Camera tab with processing in progress
         // Look for processing-related UI text (comes from the processing queue overlay)
         let uploadText = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS[c] %@", "upload")).firstMatch
+            NSPredicate(format: "label CONTAINS[c] %@", "upload")
+        ).firstMatch
         let analyzingText = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS[c] %@", "analyz")).firstMatch
+            NSPredicate(format: "label CONTAINS[c] %@", "analyz")
+        ).firstMatch
         let preprocessingText = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS[c] %@", "preprocess")).firstMatch
+            NSPredicate(format: "label CONTAINS[c] %@", "preprocess")
+        ).firstMatch
 
         // At least one processing state should be visible within 15 seconds
         let sawProcessing = uploadText.waitForExistence(timeout: 15)

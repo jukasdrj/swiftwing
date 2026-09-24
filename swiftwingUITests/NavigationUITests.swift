@@ -3,8 +3,7 @@ import XCTest
 /// Tests for cross-tab navigation and tab bar behavior
 @MainActor
 final class NavigationUITests: SwiftwingUITestCase {
-
-    func testTabSwitching() throws {
+    func testTabSwitching() {
         launchDefault()
 
         // Library tab should be selected by default
@@ -29,7 +28,7 @@ final class NavigationUITests: SwiftwingUITestCase {
         libraryTab.tap()
     }
 
-    func testLibraryBadgeWithSeededData() throws {
+    func testLibraryBadgeWithSeededData() {
         launchWithSeededLibrary()
 
         // Library tab should exist with a badge

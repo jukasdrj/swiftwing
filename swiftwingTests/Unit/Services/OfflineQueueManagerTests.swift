@@ -1,10 +1,10 @@
 import Foundation
-import Testing
 @testable import swiftwing
+import Testing
 
 @Suite("OfflineQueueManager")
 struct OfflineQueueManagerTests {
-    // Create isolated temp directory per test
+    /// Create isolated temp directory per test
     private func createTestQueueDirectory() -> URL {
         let tempDir = FileManager.default.temporaryDirectory
         let testDir = tempDir.appendingPathComponent("OfflineQueueTest-\(UUID().uuidString)", isDirectory: true)
@@ -12,7 +12,7 @@ struct OfflineQueueManagerTests {
         return testDir
     }
 
-    // Clean up temp directory after test
+    /// Clean up temp directory after test
     private func cleanupTestDirectory(_ directory: URL) throws {
         if FileManager.default.fileExists(atPath: directory.path) {
             try FileManager.default.removeItem(at: directory)

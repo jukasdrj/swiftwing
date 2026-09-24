@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import os
+import SwiftData
+import SwiftUI
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "duplicate")
 

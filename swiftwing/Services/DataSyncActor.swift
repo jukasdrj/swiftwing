@@ -1,6 +1,6 @@
 import Foundation
-import SwiftData
 import os
+import SwiftData
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "data-sync")
 
@@ -11,7 +11,6 @@ private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "da
 /// crossing actor boundaries.
 @MainActor
 final class DataSyncActor {
-
     // MARK: - Shared instance
 
     static let shared = DataSyncActor()
@@ -87,7 +86,7 @@ final class DataSyncActor {
     }
 
     private func makeBook(from pending: PendingBookResult) -> Book {
-        return Book(
+        Book(
             title: pending.resolvedTitle,
             author: pending.resolvedAuthor,
             isbn: pending.resolvedISBN,

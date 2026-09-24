@@ -1,11 +1,10 @@
 import Foundation
-import Testing
 @testable import swiftwing
+import Testing
 
 /// Unit tests for Book SwiftData model
 @Suite("BookModel")
 struct BookModelTests {
-
     @Test func bookInitializationWithAllFields() {
         let book = Book(
             title: "Test Book",

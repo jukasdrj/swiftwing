@@ -60,14 +60,13 @@ private func sseLog(_ msg: String) {
 /// - Contract tests: `TalariaContractAdherenceTests`, `ScanResultsResponseContractTests`, `PollScanStatusResilienceTests`
 /// - Documentation: See CLAUDE.md "Swift OpenAPI Generator Integration" section
 actor TalariaService {
-
     // MARK: - Properties
 
     /// URLSession for network operations
     private let urlSession: URLSession
 
     /// Device identifier for API requests
-    nonisolated private let deviceId: String
+    private nonisolated let deviceId: String
 
     /// Base URL for Talaria API (production)
     private let baseURL = "https://api.oooefam.net"
@@ -84,16 +83,16 @@ actor TalariaService {
     init(deviceId: String = UUID().uuidString, session: URLSession? = nil) {
         self.deviceId = deviceId
 
-        if let session = session {
-            self.urlSession = session
+        if let session {
+            urlSession = session
         } else {
             // Configure production URLSession
             let configuration = URLSessionConfiguration.default
             configuration.timeoutIntervalForRequest = 30.0
             configuration.httpAdditionalHeaders = [
-                "User-Agent": Self.userAgent
+                "User-Agent": Self.userAgent,
             ]
-            self.urlSession = URLSession(configuration: configuration)
+            urlSession = URLSession(configuration: configuration)
         }
     }
 
@@ -218,7 +217,7 @@ actor TalariaService {
         }
 
         var request = URLRequest(url: url)
-        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
         request.httpMethod = "GET"
 
         var pollAttempt = 0
@@ -270,7 +269,7 @@ actor TalariaService {
                     case .canceled:
                         throw CancellationError()
                     case .queued, .processing:
-                        break  // still running — keep polling
+                        break // still running — keep polling
                     }
                 default:
                     // Includes the status handler's 404 catch-all on transient
@@ -279,7 +278,9 @@ actor TalariaService {
                 }
             } catch {
                 // Terminal outcomes propagate immediately
-                if error is CancellationError { throw error }
+                if error is CancellationError {
+                    throw error
+                }
                 if let networkError = error as? NetworkError, case .scanFailed = networkError {
                     throw error
                 }
@@ -299,7 +300,9 @@ actor TalariaService {
                 do {
                     return try await fetchPollingResults(jobId: jobId)
                 } catch {
-                    if error is CancellationError { throw error }
+                    if error is CancellationError {
+                        throw error
+                    }
                     resultsFetchFailures += 1
                     e2eLogger.warning("Results fetch failure \(resultsFetchFailures, privacy: .public)/\(maxConsecutiveTransientFailures, privacy: .public) for job \(jobId, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     if resultsFetchFailures > maxConsecutiveTransientFailures {
@@ -326,7 +329,7 @@ actor TalariaService {
         }
 
         var request = URLRequest(url: url)
-        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
         request.httpMethod = "GET"
 
         let (data, response) = try await urlSession.data(for: request)
@@ -371,7 +374,7 @@ actor TalariaService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue(self.deviceId, forHTTPHeaderField: "X-Device-ID")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
 
         do {
             let (data, response) = try await urlSession.data(for: request)

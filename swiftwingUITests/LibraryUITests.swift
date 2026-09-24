@@ -3,8 +3,7 @@ import XCTest
 /// Tests for the Library tab — empty state, seeding, search, sort, filter, detail sheet, selection mode
 @MainActor
 final class LibraryUITests: SwiftwingUITestCase {
-
-    func testEmptyState() throws {
+    func testEmptyState() {
         launchWithEmptyLibrary()
 
         // Should show empty state
@@ -12,7 +11,7 @@ final class LibraryUITests: SwiftwingUITestCase {
         XCTAssertTrue(waitForElement(emptyState), "Empty state should be visible when library is empty")
     }
 
-    func testSeedLibrary() throws {
+    func testSeedLibrary() {
         launchWithSeededLibrary()
 
         // Should show books in the grid (stats header indicates book count)
@@ -20,7 +19,7 @@ final class LibraryUITests: SwiftwingUITestCase {
         XCTAssertTrue(waitForElement(booksStats, timeout: 10), "Library stats should appear after seeding")
     }
 
-    func testSearchFindsBook() throws {
+    func testSearchFindsBook() {
         launchWithSeededLibrary()
 
         // Wait for library to load
@@ -38,7 +37,7 @@ final class LibraryUITests: SwiftwingUITestCase {
         XCTAssertTrue(waitForElement(duneCell, timeout: 10), "Dune should appear in search results")
     }
 
-    func testSearchEmptyState() throws {
+    func testSearchEmptyState() {
         launchWithSeededLibrary()
 
         let booksStats = app.staticTexts["library_stats_books"]
@@ -58,7 +57,7 @@ final class LibraryUITests: SwiftwingUITestCase {
         )
     }
 
-    func testSortMenuExists() throws {
+    func testSortMenuExists() {
         launchWithSeededLibrary()
 
         let booksStats = app.staticTexts["library_stats_books"]
@@ -74,7 +73,7 @@ final class LibraryUITests: SwiftwingUITestCase {
         XCTAssertTrue(waitForElement(titleAZ, timeout: 3), "Sort option 'Title A-Z' should appear in menu")
     }
 
-    func testReviewFilter() throws {
+    func testReviewFilter() {
         launchWithSeededLibrary()
 
         let booksStats = app.staticTexts["library_stats_books"]
@@ -94,7 +93,7 @@ final class LibraryUITests: SwiftwingUITestCase {
         )
     }
 
-    func testBookDetailSheet() throws {
+    func testBookDetailSheet() {
         launchWithSeededLibrary()
 
         let booksStats = app.staticTexts["library_stats_books"]
@@ -110,7 +109,7 @@ final class LibraryUITests: SwiftwingUITestCase {
         XCTAssertTrue(waitForElement(closeButton, timeout: 5), "Detail sheet close button should appear")
     }
 
-    func testSelectMode() throws {
+    func testSelectMode() {
         launchWithSeededLibrary()
 
         let booksStats = app.staticTexts["library_stats_books"]
@@ -130,7 +129,7 @@ final class LibraryUITests: SwiftwingUITestCase {
         XCTAssertTrue(waitForElement(selectButton, timeout: 3), "Select button should reappear after cancelling selection")
     }
 
-    func testExportButton() throws {
+    func testExportButton() {
         launchWithSeededLibrary()
 
         let booksStats = app.staticTexts["library_stats_books"]

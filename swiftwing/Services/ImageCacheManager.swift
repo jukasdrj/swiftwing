@@ -4,31 +4,34 @@ import os
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "image-cache")
 
 // MARK: - Image Cache Manager
+
 /// US-321: Aggressive URLCache configuration and image prefetching for library performance
 /// Implements disk + memory caching with intelligent prefetching for smooth scrolling
 actor ImageCacheManager {
-
     // MARK: - Shared Instance
+
     static let shared = ImageCacheManager()
 
     // MARK: - Properties
+
     // URLSession is Sendable and immutable after initialization, safe for non-isolated access
     private let _urlSession: URLSession
     private var prefetchTasks: [URL: Task<Void, Never>] = [:]
 
-    // Nonisolated accessor for URLSession
-    // Safe because URLSession is Sendable and _urlSession is immutable after init
+    /// Nonisolated accessor for URLSession
+    /// Safe because URLSession is Sendable and _urlSession is immutable after init
     nonisolated var urlSession: URLSession {
         _urlSession
     }
 
     // MARK: - Initialization
+
     private init() {
         // US-321: Configure aggressive URLCache for image caching
         // Memory: 50MB (holds ~50 cover images at 1MB each)
         // Disk: 200MB (holds ~200 cover images)
-        let memoryCapacity = 50 * 1024 * 1024   // 50MB
-        let diskCapacity = 200 * 1024 * 1024    // 200MB
+        let memoryCapacity = 50 * 1024 * 1024 // 50MB
+        let diskCapacity = 200 * 1024 * 1024 // 200MB
 
         let cache = URLCache(
             memoryCapacity: memoryCapacity,
@@ -38,16 +41,17 @@ actor ImageCacheManager {
         // Create URLSession with optimized configuration
         let config = URLSessionConfiguration.default
         config.urlCache = cache
-        config.requestCachePolicy = .returnCacheDataElseLoad  // Prefer cache
-        config.timeoutIntervalForRequest = 30                 // 30s timeout
-        config.waitsForConnectivity = false                   // Don't wait for network
+        config.requestCachePolicy = .returnCacheDataElseLoad // Prefer cache
+        config.timeoutIntervalForRequest = 30 // 30s timeout
+        config.waitsForConnectivity = false // Don't wait for network
 
-        self._urlSession = URLSession(configuration: config)
+        _urlSession = URLSession(configuration: config)
 
         logger.info("US-321: ImageCacheManager initialized - Memory Cache: \(memoryCapacity / 1024 / 1024, privacy: .public)MB, Disk Cache: \(diskCapacity / 1024 / 1024, privacy: .public)MB")
     }
 
     // MARK: - Cache Statistics
+
     /// Get current cache usage statistics (for debugging/logging)
     func getCacheStatistics() -> (memoryUsed: Int, diskUsed: Int) {
         let cache = _urlSession.configuration.urlCache
@@ -70,7 +74,7 @@ actor ImageCacheManager {
     /// - Note: Prefetches in background, does not block caller
     func prefetchImages(urls: [URL]) {
         Task.detached(priority: .utility) { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
 
             await withTaskGroup(of: Void.self) { group in
                 for url in urls {
@@ -101,7 +105,7 @@ actor ImageCacheManager {
         let task = Task {
             do {
                 // Fetch and cache image
-                let (_, _) = try await self._urlSession.data(from: url)
+                let _ = try await self._urlSession.data(from: url)
                 // Data is now cached by URLCache automatically
             } catch {
                 // Silently fail - this is a prefetch, not critical

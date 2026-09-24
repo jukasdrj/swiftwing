@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import swiftwing
+import Testing
 
 /// Book-search-only twin of `SequencedURLProtocol`.
 ///
@@ -8,8 +8,8 @@ import Testing
 /// and Swift Testing's `.serialized` only orders tests within one suite. Two suites
 /// driving the same static state run in parallel and clobber each other's sequence.
 final class BookSearchURLProtocol: URLProtocol {
-    nonisolated(unsafe) private static var responses: [(status: Int, body: Data)] = []
-    nonisolated(unsafe) private(set) static var requestCount = 0
+    private nonisolated(unsafe) static var responses: [(status: Int, body: Data)] = []
+    private(set) nonisolated(unsafe) static var requestCount = 0
     private static let lock = NSLock()
 
     static func script(_ sequence: [(status: Int, body: Data)]) {
@@ -25,8 +25,13 @@ final class BookSearchURLProtocol: URLProtocol {
         return requestCount
     }
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override class func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
 
     override func startLoading() {
         Self.lock.lock()
@@ -54,7 +59,6 @@ final class BookSearchURLProtocol: URLProtocol {
 }
 
 @Suite(.serialized) struct BookSearchTests {
-
     private func makeService() -> TalariaService {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [BookSearchURLProtocol.self]

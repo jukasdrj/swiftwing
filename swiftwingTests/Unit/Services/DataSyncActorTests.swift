@@ -1,6 +1,6 @@
 import SwiftData
-import Testing
 @testable import swiftwing
+import Testing
 
 @Suite("DataSyncActor")
 @MainActor

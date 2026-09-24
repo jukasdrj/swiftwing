@@ -1,5 +1,5 @@
-import SwiftUI
 import AVFoundation
+import SwiftUI
 import UIKit
 
 struct CameraPermissionPrimerView: View {
@@ -54,7 +54,7 @@ struct CameraPermissionPrimerView: View {
             }
         }
         .alert("Camera Access Needed", isPresented: $showPermissionDeniedAlert) {
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) {}
             Button("Open Settings") {
                 if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(settingsURL)

@@ -14,9 +14,8 @@ import Foundation
 /// Update these fixtures when Talaria's schema changes. Use the actual API responses
 /// from production (via curl or API client) as the source of truth.
 enum TalariaContractFixtures {
-    
     // MARK: - Upload Response Fixtures
-    
+
     /// Standard upload response (POST /v3/jobs/scans)
     /// Matches the new JobResponseSchema from Talaria v3.5.0+
     static let uploadResponseJSON = """
@@ -39,9 +38,9 @@ enum TalariaContractFixtures {
       }
     }
     """
-    
+
     // MARK: - BookMetadata Fixtures (results endpoint)
-    
+
     /// Full book payload as returned by GET .../results (ideal case)
     static let bookMetadataFullJSON = """
     {
@@ -61,7 +60,7 @@ enum TalariaContractFixtures {
       }
     }
     """
-    
+
     /// Book payload with plural authors only
     static let bookMetadataPluralAuthorsJSON = """
     {
@@ -81,7 +80,7 @@ enum TalariaContractFixtures {
       }
     }
     """
-    
+
     /// SSE result event with multiple authors (future format)
     static let bookMetadataMultipleAuthorsJSON = """
     {
@@ -101,7 +100,7 @@ enum TalariaContractFixtures {
       }
     }
     """
-    
+
     /// SSE result event with missing title and author (review_needed)
     static let bookMetadataReviewNeededJSON = """
     {
@@ -121,7 +120,7 @@ enum TalariaContractFixtures {
       }
     }
     """
-    
+
     /// SSE result event with enrichment circuit open (graceful degradation)
     static let bookMetadataCircuitOpenJSON = """
     {
@@ -141,7 +140,7 @@ enum TalariaContractFixtures {
       }
     }
     """
-    
+
     /// SSE result event with minimal fields (edge case)
     static let bookMetadataMinimalJSON = """
     {
@@ -154,7 +153,7 @@ enum TalariaContractFixtures {
       "boundingBox": null
     }
     """
-    
+
     /// Saved bodies from shelf job e37676d1-7738-4f54-bac3-8eca5711ca79.
     static func shelfPayload(named name: String) throws -> Data {
         let url = URL(fileURLWithPath: #filePath)
@@ -176,7 +175,7 @@ enum TalariaContractFixtures {
       "confidence": 0.85
     }
     """
-    
+
     /// SSE result event with unexpected type for confidence (resilient decoding)
     static let bookMetadataUnexpectedConfidenceJSON = """
     {
@@ -266,9 +265,8 @@ enum TalariaContractFixtures {
     }
     """
 
-
     // MARK: - Error Response Fixtures
-    
+
     /// RFC 9457 error response (rate limiting)
     static let errorRateLimitedJSON = """
     {
@@ -282,7 +280,7 @@ enum TalariaContractFixtures {
       "retryAfterMs": 30000
     }
     """
-    
+
     /// RFC 9457 error response (invalid request)
     static let errorInvalidRequestJSON = """
     {
@@ -299,7 +297,7 @@ enum TalariaContractFixtures {
       }
     }
     """
-    
+
     /// RFC 9457 error response (server error)
     static let errorServerErrorJSON = """
     {
@@ -313,14 +311,14 @@ enum TalariaContractFixtures {
       "retryAfterMs": 60000
     }
     """
-    
+
     // MARK: - Helper Methods
-    
+
     /// Parse JSON fixture and return Data
     static func data(from json: String) -> Data? {
-        return json.data(using: .utf8)
+        json.data(using: .utf8)
     }
-    
+
     /// Decode fixture to UploadResponse
     static func decodeUploadResponse(from json: String) throws -> UploadResponse {
         guard let data = data(from: json) else {
@@ -328,7 +326,7 @@ enum TalariaContractFixtures {
         }
         return try JSONDecoder().decode(UploadResponse.self, from: data)
     }
-    
+
     /// Decode fixture to BookMetadata
     static func decodeBookMetadata(from json: String) throws -> BookMetadata {
         guard let data = data(from: json) else {
@@ -336,7 +334,7 @@ enum TalariaContractFixtures {
         }
         return try JSONDecoder().decode(BookMetadata.self, from: data)
     }
-    
+
     /// Decode fixture to JobStatusResponse (polling contract)
     static func decodeJobStatusResponse(from json: String) throws -> JobStatusResponse {
         guard let data = data(from: json) else {

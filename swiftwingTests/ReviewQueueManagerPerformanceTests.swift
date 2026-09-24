@@ -1,8 +1,7 @@
-import XCTest
 @testable import swiftwing
+import XCTest
 
 final class ReviewQueueManagerPerformanceTests: XCTestCase {
-
     // Benchmark: Measure standard filter performance (baseline)
     // This simulates the original implementation in ReviewQueueManager.showScanComplete
     func testStandardFilterPerformance() {
@@ -41,7 +40,7 @@ final class ReviewQueueManagerPerformanceTests: XCTestCase {
         XCTAssertEqual(lowStandard, lowLazy, "Low confidence count mismatch")
     }
 
-    // Helper to create large dataset for benchmarking
+    /// Helper to create large dataset for benchmarking
     private func createLargeDataset(count: Int) -> [PendingBookResult] {
         var items: [PendingBookResult] = []
         items.reserveCapacity(count)

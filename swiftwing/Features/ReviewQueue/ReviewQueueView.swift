@@ -42,7 +42,7 @@ struct ReviewQueueView: View {
                 Color.swissBackground.ignoresSafeArea()
 
                 // Content
-                if viewModel.reviewQueueManager.pendingReviewBooks.isEmpty && viewModel.queueStateManager.processingQueue.isEmpty {
+                if viewModel.reviewQueueManager.pendingReviewBooks.isEmpty, viewModel.queueStateManager.processingQueue.isEmpty {
                     emptyStateView
                 } else {
                     ScrollView {
@@ -57,7 +57,8 @@ struct ReviewQueueView: View {
                             if !viewModel.queueStateManager.processingQueue.isEmpty {
                                 SectionHeader(
                                     title: "Processing", count: viewModel.queueStateManager.processingQueue.count,
-                                    color: .internationalOrange)
+                                    color: .internationalOrange
+                                )
                                 ForEach(viewModel.queueStateManager.processingQueue) { item in
                                     Button {
                                         selectedProcessingItem = item
@@ -72,7 +73,8 @@ struct ReviewQueueView: View {
                             if !lowConfidenceBooks.isEmpty {
                                 SectionHeader(
                                     title: "Needs Review", count: lowConfidenceBooks.count,
-                                    color: .red)
+                                    color: .red
+                                )
                                 ForEach(lowConfidenceBooks) { book in
                                     reviewCard(for: book)
                                 }
@@ -82,7 +84,8 @@ struct ReviewQueueView: View {
                             if !mediumConfidenceBooks.isEmpty {
                                 SectionHeader(
                                     title: "Verify", count: mediumConfidenceBooks.count,
-                                    color: .orange)
+                                    color: .orange
+                                )
                                 ForEach(mediumConfidenceBooks) { book in
                                     reviewCard(for: book)
                                 }
@@ -109,7 +112,7 @@ struct ReviewQueueView: View {
                     .refreshable {
                         // US-B3: Pull-to-refresh updates processing states
                         // Note: processingQueue is reactive via @Observable
-                        try? await Task.sleep(for: .milliseconds(100))  // Minimal delay for animation
+                        try? await Task.sleep(for: .milliseconds(100)) // Minimal delay for animation
                     }
                 }
             }
@@ -129,8 +132,7 @@ struct ReviewQueueView: View {
                         rawJSON: nil,
                         modelContext: modelContext
                     )
-                    if let index = viewModel.queueStateManager.processingQueue.firstIndex(where: { $0.id == item.id })
-                    {
+                    if let index = viewModel.queueStateManager.processingQueue.firstIndex(where: { $0.id == item.id }) {
                         let _ = withAnimation(.swissSpring) {
                             viewModel.queueStateManager.processingQueue.remove(at: index)
                         }
@@ -139,7 +141,8 @@ struct ReviewQueueView: View {
             }
             .sheet(item: $selectedBookForOverlay) { book in
                 if let photoURL = book.originalPhotoURL,
-                   let boundingBox = book.metadata.boundingBox {
+                   let boundingBox = book.metadata.boundingBox
+                {
                     BoundingBoxOverlay(
                         photoURL: photoURL,
                         boundingBox: boundingBox,
@@ -224,7 +227,6 @@ struct ReviewQueueView: View {
         }
         .padding()
     }
-
 }
 
 // MARK: - US-B3: Processing Item Row
@@ -238,16 +240,16 @@ struct ProcessingItemRow: View {
         HStack(spacing: 12) {
             // Thumbnail with border color indicating status
             if let thumbnail = UIImage(data: item.thumbnailData) {
-Image(uiImage: thumbnail)
-    .resizable()
-    .aspectRatio(contentMode: .fill)
-    .frame(width: 60, height: 80)
-    .clipped()
-    .clipShape(RoundedRectangle(cornerRadius: 6))
-    .overlay(
-        RoundedRectangle(cornerRadius: 6)
-            .stroke(item.state.borderColor, lineWidth: 2)
-    )
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 60, height: 80)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(item.state.borderColor, lineWidth: 2)
+                    )
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -306,28 +308,28 @@ Image(uiImage: thumbnail)
     private func statusDescription(for state: ProcessingItem.ProcessingState) -> String {
         switch state {
         case .preprocessing:
-            return "Preparing image..."
+            "Preparing image..."
         case .uploading:
-            return "Uploading to AI..."
+            "Uploading to AI..."
         case .analyzing:
-            return "Analyzing book spine..."
+            "Analyzing book spine..."
         case .done:
-            return "Ready for review"
+            "Ready for review"
         case .error:
-            return "Processing failed"
+            "Processing failed"
         case .offline:
-            return "Queued (offline)"
+            "Queued (offline)"
         }
     }
 }
 
-// Section header for confidence grouping with optional batch action
+/// Section header for confidence grouping with optional batch action
 struct SectionHeader: View {
     let title: String
     let count: Int
     let color: Color
-    var actionLabel: String? = nil
-    var onAction: (() -> Void)? = nil
+    var actionLabel: String?
+    var onAction: (() -> Void)?
 
     var body: some View {
         HStack {

@@ -1,11 +1,10 @@
 import Foundation
-import Testing
 @testable import swiftwing
+import Testing
 
 /// Unit tests for LibraryExporter's Hardcover.app CSV import format (US-318)
 @Suite("LibraryExporter")
 struct LibraryExporterTests {
-
     // MARK: - Helpers
 
     /// Noon local time avoids DST/day-boundary flakiness in yyyy-MM-dd formatting.
@@ -112,13 +111,13 @@ struct LibraryExporterTests {
     @Test func minimalBookLeavesOptionalColumnsEmpty() {
         let book = makeBook(isbn: "9780441478125", addedDate: date(2026, 3, 1))
         let row = LibraryExporter.hardcoverRow(for: book)
-        #expect(row[2] == "")            // Series
-        #expect(row[14] == "")           // Pages
-        #expect(row[16] == "")           // Publish Date
-        #expect(row[17] == "")           // Publisher
-        #expect(row[25] == "")           // Date Finished
-        #expect(row[26] == "")           // Rating
-        #expect(row[33] == "")           // Private Notes
+        #expect(row[2] == "") // Series
+        #expect(row[14] == "") // Pages
+        #expect(row[16] == "") // Publish Date
+        #expect(row[17] == "") // Publisher
+        #expect(row[25] == "") // Date Finished
+        #expect(row[26] == "") // Rating
+        #expect(row[33] == "") // Private Notes
     }
 
     // MARK: - ISBN classification
@@ -179,7 +178,7 @@ struct LibraryExporterTests {
 
     // MARK: - Status mapping
 
-    // Parameterized over raw values for stable @Test argument labels.
+    /// Parameterized over raw values for stable @Test argument labels.
     @Test(arguments: [
         ("completed", "Read"),
         ("reading", "Currently Reading"),

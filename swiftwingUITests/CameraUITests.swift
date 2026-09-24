@@ -4,8 +4,7 @@ import XCTest
 /// Note: Camera hardware is not available in Simulator, so tests verify UI elements exist
 @MainActor
 final class CameraUITests: SwiftwingUITestCase {
-
-    func testCameraTabSwitch() throws {
+    func testCameraTabSwitch() {
         launchDefault()
 
         // Switch to Camera tab
@@ -16,7 +15,7 @@ final class CameraUITests: SwiftwingUITestCase {
         XCTAssertTrue(waitForElement(shutterButton, timeout: 5), "Shutter button should exist on camera tab")
     }
 
-    func testShutterButtonExists() throws {
+    func testShutterButtonExists() {
         launchDefault()
 
         switchToTab("Camera")
@@ -29,7 +28,7 @@ final class CameraUITests: SwiftwingUITestCase {
 
     /// The zoom slider and AE/AF lock are pure overlay chrome, so they render in
     /// the Simulator even though neither can actuate without a capture device.
-    func testZoomSliderAndLockControlExist() throws {
+    func testZoomSliderAndLockControlExist() {
         launchDefault()
 
         switchToTab("Camera")
@@ -45,7 +44,7 @@ final class CameraUITests: SwiftwingUITestCase {
 
     /// FORCE_CAMERA_GUIDANCE clears hasSeenCameraGuidance; UI_TESTING otherwise
     /// sets it, so this is the only test that should see the coach overlay.
-    func testFirstRunGuidanceAppearsThenDismisses() throws {
+    func testFirstRunGuidanceAppearsThenDismisses() {
         app.launchArguments.append("FORCE_CAMERA_GUIDANCE")
         launchDefault()
 
@@ -67,7 +66,7 @@ final class CameraUITests: SwiftwingUITestCase {
 
     /// The default UI-testing launch must never show the coach overlay, otherwise
     /// every other camera test runs behind a modal.
-    func testGuidanceSuppressedForNormalUITestLaunch() throws {
+    func testGuidanceSuppressedForNormalUITestLaunch() {
         launchDefault()
 
         switchToTab("Camera")

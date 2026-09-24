@@ -5,17 +5,17 @@ import Foundation
 /// Used by ReviewQueueView for approve/reject workflow
 struct PendingBookResult: Identifiable, Equatable {
     let id: UUID
-    let metadata: BookMetadata      // Original AI result (immutable)
+    let metadata: BookMetadata // Original AI result (immutable)
     let rawJSON: String?
-    let thumbnailData: Data?        // From ProcessingItem for visual reference
+    let thumbnailData: Data? // From ProcessingItem for visual reference
     let scannedDate: Date
     let confidence: Double?
-    let preScannedISBN: String?     // Vision-detected ISBN from barcode scanner
-    let originalPhotoURL: URL?      // Temp file for bounding box overlay
+    let preScannedISBN: String? // Vision-detected ISBN from barcode scanner
+    let originalPhotoURL: URL? // Temp file for bounding box overlay
 
     // Editable overrides (nil = use metadata value)
-    var editedTitle: String?         // NEW
-    var editedAuthor: String?        // NEW
+    var editedTitle: String? // NEW
+    var editedAuthor: String? // NEW
 
     /// Whole-metadata override from a manual `/v3/books/search` lookup.
     /// Kept separate from `metadata` so the original AI result stays available
@@ -23,27 +23,36 @@ struct PendingBookResult: Identifiable, Equatable {
     var recoveredMetadata: BookMetadata?
 
     /// Metadata to display and persist: manual lookup wins over the AI result.
-    var resolvedMetadata: BookMetadata { recoveredMetadata ?? metadata }
+    var resolvedMetadata: BookMetadata {
+        recoveredMetadata ?? metadata
+    }
 
-    // Resolved values (prefer edit over recovery over original)
-    var resolvedTitle: String { editedTitle ?? resolvedMetadata.resolvedTitle }
-    var resolvedAuthor: String { editedAuthor ?? resolvedMetadata.resolvedAuthor }
+    /// Resolved values (prefer edit over recovery over original)
+    var resolvedTitle: String {
+        editedTitle ?? resolvedMetadata.resolvedTitle
+    }
+
+    var resolvedAuthor: String {
+        editedAuthor ?? resolvedMetadata.resolvedAuthor
+    }
 
     /// ISBN resolution: prefer resolved metadata, fall back to Vision barcode, then generate placeholder
-    var resolvedISBN: String { resolvedMetadata.isbn ?? preScannedISBN ?? "UNKNOWN-\(id.uuidString)" }
+    var resolvedISBN: String {
+        resolvedMetadata.isbn ?? preScannedISBN ?? "UNKNOWN-\(id.uuidString)"
+    }
 
     init(metadata: BookMetadata, rawJSON: String?, thumbnailData: Data? = nil, preScannedISBN: String? = nil, originalPhotoURL: URL? = nil) {
-        self.id = UUID()
+        id = UUID()
         self.metadata = metadata
         self.rawJSON = rawJSON
         self.thumbnailData = thumbnailData
-        self.scannedDate = Date()
-        self.confidence = metadata.confidence
+        scannedDate = Date()
+        confidence = metadata.confidence
         self.preScannedISBN = preScannedISBN
         self.originalPhotoURL = originalPhotoURL
-        self.editedTitle = nil
-        self.editedAuthor = nil
-        self.recoveredMetadata = nil
+        editedTitle = nil
+        editedAuthor = nil
+        recoveredMetadata = nil
     }
 
     static func == (lhs: PendingBookResult, rhs: PendingBookResult) -> Bool {

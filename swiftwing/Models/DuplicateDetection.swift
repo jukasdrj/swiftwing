@@ -1,6 +1,6 @@
 import Foundation
-import SwiftData
 import os
+import SwiftData
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "duplicate")
 
@@ -14,8 +14,8 @@ enum DuplicateDetection {
 
         var errorDescription: String? {
             switch self {
-            case .fetchFailed(let error):
-                return "Failed to check for duplicate books: \(error.localizedDescription)"
+            case let .fetchFailed(error):
+                "Failed to check for duplicate books: \(error.localizedDescription)"
             }
         }
     }
@@ -42,7 +42,7 @@ enum DuplicateDetection {
     /// - Throws: DuplicateDetectionError if the database query fails
     static func findDuplicate(isbn: String?, title: String, author: String, in context: ModelContext) throws -> Book? {
         // Fast path: if isbn is non-nil and doesn't start with UNKNOWN-, try exact match
-        if let isbn = isbn, !isbn.hasPrefix("UNKNOWN-") {
+        if let isbn, !isbn.hasPrefix("UNKNOWN-") {
             let predicate = #Predicate<Book> { book in
                 book.isbn == isbn
             }
@@ -64,7 +64,7 @@ enum DuplicateDetection {
         let normalizedAuthor = normalizeForComparison(author)
 
         // Guard against empty normalized values
-        guard !normalizedTitle.isEmpty && !normalizedAuthor.isEmpty else {
+        guard !normalizedTitle.isEmpty, !normalizedAuthor.isEmpty else {
             return nil
         }
 
@@ -76,7 +76,7 @@ enum DuplicateDetection {
             // Find first match by normalized title and author
             return allBooks.first { book in
                 normalizeForComparison(book.title) == normalizedTitle &&
-                normalizeForComparison(book.author) == normalizedAuthor
+                    normalizeForComparison(book.author) == normalizedAuthor
             }
         } catch {
             logger.error("Duplicate detection failed: \(error.localizedDescription, privacy: .public)")
@@ -91,6 +91,6 @@ enum DuplicateDetection {
     /// - Returns: The existing Book if found, nil otherwise
     /// - Throws: DuplicateDetectionError if the database query fails
     static func findDuplicate(isbn: String, in context: ModelContext) throws -> Book? {
-        return try findDuplicate(isbn: isbn, title: "", author: "", in: context)
+        try findDuplicate(isbn: isbn, title: "", author: "", in: context)
     }
 }

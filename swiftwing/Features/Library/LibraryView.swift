@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import os
+import SwiftData
+import SwiftUI
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "library")
 
@@ -17,9 +17,9 @@ struct LibraryView: View {
                     let filtered = viewModel.filteredBooks(from: books)
                     if books.isEmpty {
                         emptyStateView
-                    } else if filtered.isEmpty && !viewModel.searchText.isEmpty {
+                    } else if filtered.isEmpty, !viewModel.searchText.isEmpty {
                         searchEmptyStateView
-                    } else if filtered.isEmpty && viewModel.showReviewNeeded {
+                    } else if filtered.isEmpty, viewModel.showReviewNeeded {
                         reviewNeededEmptyStateView
                     } else {
                         LibraryGridView(
@@ -40,7 +40,7 @@ struct LibraryView: View {
                 .background(Color.swissBackground.ignoresSafeArea())
 
                 // US-320: Bottom toolbar in selection mode
-                if viewModel.isSelectionMode && !viewModel.selectedBookIDs.isEmpty {
+                if viewModel.isSelectionMode, !viewModel.selectedBookIDs.isEmpty {
                     selectionToolbar
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -117,15 +117,16 @@ struct LibraryView: View {
     }
 
     // MARK: - Empty State
+
     private var emptyStateView: some View {
         VStack(spacing: 24) {
-Image(systemName: "books.vertical")
-    .font(.system(size: 80))
-    .foregroundStyle(.swissText)
-    .shadow(color: .white.opacity(0.4), radius: 20, x: 0, y: 8)
-    .background(.ultraThinMaterial)
-    .clipShape(Circle())
-    .accessibilityHidden(true)
+            Image(systemName: "books.vertical")
+                .font(.system(size: 80))
+                .foregroundStyle(.swissText)
+                .shadow(color: .white.opacity(0.4), radius: 20, x: 0, y: 8)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+                .accessibilityHidden(true)
 
             Text("No Books Yet")
                 .font(.title2.bold())
@@ -202,6 +203,7 @@ Image(systemName: "books.vertical")
     }
 
     // MARK: - Search Empty State
+
     private var searchEmptyStateView: some View {
         ContentUnavailableView {
             Label("No Results", systemImage: "magnifyingglass")
@@ -212,6 +214,7 @@ Image(systemName: "books.vertical")
     }
 
     // MARK: - Review Needed Empty State (US-319)
+
     private var reviewNeededEmptyStateView: some View {
         ContentUnavailableView(
             "No Low-Confidence Books",
@@ -222,6 +225,7 @@ Image(systemName: "books.vertical")
     }
 
     // MARK: - Selection Toolbar (US-320)
+
     private var selectionToolbar: some View {
         HStack {
             Button {
@@ -258,6 +262,7 @@ Image(systemName: "books.vertical")
 }
 
 // MARK: - Book Detail Sheet
+
 struct BookDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -461,8 +466,12 @@ struct BookDetailSheet: View {
     }
 
     private func confidenceColor(_ confidence: Double) -> Color {
-        if confidence > 0.8 { return .green }
-        if confidence >= 0.6 { return .yellow }
+        if confidence > 0.8 {
+            return .green
+        }
+        if confidence >= 0.6 {
+            return .yellow
+        }
         return .red
     }
 
@@ -492,6 +501,7 @@ struct BookDetailSheet: View {
 }
 
 // MARK: - Metadata Field Component
+
 struct MetadataField: View {
     let label: String
     @Binding var value: String
@@ -518,18 +528,19 @@ struct MetadataField: View {
 }
 
 // MARK: - UIKit Activity View Controller
+
 struct ActivityViewController: UIViewControllerRepresentable {
     let activityItems: [Any]
     let applicationActivities: [UIActivity]? = nil
 
-    func makeUIViewController(context: Context) -> UIActivityViewController {
+    func makeUIViewController(context _: Context) -> UIActivityViewController {
         UIActivityViewController(
             activityItems: activityItems,
             applicationActivities: applicationActivities
         )
     }
 
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    func updateUIViewController(_: UIActivityViewController, context _: Context) {}
 }
 
 #Preview {

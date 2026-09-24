@@ -1,5 +1,5 @@
-import XCTest
 @testable import swiftwing
+import XCTest
 
 final class ScanResultsResponseContractTests: XCTestCase {
     let fixtureJSON = """
@@ -43,26 +43,26 @@ final class ScanResultsResponseContractTests: XCTestCase {
     """
 
     func test_decodeScanResultsResponse_withEnrichmentStatus_success() throws {
-        let data = fixtureJSON.data(using: .utf8)!
+        let data = try XCTUnwrap(fixtureJSON.data(using: .utf8))
         let response = try JSONDecoder().decode(ScanResultsResponse.self, from: data)
         XCTAssertTrue(response.success)
         XCTAssertEqual(response.data.results.count, 2)
     }
 
     func test_decodeScanResultsResponse_book1_enrichmentStatusSuccess() throws {
-        let data = fixtureJSON.data(using: .utf8)!
+        let data = try XCTUnwrap(fixtureJSON.data(using: .utf8))
         let response = try JSONDecoder().decode(ScanResultsResponse.self, from: data)
         XCTAssertEqual(response.data.results[0].enrichmentStatus, .success)
     }
 
     func test_decodeScanResultsResponse_book2_enrichmentStatusNotFound() throws {
-        let data = fixtureJSON.data(using: .utf8)!
+        let data = try XCTUnwrap(fixtureJSON.data(using: .utf8))
         let response = try JSONDecoder().decode(ScanResultsResponse.self, from: data)
         XCTAssertEqual(response.data.results[1].enrichmentStatus, .notFound)
     }
 
     func test_decodeScanResultsResponse_enrichmentStatusIsNonNil_contractSeam() throws {
-        let data = fixtureJSON.data(using: .utf8)!
+        let data = try XCTUnwrap(fixtureJSON.data(using: .utf8))
         let response = try JSONDecoder().decode(ScanResultsResponse.self, from: data)
         for book in response.data.results {
             XCTAssertNotNil(book.enrichmentStatus, "enrichmentStatus must be non-nil for contract compliance")
@@ -70,7 +70,7 @@ final class ScanResultsResponseContractTests: XCTestCase {
     }
 
     func test_decodeScanResultsResponse_allBooksDecodedSuccessfully() throws {
-        let data = fixtureJSON.data(using: .utf8)!
+        let data = try XCTUnwrap(fixtureJSON.data(using: .utf8))
         let response = try JSONDecoder().decode(ScanResultsResponse.self, from: data)
         XCTAssertEqual(response.data.results[0].isbn, "9780743273565")
         XCTAssertEqual(response.data.results[1].isbn, "UNKNOWN-2024-001")

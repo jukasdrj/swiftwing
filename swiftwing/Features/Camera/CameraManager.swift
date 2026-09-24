@@ -3,7 +3,7 @@ import OSLog
 import QuartzCore
 
 #if canImport(UIKit)
-    import UIKit
+import UIKit
 #endif
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "camera")
@@ -22,10 +22,10 @@ final class CameraManager {
     var resolution: CGSize = .zero
     private var photoOutput: AVCapturePhotoOutput?
     private var videoOutput: AVCaptureVideoDataOutput?
-    private(set) var videoDevice: AVCaptureDevice?  // Exposed for RotationCoordinator
+    private(set) var videoDevice: AVCaptureDevice? // Exposed for RotationCoordinator
     private var isConfigured = false
 
-    // Retain delegates during capture
+    /// Retain delegates during capture
     private var activeDelegates: [Int64: PhotoCaptureDelegate] = [:]
 
     // Orientation handling (iOS 17+: Use RotationCoordinator)
@@ -53,12 +53,13 @@ final class CameraManager {
 
         guard
             let camera = AVCaptureDevice.default(
-                .builtInWideAngleCamera, for: .video, position: .back)
+                .builtInWideAngleCamera, for: .video, position: .back
+            )
         else {
             throw CameraError.noCameraAvailable
         }
 
-        self.videoDevice = camera
+        videoDevice = camera
         let input = try AVCaptureDeviceInput(device: camera)
 
         session.beginConfiguration()
@@ -73,7 +74,7 @@ final class CameraManager {
         let output = AVCapturePhotoOutput()
         if session.canAddOutput(output) {
             session.addOutput(output)
-            self.photoOutput = output
+            photoOutput = output
 
             output.isResponsiveCaptureEnabled = output.isResponsiveCaptureSupported
             output.isFastCapturePrioritizationEnabled = output.isFastCapturePrioritizationSupported
@@ -93,12 +94,12 @@ final class CameraManager {
         }
 
         session.commitConfiguration()
-        self.captureSession = session
-        self.isConfigured = true
+        captureSession = session
+        isConfigured = true
 
         let format = camera.activeFormat.formatDescription
         let dimensions = CMVideoFormatDescriptionGetDimensions(format)
-        self.resolution = CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+        resolution = CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
 
         observeNotifications()
 
@@ -137,7 +138,8 @@ final class CameraManager {
         guard let device = videoDevice else { return }
         self.previewLayer = previewLayer
         rotationCoordinator = AVCaptureDevice.RotationCoordinator(
-            device: device, previewLayer: previewLayer)
+            device: device, previewLayer: previewLayer
+        )
         guard let coordinator = rotationCoordinator else { return }
 
         if let previewConnection = previewLayer.connection {
@@ -185,7 +187,7 @@ final class CameraManager {
     }
 
     func capturePhoto() async throws -> Data {
-        guard let photoOutput = photoOutput else {
+        guard let photoOutput else {
             throw CameraError.photoOutputNotConfigured
         }
         let settings = AVCapturePhotoSettings()
@@ -205,32 +207,32 @@ final class CameraManager {
         }
     }
 
-    // Zoom and Focus methods (unchanged)
+    /// Zoom and Focus methods (unchanged)
     func setZoom(_ factor: CGFloat) {
         #if !os(macOS)
-            guard let device = videoDevice else { return }
-            let clampedFactor = min(max(factor, 1.0), 4.0)
-            do {
-                try device.lockForConfiguration()
-                device.videoZoomFactor = clampedFactor
-                device.unlockForConfiguration()
-                currentZoomFactor = clampedFactor
-            } catch {
-                logger.warning("Failed to configure zoom: \(error.localizedDescription)")
-            }
+        guard let device = videoDevice else { return }
+        let clampedFactor = min(max(factor, 1.0), 4.0)
+        do {
+            try device.lockForConfiguration()
+            device.videoZoomFactor = clampedFactor
+            device.unlockForConfiguration()
+            currentZoomFactor = clampedFactor
+        } catch {
+            logger.warning("Failed to configure zoom: \(error.localizedDescription)")
+        }
         #endif
     }
 
     func setFocusPoint(_ point: CGPoint) {
         guard let device = videoDevice, device.isFocusPointOfInterestSupported,
-            device.isFocusModeSupported(.autoFocus)
+              device.isFocusModeSupported(.autoFocus)
         else { return }
         do {
             try device.lockForConfiguration()
             device.focusPointOfInterest = point
             device.focusMode = .autoFocus
             if device.isExposurePointOfInterestSupported,
-                device.isExposureModeSupported(.autoExpose)
+               device.isExposureModeSupported(.autoExpose)
             {
                 device.exposurePointOfInterest = point
                 device.exposureMode = .autoExpose
@@ -254,8 +256,12 @@ final class CameraManager {
             defer { device.unlockForConfiguration() }
 
             if shouldLock {
-                if device.isFocusModeSupported(.locked) { device.focusMode = .locked }
-                if device.isExposureModeSupported(.locked) { device.exposureMode = .locked }
+                if device.isFocusModeSupported(.locked) {
+                    device.focusMode = .locked
+                }
+                if device.isExposureModeSupported(.locked) {
+                    device.exposureMode = .locked
+                }
             } else {
                 if device.isFocusModeSupported(.continuousAutoFocus) {
                     device.focusMode = .continuousAutoFocus
@@ -270,51 +276,52 @@ final class CameraManager {
         }
     }
 
-    // Notification logic (unchanged)
+    /// Notification logic (unchanged)
     private func observeNotifications() {
         // ... (keep existing implementation)
         // For brevity in this write_to_file, I'm assuming we keep the existing observers
         // Re-implementing them here to ensure file completeness
 
         #if os(iOS)
-            let interruptTask = Task { @MainActor [weak self] in
-                for await notification in NotificationCenter.default.notifications(
-                    named: AVCaptureSession.wasInterruptedNotification)
+        let interruptTask = Task { @MainActor [weak self] in
+            for await notification in NotificationCenter.default.notifications(
+                named: AVCaptureSession.wasInterruptedNotification
+            ) {
+                guard let self else { return }
+                if let reason = notification.userInfo?[AVCaptureSessionInterruptionReasonKey]
+                    as AnyObject?,
+                    let reasonValue = AVCaptureSession.InterruptionReason(
+                        rawValue: reason.integerValue
+                    )
                 {
-                    guard let self else { return }
-                    if let reason = notification.userInfo?[AVCaptureSessionInterruptionReasonKey]
-                        as AnyObject?,
-                        let reasonValue = AVCaptureSession.InterruptionReason(
-                            rawValue: reason.integerValue)
-                    {
-                        self.isInterrupted = [
-                            .audioDeviceInUseByAnotherClient, .videoDeviceInUseByAnotherClient,
-                        ].contains(reasonValue)
-                    }
+                    isInterrupted = [
+                        .audioDeviceInUseByAnotherClient, .videoDeviceInUseByAnotherClient,
+                    ].contains(reasonValue)
                 }
             }
-            notificationTasks.append(interruptTask)
+        }
+        notificationTasks.append(interruptTask)
 
-            let endTask = Task { @MainActor [weak self] in
-                for await _ in NotificationCenter.default.notifications(
-                    named: AVCaptureSession.interruptionEndedNotification)
-                {
-                    self?.isInterrupted = false
-                }
+        let endTask = Task { @MainActor [weak self] in
+            for await _ in NotificationCenter.default.notifications(
+                named: AVCaptureSession.interruptionEndedNotification
+            ) {
+                self?.isInterrupted = false
             }
-            notificationTasks.append(endTask)
+        }
+        notificationTasks.append(endTask)
         #endif
 
         let errorTask = Task { @MainActor [weak self] in
             for await notification in NotificationCenter.default.notifications(
-                named: AVCaptureSession.runtimeErrorNotification)
-            {
+                named: AVCaptureSession.runtimeErrorNotification
+            ) {
                 guard let self else { return }
                 if let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError,
-                    error.code == .mediaServicesWereReset
+                   error.code == .mediaServicesWereReset
                 {
-                    if let session = self.captureSession, !session.isRunning {
-                        self.startSession()
+                    if let session = captureSession, !session.isRunning {
+                        startSession()
                     }
                 }
             }
@@ -327,12 +334,15 @@ final class CameraManager {
 
 private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     private let completion: @Sendable (Result<Data, Error>) -> Void
-    init(completion: @escaping @Sendable (Result<Data, Error>) -> Void) { self.completion = completion }
+    init(completion: @escaping @Sendable (Result<Data, Error>) -> Void) {
+        self.completion = completion
+    }
+
     func photoOutput(
-        _ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto,
+        _: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?
     ) {
-        if let error = error {
+        if let error {
             completion(.failure(error))
             return
         }
@@ -345,15 +355,16 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 }
 
 // MARK: - Errors
+
 enum CameraError: LocalizedError {
     case noCameraAvailable, cannotAddInput, cannotAddOutput, photoOutputNotConfigured
 
     var errorDescription: String? {
         switch self {
-        case .noCameraAvailable: return "No camera device available"
-        case .cannotAddInput: return "Cannot add camera input to session"
-        case .cannotAddOutput: return "Cannot add photo output to session"
-        case .photoOutputNotConfigured: return "Photo output not configured"
+        case .noCameraAvailable: "No camera device available"
+        case .cannotAddInput: "Cannot add camera input to session"
+        case .cannotAddOutput: "Cannot add photo output to session"
+        case .photoOutputNotConfigured: "Photo output not configured"
         }
     }
 }

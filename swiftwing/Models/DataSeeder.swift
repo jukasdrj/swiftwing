@@ -1,6 +1,6 @@
 import Foundation
-import SwiftData
 import os
+import SwiftData
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "data-seeder")
 
@@ -207,7 +207,7 @@ struct DataSeeder {
                 author: "Brian K. Vaughan",
                 isbn: "9781607066019",
                 coverUrl: coverUrl(isbn: "9781607066019")
-            )
+            ),
         ]
 
         // Insert books into context

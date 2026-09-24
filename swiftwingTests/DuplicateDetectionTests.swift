@@ -1,12 +1,11 @@
-import Testing
 import Foundation
 import SwiftData
 @testable import swiftwing
+import Testing
 
 @Suite("DuplicateDetection")
 @MainActor
 struct DuplicateDetectionTests {
-
     private func makeContext() throws -> ModelContext {
         try makeSwiftDataContext()
     }

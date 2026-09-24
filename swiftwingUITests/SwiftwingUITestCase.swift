@@ -4,9 +4,9 @@ import XCTest
 /// Provides common setup, launch configurations, and helper methods
 @MainActor
 class SwiftwingUITestCase: XCTestCase {
-    // XCTest's setUpWithError() override is nonisolated, and XCUIApplication is
-    // main-actor isolated. The property is touched only from setUp and from
-    // @MainActor test methods, both of which run on the main thread.
+    /// XCTest's setUpWithError() override is nonisolated, and XCUIApplication is
+    /// main-actor isolated. The property is touched only from setUp and from
+    /// @MainActor test methods, both of which run on the main thread.
     nonisolated(unsafe) var app: XCUIApplication!
 
     override func setUpWithError() throws {

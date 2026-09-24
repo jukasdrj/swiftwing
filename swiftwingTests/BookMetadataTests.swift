@@ -1,9 +1,8 @@
 import Foundation
-import Testing
 @testable import swiftwing
+import Testing
 
 struct BookMetadataTests {
-
     // MARK: - author / authors field decoding
 
     @Test func decodesAuthorStringField() throws {

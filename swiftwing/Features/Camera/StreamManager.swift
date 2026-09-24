@@ -35,7 +35,6 @@ struct StreamManagerConfig {
 /// // ... perform the upload, then release before the poll ...
 /// ```
 actor StreamManager {
-
     // MARK: - Properties
 
     /// Maximum allowed concurrent scan jobs
@@ -58,7 +57,7 @@ actor StreamManager {
     /// Initialize StreamManager with configuration
     /// - Parameter config: Configuration specifying max concurrent streams
     init(config: StreamManagerConfig = .default) {
-        self.maxConcurrentStreams = config.maxConcurrentStreams
+        maxConcurrentStreams = config.maxConcurrentStreams
     }
 
     // MARK: - Public API
@@ -121,7 +120,8 @@ actor StreamManager {
             let duration = CFAbsoluteTimeGetCurrent() - metrics.startTime
             let durationMs = Int(duration * 1000)
 
-            logger.info("StreamManager Scan \(scanId.uuidString.prefix(8), privacy: .public): Completed in \(durationMs, privacy: .public)ms (Active: \(self.activeStreams, privacy: .public)/\(self.maxConcurrentStreams, privacy: .public), Queue: \(self.pendingScans.count, privacy: .public))")
+            let slots = slotCounts()
+            logger.info("StreamManager Scan \(scanId.uuidString.prefix(8), privacy: .public): Completed in \(durationMs, privacy: .public)ms (Active: \(slots.active, privacy: .public)/\(slots.limit, privacy: .public), Queue: \(slots.waiting, privacy: .public))")
 
             // Remove metrics
             activeMetrics.removeValue(forKey: scanId)
@@ -131,7 +131,8 @@ actor StreamManager {
         if !pendingScans.isEmpty {
             let nextScanId = pendingScans.removeFirst()
             if let continuation = waitingContinuations.removeValue(forKey: nextScanId) {
-                logger.debug("StreamManager Scan \(nextScanId.uuidString.prefix(8), privacy: .public): Dequeued (Active: \(self.activeStreams, privacy: .public)/\(self.maxConcurrentStreams, privacy: .public), Queue: \(self.pendingScans.count, privacy: .public))")
+                let slots = slotCounts()
+                logger.debug("StreamManager Scan \(nextScanId.uuidString.prefix(8), privacy: .public): Dequeued (Active: \(slots.active, privacy: .public)/\(slots.limit, privacy: .public), Queue: \(slots.waiting, privacy: .public))")
 
                 // Grant slot and resume waiting task
                 grantStreamSlot(scanId: nextScanId)
@@ -143,13 +144,13 @@ actor StreamManager {
     /// Get current number of active scan jobs
     /// - Returns: Number of streams currently executing
     func getActiveStreamCount() -> Int {
-        return activeStreams
+        activeStreams
     }
 
     /// Get current queue depth
     /// - Returns: Number of scans waiting in queue
     func getQueueDepth() -> Int {
-        return pendingScans.count
+        pendingScans.count
     }
 
     /// Check whether a specific scan currently owns an active stream slot.
@@ -167,7 +168,12 @@ actor StreamManager {
         let metrics = ScanMetrics(scanId: scanId, startTime: CFAbsoluteTimeGetCurrent())
         activeMetrics[scanId] = metrics
 
-        logger.info("StreamManager Scan \(scanId.uuidString.prefix(8), privacy: .public): Started (Active: \(self.activeStreams, privacy: .public)/\(self.maxConcurrentStreams, privacy: .public), Queue: \(self.pendingScans.count, privacy: .public))")
+        let slots = slotCounts()
+        logger.info("StreamManager Scan \(scanId.uuidString.prefix(8), privacy: .public): Started (Active: \(slots.active, privacy: .public)/\(slots.limit, privacy: .public), Queue: \(slots.waiting, privacy: .public))")
+    }
+
+    private func slotCounts() -> (active: Int, limit: Int, waiting: Int) {
+        (activeStreams, maxConcurrentStreams, pendingScans.count)
     }
 }
 

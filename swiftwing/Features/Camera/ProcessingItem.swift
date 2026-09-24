@@ -6,30 +6,30 @@ import UIKit
 /// Used for live UI feedback during image capture and processing
 struct ProcessingItem: Identifiable, Equatable {
     let id: UUID
-    let thumbnailData: Data  // Pre-processed 60x90px thumbnail for performance
+    let thumbnailData: Data // Pre-processed 60x90px thumbnail for performance
     let captureDate: Date
     var state: ProcessingState
-    var progressMessage: String?  // Real-time progress text from SSE (e.g., "Looking...", "Reading...")
-    var errorMessage: String?     // Error message for failed scans (US-407)
-    var originalImageData: Data?  // Original full-size image for retry (US-407)
-    var tempFileURL: URL?  // Temporary JPEG file URL for cleanup (US-406)
-    var jobId: String?     // Talaria job ID for server cleanup (US-406)
-    var preScannedISBN: String? = nil  // Vision-detected ISBN from barcode scanner
-    var currentBookIndex: Int?   // Current book being processed in multi-book scan (Task 5)
+    var progressMessage: String? // Real-time progress text from SSE (e.g., "Looking...", "Reading...")
+    var errorMessage: String? // Error message for failed scans (US-407)
+    var originalImageData: Data? // Original full-size image for retry (US-407)
+    var tempFileURL: URL? // Temporary JPEG file URL for cleanup (US-406)
+    var jobId: String? // Talaria job ID for server cleanup (US-406)
+    var preScannedISBN: String? // Vision-detected ISBN from barcode scanner
+    var currentBookIndex: Int? // Current book being processed in multi-book scan (Task 5)
 
-    // Book metadata from Talaria result (populated when SSE returns .result or .complete)
+    /// Book metadata from Talaria result (populated when SSE returns .result or .complete)
     var bookMetadata: BookMetadata?
 
     init(imageData: Data, state: ProcessingState = .preprocessing, progressMessage: String? = nil) {
-        self.id = UUID()
-        self.thumbnailData = Self.generateThumbnail(from: imageData)
-        self.captureDate = Date()
+        id = UUID()
+        thumbnailData = Self.generateThumbnail(from: imageData)
+        captureDate = Date()
         self.state = state
         self.progressMessage = progressMessage
-        self.errorMessage = nil
-        self.originalImageData = imageData  // Store for retry (US-407)
-        self.tempFileURL = nil
-        self.jobId = nil
+        errorMessage = nil
+        originalImageData = imageData // Store for retry (US-407)
+        tempFileURL = nil
+        jobId = nil
     }
 
     /// Generates optimized 60x90px thumbnail from full image data
@@ -45,13 +45,12 @@ struct ProcessingItem: Identifiable, Equatable {
         let aspectRatio = size.width / size.height
         let thumbnailAspectRatio = targetSize.width / targetSize.height
 
-        let newSize: CGSize
-        if aspectRatio > thumbnailAspectRatio {
+        let newSize = if aspectRatio > thumbnailAspectRatio {
             // Wider than target - fit height
-            newSize = CGSize(width: targetSize.height * aspectRatio, height: targetSize.height)
+            CGSize(width: targetSize.height * aspectRatio, height: targetSize.height)
         } else {
             // Taller than target - fit width
-            newSize = CGSize(width: targetSize.width, height: targetSize.width / aspectRatio)
+            CGSize(width: targetSize.width, height: targetSize.width / aspectRatio)
         }
 
         // Render thumbnail
@@ -65,27 +64,27 @@ struct ProcessingItem: Identifiable, Equatable {
     }
 
     enum ProcessingState: Equatable {
-        case preprocessing  // Purple border - preprocessing
-        case uploading      // Yellow border - uploading image to Talaria
-        case analyzing      // Blue border - AI is analyzing the book spine
-        case done           // Green border - successfully identified
-        case error          // Red border - processing failed
-        case offline        // Gray border - queued for upload when network returns (US-409)
+        case preprocessing // Purple border - preprocessing
+        case uploading // Yellow border - uploading image to Talaria
+        case analyzing // Blue border - AI is analyzing the book spine
+        case done // Green border - successfully identified
+        case error // Red border - processing failed
+        case offline // Gray border - queued for upload when network returns (US-409)
 
         var borderColor: Color {
             switch self {
             case .preprocessing:
-                return .purple
+                .purple
             case .uploading:
-                return .yellow
+                .yellow
             case .analyzing:
-                return .blue
+                .blue
             case .done:
-                return .green
+                .green
             case .error:
-                return .red
+                .red
             case .offline:
-                return .gray
+                .gray
             }
         }
     }

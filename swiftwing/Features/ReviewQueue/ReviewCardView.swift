@@ -29,8 +29,8 @@ struct ReviewCardView: View {
         self.onEdit = onEdit
         self.onShowOverlay = onShowOverlay
         self.onManualLookup = onManualLookup
-        self._editedTitle = State(initialValue: book.resolvedTitle)
-        self._editedAuthor = State(initialValue: book.resolvedAuthor)
+        _editedTitle = State(initialValue: book.resolvedTitle)
+        _editedAuthor = State(initialValue: book.resolvedAuthor)
     }
 
     /// Enrichment left this book without usable metadata, so a manual lookup is
@@ -44,7 +44,8 @@ struct ReviewCardView: View {
         HStack(alignment: .top, spacing: 12) {
             // Thumbnail (if available from processing item)
             if let thumbData = book.thumbnailData,
-               let thumbnail = UIImage(data: thumbData) {
+               let thumbnail = UIImage(data: thumbData)
+            {
                 Image(uiImage: thumbnail)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -169,11 +170,11 @@ struct ReviewCardView: View {
 
     private func confidenceDisplay(_ confidence: Double) -> (String, Color, String) {
         if confidence >= 0.8 {
-            return ("checkmark.circle.fill", .green, "\(Int(confidence * 100))%")
+            ("checkmark.circle.fill", .green, "\(Int(confidence * 100))%")
         } else if confidence >= 0.5 {
-            return ("exclamationmark.triangle.fill", .orange, "\(Int(confidence * 100))%")
+            ("exclamationmark.triangle.fill", .orange, "\(Int(confidence * 100))%")
         } else {
-            return ("xmark.octagon.fill", .red, "\(Int(confidence * 100))%")
+            ("xmark.octagon.fill", .red, "\(Int(confidence * 100))%")
         }
     }
 }

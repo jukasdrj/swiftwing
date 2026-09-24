@@ -1,11 +1,12 @@
 import SwiftUI
 
 // MARK: - Book Grid Cell
+
 struct BookGridCell: View {
     let book: Book
     var isSelectionMode: Bool = false
     var isSelected: Bool = false
-    var onDelete: (() -> Void)? = nil
+    var onDelete: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -35,7 +36,7 @@ struct BookGridCell: View {
                 }
 
                 // Delete button overlay (top-right)
-                if !isSelectionMode, let onDelete = onDelete {
+                if !isSelectionMode, let onDelete {
                     HStack {
                         Spacer()
                         Button(action: onDelete) {

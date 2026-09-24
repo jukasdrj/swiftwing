@@ -64,7 +64,7 @@ actor ScanJobCoordinator {
 
     // MARK: - Job Tracking
 
-    func trackJob<Success: Sendable>(id: UUID, task: Task<Success, Never>) {
+    func trackJob(id: UUID, task: Task<some Sendable, Never>) {
         activeJobs[id] = { task.cancel() }
     }
 
@@ -90,7 +90,7 @@ actor ScanJobCoordinator {
     /// Poll scan status from Talaria backend and dispatch results to callbacks.
     /// Returns the number of distinct books delivered from this job.
     func streamAndProcess(
-        deviceId: String,
+        deviceId _: String,
         jobId: String,
         thumbnailData: Data?,
         callbacks: ScanJobCallbacks
@@ -125,12 +125,12 @@ actor ScanJobCoordinator {
 
                 await callbacks.onBookMetadataReceived(book)
 
-                let rawJSON: String?
-                if let jsonData = try? JSONEncoder().encode(book),
-                   let jsonString = String(data: jsonData, encoding: .utf8) {
-                    rawJSON = jsonString
+                let rawJSON: String? = if let jsonData = try? JSONEncoder().encode(book),
+                                          let jsonString = String(data: jsonData, encoding: .utf8)
+                {
+                    jsonString
                 } else {
-                    rawJSON = nil
+                    nil
                 }
 
                 await callbacks.onBookResult(book, rawJSON, nil, nil)
@@ -187,7 +187,7 @@ actor ScanJobCoordinator {
 
     // MARK: - Cancellation
 
-    func cancelAllJobs(processingQueue: [ProcessingItem]) async {
+    func cancelAllJobs(processingQueue _: [ProcessingItem]) async {
         let jobCount = activeJobs.count
         guard jobCount > 0 else { return }
 
@@ -200,7 +200,9 @@ actor ScanJobCoordinator {
         activeJobs.removeAll()
 
         // Cancel any previously running cleanup tasks
-        for task in cleanupTasks { task.cancel() }
+        for task in cleanupTasks {
+            task.cancel()
+        }
         cleanupTasks.removeAll()
     }
 

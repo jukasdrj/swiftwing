@@ -1,13 +1,12 @@
-import XCTest
 @testable import swiftwing
+import XCTest
 
 final class PerformanceBenchmarkTests: XCTestCase {
-
     struct TestBook {
         let spineConfidence: Double?
     }
 
-    // Measure baseline performance using filter
+    /// Measure baseline performance using filter
     func testFilterPerformance() {
         let books = (0..<1_000_000).map { _ in TestBook(spineConfidence: Double.random(in: 0...1)) }
 
@@ -17,7 +16,7 @@ final class PerformanceBenchmarkTests: XCTestCase {
         }
     }
 
-    // Measure optimized performance using lazy filter
+    /// Measure optimized performance using lazy filter
     func testLazyFilterPerformance() {
         let books = (0..<1_000_000).map { _ in TestBook(spineConfidence: Double.random(in: 0...1)) }
 
