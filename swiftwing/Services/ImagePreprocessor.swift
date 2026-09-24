@@ -9,7 +9,6 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import ImageIO
 import os
-import UIKit
 import UniformTypeIdentifiers
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "image-preprocessor")
@@ -45,22 +44,16 @@ actor ImagePreprocessor {
     func preprocess(_ imageData: Data) async -> PreprocessingResult {
         let startTime = CFAbsoluteTimeGetCurrent()
 
-        guard let uiImage = UIImage(data: imageData),
-              let cgImage = uiImage.cgImage
-        else {
-            return PreprocessingResult(
-                processedData: imageData,
-                wasRotated: false,
-                brightnessAdjustment: 0,
-                processingTimeMs: 0
-            )
-        }
-
         // Capture context before entering the detached task (CIContext is thread-safe)
         let context = ciContext
 
         let (outputData, wasRotated, brightnessAdj) = await Task.detached(priority: .userInitiated) {
-            var ciImage = CIImage(cgImage: cgImage)
+            guard let source = CIImage(data: imageData) else {
+                return (imageData, false, Float(0))
+            }
+            // Upright pixels before the bookshelf check, so that check sees the photo
+            // the user shot, not the sensor buffer.
+            var ciImage = ImagePreprocessor.uprightPixels(source)
 
             // Step 1: Rotation detection and correction
             let wasRotated = ImagePreprocessor.detectAndCorrectRotation(&ciImage)
@@ -91,6 +84,22 @@ actor ImagePreprocessor {
     }
 
     // MARK: - Private Filter Methods (nonisolated static — safe to call from detached tasks)
+
+    /// Apply the EXIF orientation to the pixels. Tag 1 is left alone.
+    /// The JPEG writer then stores those pixels with an upright tag, so the
+    /// upload thumbnail pass does not rotate them a second time.
+    private static func uprightPixels(_ image: CIImage) -> CIImage {
+        let raw = image.properties[kCGImagePropertyOrientation as String]
+        let exif: Int32? = if let number = raw as? NSNumber {
+            number.int32Value
+        } else if let number = raw as? Int {
+            Int32(number)
+        } else {
+            nil
+        }
+        guard let exif, exif != 1 else { return image }
+        return image.oriented(forExifOrientation: exif)
+    }
 
     /// Detect vertical bookshelf orientation and rotate 90° CCW if needed
     /// Returns true if rotation was applied
@@ -330,25 +339,43 @@ actor ImagePreprocessor {
         return fileURL
     }
 
-    /// Render CIImage to JPEG Data with specified quality
+    /// Render CIImage to JPEG Data with specified quality.
+    /// Pixels are written upright (orientation tag 1). `jpegRepresentation` copies a
+    /// stale EXIF tag onto pixels that were already rotated, and the upload pass
+    /// would apply that tag again.
     private static func renderToJPEG(_ image: CIImage, context: CIContext, quality: CGFloat) -> Data? {
-        // Primary method: Use CIContext JPEG representation
         let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
-        if let jpegData = context.jpegRepresentation(
-            of: image,
-            colorSpace: colorSpace,
-            options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality]
-        ) {
+        let extent = image.extent.integral
+        if !extent.isInfinite, !extent.isNull, !extent.isEmpty,
+           let cgImage = context.createCGImage(image, from: extent, format: .RGBA8, colorSpace: colorSpace),
+           let jpegData = jpegData(cgImage, quality: quality)
+        {
             return jpegData
         }
 
-        // Fallback: Render to CGImage then UIImage JPEG
         guard let cgImage = context.createCGImage(image, from: image.extent) else {
             logger.error("Failed to create CGImage from CIImage")
             return nil
         }
+        return jpegData(cgImage, quality: quality)
+    }
 
-        let uiImage = UIImage(cgImage: cgImage)
-        return uiImage.jpegData(compressionQuality: quality)
+    private static func jpegData(_ cgImage: CGImage, quality: CGFloat) -> Data? {
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            output,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else {
+            return nil
+        }
+        let options: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: quality,
+            kCGImagePropertyOrientation: 1,
+        ]
+        CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return output as Data
     }
 }

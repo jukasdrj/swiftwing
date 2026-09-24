@@ -423,6 +423,35 @@ public struct BookMetadata: Sendable, Equatable {
         author ?? "Unknown Author"
     }
 
+    /// Author safe to send to `GET /v3/books/search`.
+    /// A placeholder such as "Unknown Author" means the title was read and the
+    /// author was not. Sending that placeholder with the title makes the lookup miss.
+    var authorForManualSearch: String? {
+        Self.manualSearchField(author, dropping: Self.unknownAuthorPlaceholders)
+    }
+
+    static let unknownAuthorPlaceholders: Set<String> = [
+        "unknown",
+        "unknown author",
+        "author unknown",
+    ]
+
+    /// Trimmed field value, or nil when it is blank or one of `placeholders`.
+    static func manualSearchField(_ raw: String?, dropping placeholders: Set<String>) -> String? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let token = trimmed
+            .lowercased()
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .punctuationCharacters)
+        if placeholders.contains(token) {
+            return nil
+        }
+        return trimmed
+    }
+
     public init(
         title: String? = nil,
         author: String? = nil,

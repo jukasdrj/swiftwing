@@ -25,14 +25,29 @@ struct ManualLookupSheet: View {
         self.book = book
         self.talariaService = talariaService
         self.onApply = onApply
-        // Seed from whatever the scan did manage to read.
+        // Seed from whatever the scan did manage to read. A placeholder author
+        // ("Unknown Author") is left blank so the search can match on title alone.
         _title = State(initialValue: book.resolvedMetadata.title ?? "")
-        _author = State(initialValue: book.resolvedMetadata.author ?? "")
+        _author = State(initialValue: book.resolvedMetadata.authorForManualSearch ?? "")
         _isbn = State(initialValue: book.resolvedMetadata.isbn ?? book.preScannedISBN ?? "")
     }
 
+    private var titleQuery: String? {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private var authorQuery: String? {
+        BookMetadata.manualSearchField(author, dropping: BookMetadata.unknownAuthorPlaceholders)
+    }
+
+    private var isbnQuery: String? {
+        let trimmed = isbn.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     private var canSearch: Bool {
-        !isSearching && [title, author, isbn].contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        !isSearching && [titleQuery, authorQuery, isbnQuery].contains { $0 != nil }
     }
 
     var body: some View {
@@ -114,9 +129,9 @@ struct ManualLookupSheet: View {
 
         do {
             result = try await talariaService.searchBook(
-                isbn: isbn.isEmpty ? nil : isbn,
-                title: title.isEmpty ? nil : title,
-                author: author.isEmpty ? nil : author
+                isbn: isbnQuery,
+                title: titleQuery,
+                author: authorQuery
             )
         } catch let NetworkError.apiError(problem) where problem.status == 404 {
             message = "No match found. Try a different spelling, or search by ISBN."

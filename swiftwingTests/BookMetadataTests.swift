@@ -33,6 +33,28 @@ struct BookMetadataTests {
         let metadata = try JSONDecoder().decode(BookMetadata.self, from: data)
         #expect(metadata.author == nil)
         #expect(metadata.resolvedAuthor == "Unknown Author")
+        #expect(metadata.authorForManualSearch == nil)
+    }
+
+    @Test(arguments: [
+        "unknown",
+        "Unknown",
+        "UNKNOWN",
+        "unknown author",
+        "Unknown Author",
+        "  Unknown Author  ",
+        "author unknown",
+        "Unknown Author.",
+    ])
+    func placeholderAuthorIsOmittedFromManualSearch(_ raw: String) {
+        let metadata = BookMetadata(title: "Dune", author: raw)
+        #expect(metadata.authorForManualSearch == nil)
+        #expect(BookMetadata.manualSearchField(raw, dropping: BookMetadata.unknownAuthorPlaceholders) == nil)
+    }
+
+    @Test func realAuthorIsKeptForManualSearch() {
+        let metadata = BookMetadata(title: "Dune", author: "Frank Herbert")
+        #expect(metadata.authorForManualSearch == "Frank Herbert")
     }
 
     // MARK: - publicationYear int/string conversion
