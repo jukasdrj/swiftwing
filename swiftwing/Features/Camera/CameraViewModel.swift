@@ -91,6 +91,9 @@ final class CameraViewModel {
     /// How long a finished on-device row stays in the processing queue.
     var queueRemovalDelay: TimeInterval = 5
 
+    /// Live viewfinder text. Updated from the video output, not the shutter path.
+    var liveTextObservations: [LiveTextObservation] = []
+
     // MARK: - Capture Throttle
     private var activeCaptureCount = 0
     private let maxConcurrentCaptures = 5
@@ -160,6 +163,7 @@ final class CameraViewModel {
 
             // Start session on background thread (non-blocking)
             cameraManager.startSession()
+            startLiveText()
 
             // Cancel the deferred loading task — setup finished before it could fire
             loadingTask.cancel()
@@ -183,7 +187,17 @@ final class CameraViewModel {
     }
 
     func stopCamera() {
+        cameraManager.setLiveTextHandler(nil)
+        liveTextObservations = []
         cameraManager.stopSession()
+    }
+
+    private func startLiveText() {
+        cameraManager.setLiveTextHandler { [weak self] observations in
+            Task { @MainActor in
+                self?.liveTextObservations = observations
+            }
+        }
     }
 
     /// Configure rotation coordinator after preview layer is available

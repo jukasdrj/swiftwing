@@ -12,6 +12,7 @@ struct CameraOverlayView: View {
 
     var body: some View {
         ZStack {
+            liveTextOverlay
             feedbackOverlays
             bannerOverlays
             statusOverlays
@@ -27,6 +28,36 @@ struct CameraOverlayView: View {
     /// slider shares that space, so it yields rather than stacking underneath.
     private var hasBottomOverlay: Bool {
         viewModel.reviewQueueManager.scanCompleteBanner != nil
+    }
+
+    /// Live OCR boxes over the aspect-filled preview. They do not receive taps.
+    private var liveTextOverlay: some View {
+        GeometryReader { geo in
+            let frameAspect = viewModel.cameraManager.displayedFrameAspect
+            let viewAspect = geo.size.height > 0 ? geo.size.width / geo.size.height : 0
+            if frameAspect > 0, viewAspect > 0 {
+                ForEach(viewModel.liveTextObservations) { observation in
+                    let rect = LiveTextGeometry.overlayRect(
+                        visionBottomLeft: observation.visionBottomLeft,
+                        frameAspect: frameAspect,
+                        viewAspect: viewAspect
+                    )
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.internationalOrange, lineWidth: 2)
+                        .frame(
+                            width: rect.width * geo.size.width,
+                            height: rect.height * geo.size.height
+                        )
+                        .position(
+                            x: rect.midX * geo.size.width,
+                            y: rect.midY * geo.size.height
+                        )
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     // MARK: - Loading, Error, Flash, Focus, Processing Overlays
