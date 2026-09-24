@@ -20,6 +20,21 @@ struct OnDeviceScannerTests {
         #expect(outcome.ocrText == "Local Title\nLocal Author")
     }
 
+    @Test func assemblePrefersACompleteModelExtraction() {
+        let outcome = OnDeviceMetadataAssembler.assemble(
+            title: "Heuristic Title",
+            author: "Heuristic Author",
+            isbn: nil,
+            ocrLines: ["Heuristic Title", "Heuristic Author"],
+            extraction: BookExtraction(title: "Model Title", author: "Model Author")
+        )
+
+        #expect(outcome.metadata.title == "Model Title")
+        #expect(outcome.metadata.author == "Model Author")
+        #expect(outcome.metadata.confidence == nil)
+        #expect(outcome.metadata.enrichmentStatus == .success)
+    }
+
     @Test func assembleMarksMissingAuthorForReview() {
         let outcome = OnDeviceMetadataAssembler.assemble(
             title: "Local Title",

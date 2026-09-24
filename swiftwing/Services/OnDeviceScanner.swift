@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import FoundationModels
 import ImageIO
 import os
 import Vision
@@ -68,10 +69,20 @@ enum OnDeviceMetadataAssembler {
         title: String?,
         author: String?,
         isbn: String?,
-        ocrLines: [String]
+        ocrLines: [String],
+        extraction: BookExtraction? = nil
     ) -> OnDeviceScanOutcome {
-        let cleanTitle = nonempty(title)
-        let cleanAuthor = nonempty(author)
+        let modelTitle = nonempty(extraction?.title)
+        let modelAuthor = nonempty(extraction?.author)
+        let cleanTitle: String?
+        let cleanAuthor: String?
+        if let modelTitle, let modelAuthor {
+            cleanTitle = modelTitle
+            cleanAuthor = modelAuthor
+        } else {
+            cleanTitle = nonempty(title)
+            cleanAuthor = nonempty(author)
+        }
         let status: EnrichmentStatus = (cleanTitle == nil || cleanAuthor == nil) ? .reviewNeeded : .success
         let joined = ocrLines
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -108,20 +119,31 @@ enum OnDeviceMetadataAssembler {
 
 actor OnDeviceScanner: BookSpineExtracting {
     func extract(_ imageData: Data) async throws -> OnDeviceScanOutcome {
-        let lines = try recognizeText(in: imageData)
-        let isbn = detectBarcode(in: imageData)
+        let image = try cgImage(from: imageData)
+        let lines = try recognizeLines(in: image)
+        let isbn = barcodePayload(in: image)
         let texts = lines.map(\.text)
         let guessed = SpineHeuristic.titleAndAuthor(from: texts)
+        let extraction = await disambiguate(lines: texts, image: image)
         return OnDeviceMetadataAssembler.assemble(
             title: guessed.title,
             author: guessed.author,
             isbn: isbn,
-            ocrLines: texts
+            ocrLines: texts,
+            extraction: extraction
         )
     }
 
     func recognizeText(in imageData: Data) throws -> [RecognizedLine] {
-        let image = try cgImage(from: imageData)
+        try recognizeLines(in: try cgImage(from: imageData))
+    }
+
+    func detectBarcode(in imageData: Data) -> String? {
+        guard let image = try? cgImage(from: imageData) else { return nil }
+        return barcodePayload(in: image)
+    }
+
+    private func recognizeLines(in image: CGImage) throws -> [RecognizedLine] {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
@@ -136,8 +158,7 @@ actor OnDeviceScanner: BookSpineExtracting {
         }
     }
 
-    func detectBarcode(in imageData: Data) -> String? {
-        guard let image = try? cgImage(from: imageData) else { return nil }
+    private func barcodePayload(in image: CGImage) -> String? {
         let request = VNDetectBarcodesRequest()
         request.symbologies = [.ean13, .ean8]
         let handler = VNImageRequestHandler(cgImage: image, options: [:])
@@ -148,6 +169,35 @@ actor OnDeviceScanner: BookSpineExtracting {
             return nil
         }
         return request.results?.compactMap(\.payloadStringValue).first
+    }
+
+    /// Foundation Models only when Apple Intelligence is available. Any failure keeps the OCR heuristic.
+    private func disambiguate(lines: [String], image: CGImage) async -> BookExtraction? {
+        guard case .available = SystemLanguageModel.default.availability else {
+            return nil
+        }
+        let transcript = lines.joined(separator: "\n")
+        let instructions = """
+        The OCR lines from this book spine are:
+        \(transcript)
+        Identify the book's title and author in the image.
+        """
+        do {
+            let session = LanguageModelSession()
+            let response = try await session.respond(
+                generating: BookExtraction.self,
+                options: GenerationOptions(samplingMode: .greedy)
+            ) {
+                instructions
+                Attachment(image)
+            }
+            let content = response.content
+            guard !content.title.isEmpty, !content.author.isEmpty else { return nil }
+            return content
+        } catch {
+            logger.error("On-device model failed: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     private func cgImage(from imageData: Data) throws -> CGImage {

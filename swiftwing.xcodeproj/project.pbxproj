@@ -36,6 +36,7 @@
 		9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */; };
 		A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */; };
 		A15CA4E0000000000000B001 /* ScanModeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15CA4E0000000000000F001 /* ScanModeSettings.swift */; };
+		C0EEB000000000000000B001 /* BookExtraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0EEB000000000000000F001 /* BookExtraction.swift */; };
 		B0DE7C00000000000000B001 /* OnDeviceScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0DE7C00000000000000F001 /* OnDeviceScanner.swift */; };
 		A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A589308A2F26D83900629770 /* CameraViewModel.swift */; };
 		A5A480302F23C145006CD05C /* LibraryPrefetchCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A4802F2F23C145006CD05C /* LibraryPrefetchCoordinator.swift */; };
@@ -89,6 +90,7 @@
 /* Begin PBXFileReference section */
 		170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AutoApproveSettings.swift; sourceTree = "<group>"; };
 		A15CA4E0000000000000F001 /* ScanModeSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScanModeSettings.swift; sourceTree = "<group>"; };
+		C0EEB000000000000000F001 /* BookExtraction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BookExtraction.swift; sourceTree = "<group>"; };
 		B0DE7C00000000000000F001 /* OnDeviceScanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnDeviceScanner.swift; sourceTree = "<group>"; };
 		1F1E929B69B421138DCBED17 /* QueueStateManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QueueStateManager.swift; sourceTree = "<group>"; };
 		20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
@@ -246,6 +248,7 @@
 				CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */,
 				170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */,
 				A15CA4E0000000000000F001 /* ScanModeSettings.swift */,
+				C0EEB000000000000000F001 /* BookExtraction.swift */,
 				2BA20FB7ADAAF0E0DECA8307 /* DeviceIdentifier.swift */,
 			);
 			path = Models;
@@ -635,6 +638,7 @@
 				DE27FC4955CE4E1BB2B3100C /* ScanJobCoordinator.swift in Sources */,
 				A529BD180CCC4ED39013CF66 /* AutoApproveSettings.swift in Sources */,
 				A15CA4E0000000000000B001 /* ScanModeSettings.swift in Sources */,
+				C0EEB000000000000000B001 /* BookExtraction.swift in Sources */,
 				B0DE7C00000000000000B001 /* OnDeviceScanner.swift in Sources */,
 				A589308B2F26D83900629770 /* CameraViewModel.swift in Sources */,
 				AA20BF0100000000000000001 /* CameraHapticsManager.swift in Sources */,
