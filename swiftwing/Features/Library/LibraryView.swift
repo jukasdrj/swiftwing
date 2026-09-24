@@ -214,9 +214,9 @@ Image(systemName: "books.vertical")
     // MARK: - Review Needed Empty State (US-319)
     private var reviewNeededEmptyStateView: some View {
         ContentUnavailableView(
-            "No Books Need Review",
+            "No Low-Confidence Books",
             systemImage: "checkmark.circle",
-            description: Text("All your books have high AI confidence scores!")
+            description: Text("Every scanned book is at 80% confidence or higher.")
         )
         .accessibilityIdentifier("library_no_review_needed")
     }

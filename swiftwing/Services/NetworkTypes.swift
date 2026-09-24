@@ -344,7 +344,7 @@ public struct UploadResponseData: Codable, Sendable {
 
 // MARK: - Book Metadata
 
-/// Bounding box for detected book spine on shelf image
+/// Bounding box for a detected book, as fractions of the photo (0...1).
 public struct BoundingBox: Codable, Sendable, Equatable {
     let x: Double
     let y: Double
@@ -372,12 +372,11 @@ public struct BoundingBox: Codable, Sendable, Equatable {
 /// - `publishedDate: String?` — ISO date (converted from publicationYear: Int)
 /// - `enrichmentStatus: EnrichmentStatus?` — success/review_needed/circuit_open/etc.
 /// - `confidence: Double?` — AI confidence score (0.0-1.0)
-/// - `boundingBox: BoundingBox?` — Pixel coordinates on shelf image
+/// - `boundingBox: BoundingBox?` — Fractions of the photo, each number in 0...1
 ///
 /// **Results endpoint (`GET /v3/jobs/scans/{jobId}/results`):**
-/// - `?format=lite` (what the client requests): title, author, isbn, coverUrl,
-///   enrichmentStatus, confidence — no boundingBox
-/// - `?format=full`: the above plus boundingBox, pageCount, format, publishedDate
+/// - `?format=lite`: title, author, isbn, coverUrl, enrichmentStatus, confidence — no boundingBox
+/// - `?format=full` (what the client requests): the above plus boundingBox, pageCount, format, publishedDate
 /// - SSE was removed in the Workflows cutover (talaria 3.9.0); there are no result events.
 /// - Not all fields are guaranteed; use resolvedTitle/resolvedAuthor for UI display
 ///

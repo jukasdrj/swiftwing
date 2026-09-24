@@ -37,9 +37,6 @@ struct ScanJobCallbacks: Sendable {
     /// Called to store metadata on the processing item
     let onBookMetadataReceived: @MainActor @Sendable (_ metadata: BookMetadata) -> Void
 
-    /// Called with segmented preview data
-    let onSegmented: @MainActor @Sendable (_ preview: SegmentedPreview) -> Void
-
     /// Called with per-book progress
     let onBookProgress: @MainActor @Sendable (_ current: Int, _ total: Int) -> Void
 

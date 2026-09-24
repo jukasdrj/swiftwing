@@ -27,9 +27,6 @@ struct CameraOverlayView: View {
     /// slider shares that space, so it yields rather than stacking underneath.
     private var hasBottomOverlay: Bool {
         viewModel.reviewQueueManager.scanCompleteBanner != nil
-            || viewModel.processingQueue.contains {
-                $0.segmentedPreview != nil && $0.state == .analyzing
-            }
     }
 
     // MARK: - Loading, Error, Flash, Focus, Processing Overlays
@@ -171,23 +168,6 @@ struct CameraOverlayView: View {
                     viewModel.showTruncationBanner = false
                 }
             }
-        }
-
-        // Segmented Preview Overlay
-        if let activeItem = viewModel.processingQueue.first(where: {
-            $0.segmentedPreview != nil && $0.state == .analyzing
-        }),
-            let previewData = activeItem.segmentedPreview
-        {
-            SegmentedPreviewOverlay(
-                imageData: previewData,
-                totalBooks: activeItem.detectedBookCount ?? 0,
-                currentBook: activeItem.currentBookIndex ?? 0,
-                totalProcessed: activeItem.currentBookIndex ?? 0
-            )
-            .padding(.horizontal, 32)
-            .padding(.bottom, 160)
-            .transition(.opacity.combined(with: .scale(scale: 0.95)))
         }
 
         // Scan Complete Banner

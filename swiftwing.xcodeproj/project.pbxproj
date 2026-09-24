@@ -15,7 +15,6 @@
 		2F881DDD1F304669B5B0F6A8 /* PendingBookResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592CF225879D432E9A26F387 /* PendingBookResult.swift */; };
 		369C951CC93A9EEF0790D727 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5FA190CF9E5B8B778E942 /* CameraView.swift */; };
 		47AE4DEC737DD811B5729CC0 /* ReviewQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4213E4CF87C7BB46283EB591 /* ReviewQueueView.swift */; };
-		4C8BFD6DFA4841D9A50BE0EF /* SegmentedPreviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */; };
 		4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C34711D49BCB093EFDEC4E /* NetworkMonitor.swift */; };
 		5BBE000C15164F08B85C9DC8 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8E70F2333D41D8880E7CCA /* DataSeeder.swift */; };
 		671ACECE8D5940428308C6EC /* PerformanceTestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90075E8758F64E3095FAE717 /* PerformanceTestData.swift */; };
@@ -32,8 +31,6 @@
 		7F00001E0000000000000001 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F00001F0000000000000001 /* RootView.swift */; };
 		7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000210000000000000001 /* CameraPermissionPrimerView.swift */; };
 		7F0000220000000000000001 /* AsyncImageWithLoading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0000230000000000000001 /* AsyncImageWithLoading.swift */; };
-		7F0000290000000000000001 /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000240000000000000001 /* OpenAPIRuntime */; };
-		7F00002A0000000000000001 /* OpenAPIURLSession in Frameworks */ = {isa = PBXBuildFile; productRef = 7F0000250000000000000001 /* OpenAPIURLSession */; };
 		7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F38536DACB936224AB7F798 /* Theme.swift */; };
 		9210946CD99CD733FA6B4412 /* BoundingBoxOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D0145EB45628F7B43F5D6F2 /* BoundingBoxOverlay.swift */; };
 		9779FA3AFEE4F200B5CDA6A1 /* RateLimitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */; };
@@ -59,7 +56,6 @@
 		B5FC60E62832460294054400 /* ImagePreprocessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */; };
 		BB2A8613CFAF4F8A818A8E01 /* BookDetailSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 348655348F0B4268945B43D2 /* BookDetailSheetView.swift */; };
 		BBFC697E2E23D044AC8EF131 /* ProcessingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */; };
-		C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */; };
 		C4D5F032A82E62917C7B51A5 /* NetworkTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */; };
 		C8DAF14A65C717951B5F0587 /* RateLimitOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */; };
 		DA75C3E1F2A04B8C9D6E01234 /* DataSyncActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA75C3E1F2A04B8C9D6E05678 /* DataSyncActor.swift */; };
@@ -89,7 +85,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
 		170C14FEE8744BF182A13F60 /* AutoApproveSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AutoApproveSettings.swift; sourceTree = "<group>"; };
 		1F1E929B69B421138DCBED17 /* QueueStateManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QueueStateManager.swift; sourceTree = "<group>"; };
 		20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RateLimitState.swift; sourceTree = "<group>"; };
@@ -142,7 +137,6 @@
 		AA40FR010000000000000CV0 /* CameraOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CameraOverlayView.swift; sourceTree = "<group>"; };
 		BB4D304CB08D4B3A87168AE2 /* ImagePreprocessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreprocessor.swift; sourceTree = "<group>"; };
 		BBAB4A6B0846BA3231888A50 /* TalariaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalariaService.swift; sourceTree = "<group>"; };
-		BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedPreviewOverlay.swift; sourceTree = "<group>"; };
 		C48EF5A601C80414ED1B7BBB /* NetworkTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTypes.swift; sourceTree = "<group>"; };
 		CB25D1B2E3814C39BDC893D8 /* ReviewQueueManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewQueueManager.swift; sourceTree = "<group>"; };
 		CBA88448C0C24D34A5C7BEE6 /* DuplicateDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateDetection.swift; sourceTree = "<group>"; };
@@ -173,8 +167,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7F0000290000000000000001 /* OpenAPIRuntime in Frameworks */,
-				7F00002A0000000000000001 /* OpenAPIURLSession in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -305,7 +297,6 @@
 				6D0145EB45628F7B43F5D6F2 /* BoundingBoxOverlay.swift */,
 				55A9AF22BFD486E653476974 /* ProcessingQueueView.swift */,
 				8WLTL0KJ4WWES3DZQVWGV20V /* ProcessingFeedbackView.swift */,
-				BF4979513D214BC4BBC99469 /* SegmentedPreviewOverlay.swift */,
 				FBAF27E2A6A676CA79EE6CFF /* RateLimitOverlay.swift */,
 				20CCBE29F1E96887AC43FC7B /* RateLimitState.swift */,
 				A8195C0DA788117D0CA7F743 /* ProcessingItem.swift */,
@@ -430,7 +421,6 @@
 			isa = PBXGroup;
 			children = (
 				86C66A86208C88BD40ABC070 /* BoundingBox+CGRect.swift */,
-				05DF41D1F3E2F7121ECA7F30 /* NetworkService.swift */,
 			);
 			name = Shared;
 			sourceTree = "<group>";
@@ -453,8 +443,6 @@
 			);
 			name = swiftwing;
 			packageProductDependencies = (
-				7F0000240000000000000001 /* OpenAPIRuntime */,
-				7F0000250000000000000001 /* OpenAPIURLSession */,
 			);
 			productName = swiftwing;
 			productReference = 7F00000B0000000000000001 /* swiftwing.app */;
@@ -536,8 +524,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7F0000260000000000000001 /* XCRemoteSwiftPackageReference "swift-openapi-generator" */,
-				7F0000270000000000000001 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */,
-				7F0000280000000000000001 /* XCRemoteSwiftPackageReference "swift-openapi-urlsession" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7F00000F0000000000000001 /* Products */;
@@ -623,7 +609,6 @@
 				7F00001E0000000000000001 /* RootView.swift in Sources */,
 				7F0000200000000000000001 /* CameraPermissionPrimerView.swift in Sources */,
 				7FCD53E9DDA2C7058C8E36C8 /* Theme.swift in Sources */,
-				C10E7E61AFE75C123777DF9D /* NetworkService.swift in Sources */,
 				4DDBCFECEC52959DDB2C7B38 /* NetworkMonitor.swift in Sources */,
 				DA75C3E1F2A04B8C9D6E01234 /* DataSyncActor.swift in Sources */,
 				ACBEEDDC92CAE5BFB17A2AFB /* OfflineQueueManager.swift in Sources */,
@@ -635,7 +620,6 @@
 				AA40BF010000000000000CG1 /* CameraFirstRunGuidance.swift in Sources */,
 				BBFC697E2E23D044AC8EF131 /* ProcessingItem.swift in Sources */,
 				6F97989D8D79A34FDE104ECA /* ProcessingQueueView.swift in Sources */,
-				4C8BFD6DFA4841D9A50BE0EF /* SegmentedPreviewOverlay.swift in Sources */,
 				13D8148661AABC54AB421ADC /* OfflineIndicatorView.swift in Sources */,
 				7F0000220000000000000001 /* AsyncImageWithLoading.swift in Sources */,
 				7B2A93E4D8FF47B0A02715CD /* DuplicateDetection.swift in Sources */,
@@ -1031,36 +1015,7 @@
 				minimumVersion = 1.0.0;
 			};
 		};
-		7F0000270000000000000001 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-openapi-runtime";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
-			};
-		};
-		7F0000280000000000000001 /* XCRemoteSwiftPackageReference "swift-openapi-urlsession" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-openapi-urlsession";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		7F0000240000000000000001 /* OpenAPIRuntime */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7F0000270000000000000001 /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */;
-			productName = OpenAPIRuntime;
-		};
-		7F0000250000000000000001 /* OpenAPIURLSession */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7F0000280000000000000001 /* XCRemoteSwiftPackageReference "swift-openapi-urlsession" */;
-			productName = OpenAPIURLSession;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7F0000160000000000000001 /* Project object */;
 }

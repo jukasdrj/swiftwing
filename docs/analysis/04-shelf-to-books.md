@@ -90,3 +90,20 @@ Do not switch the results query to `format=full`, and do not retune dedup or val
 2026-09-24. T15.
 
 The session `User-Agent` is `TalariaService.userAgent`, `SwiftWing/1.0 iOS/27.0`. Test: `test_userAgentNamesShippingOS` in `TalariaContractAdherenceTests`.
+
+2026-09-24. Live shelf payload, recorded before the client change. T16.
+
+Source photo: `9FD415F6-EB20-4996-84CF-730315A12738.heic`, 5712×4284. Uploaded as a 1920×1440 JPEG (`sips -Z 1920`). Job `e37676d1-7738-4f54-bac3-8eca5711ca79`, device `56acbe50-d5ae-4eea-b8d4-96ef7cf6bd24`. One book: Bittersweet, Susan Cain.
+
+Bodies: `swiftwingTests/Fixtures/shelf-scan-lite.json` and `shelf-scan-full.json`.
+
+| Format | boundingBox |
+|---|---|
+| lite | absent |
+| full | `x` 0.027, `y` 0.04, `width` 0.191, `height` 0.834 |
+
+Every full-box number is in 0...1. None is above 1.
+
+2026-09-24. T16, client follow-through.
+
+`fetchPollingResults` requests `format=full`. `toCGRect` still multiplies by the fitted photo size. The pixel-scale fixtures now use 0...1 values, and the primary fixture matches this payload. Tests: `test_savedLitePayloadOmitsBoundingBox`, `test_savedFullPayloadBoundingBoxIsNormalized`, `test_toCGRectScalesNormalizedBox`.

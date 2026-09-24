@@ -239,7 +239,7 @@ class CameraViewModel {
    ← { status: processing, progress: 0.7 } → "Reading..."
    ← { status: completed }
    ↓
-4. GET /v3/jobs/scans/{jobId}/results?format=lite
+4. GET /v3/jobs/scans/{jobId}/results?format=full
    ← [ { isbn, title, author, ... } ]
    ↓
 5. Save to SwiftData

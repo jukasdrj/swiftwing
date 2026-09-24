@@ -46,15 +46,27 @@ actor RateLimitState {
         return max(0, Int(ceil(remaining)))
     }
 
+    /// Session-only JPEG directory. It is a subdirectory of temp, so the one-hour
+    /// sweep (which does not recurse) leaves these files alone. The URL list is
+    /// still in memory, so a relaunch drops the queue.
+    static let sessionDirectoryName = "SwiftWingRateLimit"
+
+    static var sessionDirectory: URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent(sessionDirectoryName, isDirectory: true)
+    }
+
     /// Queue an image scan during rate limit by writing to a temp file
     /// - Parameters:
     ///   - imageData: JPEG image data to queue
     ///   - preScannedISBN: Vision-detected ISBN from barcode scanner
     func queueScan(_ imageData: Data, preScannedISBN: String? = nil) {
-        let tempURL = FileManager.default.temporaryDirectory
+        let directory = Self.sessionDirectory
+        let tempURL = directory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("jpg")
         do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try imageData.write(to: tempURL)
             queuedScans.append((imageUrl: tempURL, preScannedISBN: preScannedISBN))
             logger.info("Queued scan to temp file (\(self.queuedScans.count) total in queue)")

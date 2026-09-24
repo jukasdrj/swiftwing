@@ -80,17 +80,17 @@ final class LibraryUITests: SwiftwingUITestCase {
         let booksStats = app.staticTexts["library_stats_books"]
         XCTAssertTrue(waitForElement(booksStats, timeout: 10))
 
-        // Tap review filter
+        // Tap the low-confidence filter. The control is not the review-queue status.
         let reviewFilter = app.buttons["library_review_filter"]
-        XCTAssertTrue(waitForElement(reviewFilter), "Review filter button should exist")
+        XCTAssertTrue(waitForElement(reviewFilter), "Low-confidence filter button should exist")
+        XCTAssertEqual(reviewFilter.label, "Low confidence")
         reviewFilter.tap()
 
-        // With seeded data (all high confidence), should show "No books need review" state
-        let noReviewText = app.staticTexts["library_no_review_needed"]
-        let noReviewTitle = app.staticTexts["No Books Need Review"]
+        // Seeded books are all high confidence, so the filter is empty.
+        let emptyTitle = app.staticTexts["No Low-Confidence Books"]
         XCTAssertTrue(
-            waitForElement(noReviewText, timeout: 10) || waitForElement(noReviewTitle, timeout: 2),
-            "Should show 'No books need review' when all seeded books are high confidence"
+            waitForElement(emptyTitle, timeout: 10),
+            "Should show the low-confidence empty state when every seeded book is at or above 80%"
         )
     }
 

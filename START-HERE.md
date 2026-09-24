@@ -112,7 +112,7 @@ The app uploads book spine images to Talaria, polls job status over HTTP, then f
 **Endpoints (3.9.0):**
 - `POST /v3/jobs/scans` — upload one photo (`photos[]`), returns `{ jobId, status }`
 - `GET /v3/jobs/scans/{jobId}` — poll until completed / failed / canceled
-- `GET /v3/jobs/scans/{jobId}/results?format=lite` — book metadata array
+- `GET /v3/jobs/scans/{jobId}/results?format=full` — book metadata array, including bounding boxes
 
 SSE, firehose, and cleanup endpoints are removed. See `CLAUDE.md` for the full integration reference.
 

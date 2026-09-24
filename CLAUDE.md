@@ -128,7 +128,7 @@ Talaria runs **Cloudflare Workflows + HTTP polling** (SSE, firehose, and cleanup
 **Scan workflow:**
 1. `POST /v3/jobs/scans` — multipart `photos[]` (exactly **one** photo), header `X-Device-ID` (UUID v4)
 2. `GET /v3/jobs/scans/{jobId}` — poll until `completed` / `failed` / `canceled`
-3. `GET /v3/jobs/scans/{jobId}/results?format=lite` — fetch detected books
+3. `GET /v3/jobs/scans/{jobId}/results?format=full` — fetch detected books, including bounding boxes
 
 **Upload Response (POST /v3/jobs/scans → 202):**
 ```json
@@ -243,7 +243,7 @@ Button("Capture") {
 `cameraManager.setZoom`/`currentZoomFactor` (the same pair the pinch gesture drives, so
 they stay in sync), and an **AE/AF lock** (`toggleExposureFocusLock`). The numeric zoom
 readout lives once, in `statusOverlays` — the slider is the control, not a second display.
-The slider hides while a scan-complete banner or segmented preview occupies the same
+The slider hides while a scan-complete banner occupies the same
 bottom strip. Tapping the preview to refocus clears the lock, but only *after* the device
 accepts the new mode, so the flag can't desync from hardware.
 

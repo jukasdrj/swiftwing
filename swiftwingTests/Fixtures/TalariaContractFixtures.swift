@@ -54,10 +54,10 @@ enum TalariaContractFixtures {
       "enrichmentStatus": "success",
       "confidence": 0.98,
       "boundingBox": {
-        "x": 120.5,
-        "y": 200.3,
-        "width": 80.0,
-        "height": 150.0
+        "x": 0.027,
+        "y": 0.04,
+        "width": 0.191,
+        "height": 0.834
       }
     }
     """
@@ -74,10 +74,10 @@ enum TalariaContractFixtures {
       "enrichmentStatus": "success",
       "confidence": 0.95,
       "boundingBox": {
-        "x": 100.0,
-        "y": 150.0,
-        "width": 85.0,
-        "height": 140.0
+        "x": 0.1,
+        "y": 0.15,
+        "width": 0.085,
+        "height": 0.14
       }
     }
     """
@@ -94,10 +94,10 @@ enum TalariaContractFixtures {
       "enrichmentStatus": "success",
       "confidence": 0.92,
       "boundingBox": {
-        "x": 110.0,
-        "y": 180.0,
-        "width": 75.0,
-        "height": 135.0
+        "x": 0.11,
+        "y": 0.18,
+        "width": 0.075,
+        "height": 0.135
       }
     }
     """
@@ -114,10 +114,10 @@ enum TalariaContractFixtures {
       "enrichmentStatus": "review_needed",
       "confidence": 0.45,
       "boundingBox": {
-        "x": 150.0,
-        "y": 220.0,
-        "width": 70.0,
-        "height": 130.0
+        "x": 0.15,
+        "y": 0.22,
+        "width": 0.07,
+        "height": 0.13
       }
     }
     """
@@ -134,10 +134,10 @@ enum TalariaContractFixtures {
       "enrichmentStatus": "circuit_open",
       "confidence": 0.88,
       "boundingBox": {
-        "x": 130.0,
-        "y": 200.0,
-        "width": 80.0,
-        "height": 145.0
+        "x": 0.13,
+        "y": 0.2,
+        "width": 0.08,
+        "height": 0.145
       }
     }
     """
@@ -155,6 +155,14 @@ enum TalariaContractFixtures {
     }
     """
     
+    /// Saved bodies from shelf job e37676d1-7738-4f54-bac3-8eca5711ca79.
+    static func shelfPayload(named name: String) throws -> Data {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent(name)
+        return try Data(contentsOf: url)
+    }
+
     /// SSE result event with malformed URL (resilient decoding test)
     static let bookMetadataMalformedURLJSON = """
     {

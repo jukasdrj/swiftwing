@@ -57,3 +57,13 @@ The durable queue and the rate-limit queue are different mechanisms that the shu
 ## Do not change yet
 
 Leave both queues, the shutter cap, and the slot release where they are. T3 and T4 are recorded. No copy or cleanup change in this pass.
+
+## Resolved
+
+2026-09-24. T20.
+
+Rate-limit retries stay session-only. The files are JPEGs under `temporaryDirectory/SwiftWingRateLimit`. The one-hour sweep lists only the top of the temp directory, so it does not delete them. A relaunch still drops the queue, because the URL list is in memory. They are not copied into Documents `/OfflineQueue`.
+
+`StreamManager` still releases its slot when `uploadScan` returns. Its comment now says the cap is in-flight uploads. The shutter counter of 5 still covers the poll. The slot is not held through the poll.
+
+Test: `queuedFileSitsOutsideTheOneHourSweep` in `RateLimitStateTests`. `OfflineQueueManagerTests` and `StreamManagerTests` are unchanged.

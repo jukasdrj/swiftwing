@@ -1,3 +1,5 @@
+Current target is iOS 27 and Swift 6.4. The body below is historical.
+
 # Design Language Decision: Swiss Utility vs Liquid Glass
 
 **Date:** 2026-01-22

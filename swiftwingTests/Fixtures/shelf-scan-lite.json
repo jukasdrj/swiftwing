@@ -1,0 +1,38 @@
+{
+  "success": true,
+  "data": {
+    "jobId": "e37676d1-7738-4f54-bac3-8eca5711ca79",
+    "status": "completed",
+    "results": [
+      {
+        "isbn": "9780241980491",
+        "title": "Bittersweet",
+        "author": "Susan Cain",
+        "authors": ["Susan Cain"],
+        "confidence": 0.95,
+        "format": "hardcover",
+        "coverUrl": "http://books.google.com/books/content?id=XxExEAAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api",
+        "publisher": "Penguin UK",
+        "publishedDate": "2022-04-21",
+        "enrichmentStatus": "success",
+        "enrichment": {
+          "status": "success",
+          "isbn13": "9780241980491",
+          "title": "Bittersweet",
+          "authors": ["Susan Cain"],
+          "publisher": "Penguin UK",
+          "publishedDate": "2022-04-21",
+          "coverUrl": "http://books.google.com/books/content?id=XxExEAAAQBAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api",
+          "binding": "Paperback",
+          "cached": false,
+          "provider": "google_books"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "timestamp": "2026-09-24T18:41:58.520Z",
+    "requestId": "bed08b1e-ae25-4d37-9226-95b4393c33c2",
+    "truncated": true
+  }
+}

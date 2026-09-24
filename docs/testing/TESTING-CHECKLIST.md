@@ -9,7 +9,7 @@ below them is unit- or UI-tested; only the hardware/live-service behaviour is op
 
 Simulator, needs a book that comes back `not_found` or `circuit_open`:
 
-- [ ] "Look up manually" button appears on the review card for those two states only
+- [ ] "Look up manually" button appears for `not_found`, `circuit_open`, and `review_needed`
 - [ ] `ManualLookupSheet` search returns a match
 - [ ] "Use this book" updates title / author / ISBN on the pending item
 - [ ] The button then disappears (status flipped to `success`)
@@ -26,6 +26,14 @@ not that they actuate.
 - [ ] AE/AF button fills its lock icon and turns orange when engaged
 - [ ] Focus and exposure visibly hold across a burst of captures
 - [ ] Tapping the preview to refocus releases the lock
+
+### Bounding box on the review card
+
+Physical device. The temp photo is deleted on approve, on reject, and after 30 minutes, so the rectangle only has to sit on the book while the card is on screen.
+
+- [ ] Scan one shelf photo
+- [ ] Open the review card and tap the magnifying glass
+- [ ] The rectangle sits on the book
 
 ## Epic 4 Feature Verification
 

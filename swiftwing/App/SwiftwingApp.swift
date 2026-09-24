@@ -48,9 +48,21 @@ struct SwiftwingApp: App {
         .modelContainer(sharedModelContainer)
     }
 
-    /// Remove orphaned JPEG temp files older than 1 hour from the temp directory.
-    /// Handles crash/force-quit scenarios where normal cleanup didn't run.
-    /// Executes in background to avoid blocking app initialization.
+    /// True when the one-hour sweep will consider this file. The sweep lists only
+    /// the top of the temp directory, so a JPEG in a subdirectory is left alone.
+    nonisolated static func tempSweepWouldDelete(
+        _ url: URL,
+        tempDirectory: URL = FileManager.default.temporaryDirectory
+    ) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        guard ext == "jpg" || ext == "jpeg" else { return false }
+        return url.deletingLastPathComponent().standardizedFileURL
+            == tempDirectory.standardizedFileURL
+    }
+
+    /// Remove orphaned JPEG temp files older than 1 hour from the top of the temp directory.
+    /// Does not enter subdirectories. Rate-limit retries live in `SwiftWingRateLimit` and stay
+    /// for the session. Handles crash/force-quit scenarios where normal cleanup didn't run.
     private nonisolated static func cleanupOrphanedTempPhotos() async {
         let tempDir = FileManager.default.temporaryDirectory
         let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "app-init")
@@ -61,7 +73,7 @@ struct SwiftwingApp: App {
         ) else { return }
 
         var cleaned = 0
-        for file in files where file.pathExtension == "jpg" || file.pathExtension == "jpeg" {
+        for file in files where tempSweepWouldDelete(file, tempDirectory: tempDir) {
             guard let attrs = try? file.resourceValues(forKeys: [.creationDateKey]),
                   let created = attrs.creationDate,
                   created < oneHourAgo else { continue }

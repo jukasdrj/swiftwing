@@ -77,10 +77,37 @@ final class TalariaContractAdherenceTests: XCTestCase {
         
         // Assert
         XCTAssertNotNil(book.boundingBox)
-        XCTAssertEqual(book.boundingBox?.x, 120.5)
-        XCTAssertEqual(book.boundingBox?.y, 200.3)
-        XCTAssertEqual(book.boundingBox?.width, 80.0)
-        XCTAssertEqual(book.boundingBox?.height, 150.0)
+        XCTAssertEqual(book.boundingBox?.x, 0.027)
+        XCTAssertEqual(book.boundingBox?.y, 0.04)
+        XCTAssertEqual(book.boundingBox?.width, 0.191)
+        XCTAssertEqual(book.boundingBox?.height, 0.834)
+    }
+
+    func test_savedLitePayloadOmitsBoundingBox() throws {
+        let data = try TalariaContractFixtures.shelfPayload(named: "shelf-scan-lite.json")
+        let response = try JSONDecoder().decode(ScanResultsResponse.self, from: data)
+        XCTAssertEqual(response.data.results.count, 1)
+        XCTAssertNil(response.data.results[0].boundingBox)
+    }
+
+    func test_savedFullPayloadBoundingBoxIsNormalized() throws {
+        let data = try TalariaContractFixtures.shelfPayload(named: "shelf-scan-full.json")
+        let response = try JSONDecoder().decode(ScanResultsResponse.self, from: data)
+        let box = try XCTUnwrap(response.data.results[0].boundingBox)
+        XCTAssertEqual(box.x, 0.027)
+        XCTAssertEqual(box.y, 0.04)
+        XCTAssertEqual(box.width, 0.191)
+        XCTAssertEqual(box.height, 0.834)
+        for value in [box.x, box.y, box.width, box.height] {
+            XCTAssertGreaterThanOrEqual(value, 0)
+            XCTAssertLessThanOrEqual(value, 1)
+        }
+    }
+
+    func test_toCGRectScalesNormalizedBox() {
+        let box = BoundingBox(x: 0, y: 0, width: 0.5, height: 0.25)
+        let rect = box.toCGRect(in: CGSize(width: 200, height: 100))
+        XCTAssertEqual(rect, CGRect(x: 0, y: 0, width: 100, height: 25))
     }
     
     // MARK: - BookMetadata Tests (Plural Authors - Forward Compatibility)

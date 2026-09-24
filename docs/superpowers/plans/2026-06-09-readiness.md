@@ -1,3 +1,5 @@
+Current target is iOS 27 and Swift 6.4. The body below is historical.
+
 # SwiftWing Client Readiness Plan (2026-06-09)
 
 **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

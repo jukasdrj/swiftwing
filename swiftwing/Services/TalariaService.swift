@@ -321,7 +321,7 @@ actor TalariaService {
 
     /// Fetch results for completed job in stateless polling mode
     private func fetchPollingResults(jobId: String) async throws -> [BookMetadata] {
-        guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)/results?format=lite") else {
+        guard let url = URL(string: "\(baseURL)/v3/jobs/scans/\(jobId)/results?format=full") else {
             throw NetworkError.invalidResponse
         }
 

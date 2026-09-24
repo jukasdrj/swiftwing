@@ -54,3 +54,9 @@ The library’s "review needed" control filters `spineConfidence < 0.8`. The rev
 ## Do not change yet
 
 Leave the filter predicate, the cache shortcut, and the direct `modelContext.delete` until a library change is explicitly requested.
+
+## Resolved
+
+2026-09-24. T19.
+
+The library control keeps `(spineConfidence ?? 1.0) < 0.8` and is labeled low confidence. It does not include `review_needed` or `not_found`. A high-confidence `not_found` book stays out of the filter. Test: `highConfidenceNotFoundStaysOutOfTheLowConfidenceFilter` in `LibraryViewModelTests`. The button label is locked by `LibraryUITests.testReviewFilter`.

@@ -1,3 +1,5 @@
+Current target is iOS 27 and Swift 6.4. The body below is historical.
+
 # OpenAPI Specification Management
 
 This directory contains the committed OpenAPI specification for the Talaria backend API.

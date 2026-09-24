@@ -44,3 +44,13 @@ The shelf UI cannot point at each detected book. Lite, which the client requests
 ## Do not change yet
 
 Do not switch to `format=full` and do not draw boxes from the pixel-scale fixtures until one real full payload confirms the unit.
+
+## Resolved
+
+2026-09-24. T16.
+
+The live full payload (pass 04, job `e37676d1-7738-4f54-bac3-8eca5711ca79`) puts `boundingBox` in 0...1. Lite omits it. The client now requests `format=full`, so the review card's magnifying glass can open `BoundingBoxOverlay` while `metadata.boundingBox` and `originalPhotoURL` are both set.
+
+The during-scan overlay is gone. `SegmentedPreviewOverlay`, `updateQueueItemSegmented`, and the `onSegmented` callback are removed. Polling never returned that annotated JPEG.
+
+The temp photo is still deleted on approve, on reject, and after 30 minutes. The rectangle only has to sit on the book while the card is on screen. A device check for that is in `docs/testing/TESTING-CHECKLIST.md`. It is not claimed from the simulator.

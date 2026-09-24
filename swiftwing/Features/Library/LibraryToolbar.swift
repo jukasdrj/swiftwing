@@ -43,7 +43,7 @@ struct LibraryToolbarContent: ToolbarContent {
                     }
                 } label: {
                     Label {
-                        Text("Show Review Needed")
+                        Text("Low confidence")
                     } icon: {
                         Image(systemName: "exclamationmark.triangle")
                             .foregroundStyle(showReviewNeeded ? .internationalOrange : .swissText)
@@ -51,8 +51,8 @@ struct LibraryToolbarContent: ToolbarContent {
                 }
                 .badge(reviewNeededCount > 0 ? "\(reviewNeededCount)" : nil)
                 .accessibilityIdentifier("library_review_filter")
-                .accessibilityLabel("Filter to show books that need review")
-                .accessibilityHint(showReviewNeeded ? "Currently showing only low-confidence books" : "Tap to show only low-confidence books")
+                .accessibilityLabel("Low confidence")
+                .accessibilityHint(showReviewNeeded ? "Currently showing books under 80% confidence" : "Tap to show books under 80% confidence")
             }
 
             ToolbarItem(placement: .topBarTrailing) {

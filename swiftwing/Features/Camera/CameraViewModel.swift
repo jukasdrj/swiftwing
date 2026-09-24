@@ -419,7 +419,7 @@ final class CameraViewModel {
     /// Acquire a stream slot, upload image data to Talaria, and record cleanup info.
     /// Returns the upload result containing jobId.
     private func uploadToTalaria(itemId: UUID, item: ProcessingItem, uploadData: Data, fileURL: URL) async throws -> ScanUploadResult {
-        // US-410: Performance optimization - limit concurrent scan jobs to 5
+        // The slot caps in-flight uploads. The shutter counter of 5 covers the poll.
         await streamManager.acquireStreamSlot(scanId: itemId)
         guard await streamManager.hasActiveSlot(scanId: itemId) else {
             throw CancellationError()
@@ -509,9 +509,6 @@ final class CameraViewModel {
                     self?.queueStateManager.processingQueue[index].bookMetadata = metadata
                 }
             },
-            onSegmented: { [weak self] preview in
-                self?.updateQueueItemSegmented(id: itemId, preview: preview)
-            },
             onBookProgress: { [weak self] current, total in
                 self?.updateQueueItemBookProgress(id: itemId, current: current, total: total)
             },
@@ -525,15 +522,6 @@ final class CameraViewModel {
 
     // MARK: - Queue Management
     
-    private func updateQueueItemSegmented(id: UUID, preview: SegmentedPreview) {
-        if let index = queueStateManager.processingQueue.firstIndex(where: { $0.id == id }) {
-            withAnimation(.swissSpring) {
-                queueStateManager.processingQueue[index].segmentedPreview = preview.imageData
-                queueStateManager.processingQueue[index].detectedBookCount = preview.totalBooks
-            }
-        }
-    }
-
     private func updateQueueItemBookProgress(id: UUID, current: Int, total: Int) {
         if let index = queueStateManager.processingQueue.firstIndex(where: { $0.id == id }) {
             withAnimation(.swissSpring) {

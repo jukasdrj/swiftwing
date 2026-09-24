@@ -152,7 +152,7 @@ struct Slide2CameraPermission: View {
                     .foregroundStyle(.swissText)
                     .multilineTextAlignment(.center)
 
-                Text("SwiftWing needs camera access to scan book spines.\n\nYour photos are never stored — we only send them to our AI for instant recognition.")
+                Text("SwiftWing needs camera access to scan book spines.\n\nA photo stays on this phone until the scan is uploaded. An offline scan stays in the library queue until then.")
                     .font(.body)
                     .foregroundStyle(.swissText.opacity(0.8))
                     .multilineTextAlignment(.center)

@@ -100,3 +100,11 @@ Tests: `swiftwingUITests/OnboardingUITests`, 4 passed, 0 warnings, iPhone 18 Pro
 2026-09-24. T5.
 
 `LaunchScreenView` is removed from the app target and deleted. Cold start uses the generated launch screen (`INFOPLIST_KEY_UILaunchScreen_Generation`). `JetBrainsMono-Bold` was not added. No new test for a deleted view.
+
+2026-09-24. T3, T9, T10, T11.
+
+Slide 2 now says a photo stays on the phone until the scan is uploaded, and that an offline scan stays in the library queue until then.
+
+The six empty directories under `Services/` are gone. `NetworkService` is removed. `OpenAPIRuntime` and `OpenAPIURLSession` are no longer linked. The committed YAML and the copy-spec build phase stay. The virtual Shared group in the Xcode project still holds `BoundingBox+CGRect.swift`.
+
+`AGENTS.md` points at `swiftwing/App`, `Features`, `Services`, and `Models`. `DESIGN-DECISION.md`, `docs/superpowers/plans/2026-06-09-readiness.md`, and `swiftwing/OpenAPI/README.md` each open with one line that the current target is iOS 27 and Swift 6.4 and that the body is historical.

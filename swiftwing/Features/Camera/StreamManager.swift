@@ -16,10 +16,11 @@ struct StreamManagerConfig {
 
 // MARK: - Stream Manager
 
-/// Actor that manages concurrent scan-job limits and queuing for bulk scanning
+/// Actor that caps in-flight uploads.
 ///
-/// US-410: Ensures bulk scanning remains performant by limiting max concurrent
-/// poll jobs to 5 (configurable) and queuing additional scans.
+/// The shutter counter of 5 already covers a capture through its poll.
+/// This actor limits uploads only. `uploadToTalaria` releases the slot when
+/// `uploadScan` returns, before the status poll.
 ///
 /// Performance targets:
 /// - Memory usage < 100 MB with 10 active streams
@@ -31,7 +32,7 @@ struct StreamManagerConfig {
 /// let streamManager = StreamManager()
 /// await streamManager.acquireStreamSlot(scanId: uuid)
 /// defer { Task { await streamManager.releaseStreamSlot(scanId: uuid) } }
-/// // ... perform upload and streaming ...
+/// // ... perform the upload, then release before the poll ...
 /// ```
 actor StreamManager {
 
