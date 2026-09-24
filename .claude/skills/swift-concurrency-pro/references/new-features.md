@@ -222,3 +222,31 @@ Review implications:
 
 - Task names are debugging aids, not correctness features.
 - They are worth keeping when logs, tracing, or failure diagnosis matter.
+
+## Swift 6.4
+
+Swift 6.2 behavior above still applies. These 6.4 changes change review advice for this project. Source: [Swift 6.4 released](https://www.swift.org/blog/swift-6.4-released/), 15 September 2026.
+
+### Async `defer` (SE-0493)
+
+`await` is legal in a `defer` body. The deferred work is awaited before the function exits, including on throw. Prefer this over a manual `do/catch` that repeats the same cleanup.
+
+### Cancellation shields (SE-0504)
+
+`withTaskCancellationShield` hides cancellation from the closure so work already started can finish (flush a write, close a handle). Do not wrap a long operation in a shield to ignore cancellation.
+
+```swift
+defer {
+    await withTaskCancellationShield {
+        await flushMetrics(for: url)
+    }
+}
+```
+
+### `weak let` and `~Sendable`
+
+A class that needed `@unchecked Sendable` only because it stored a `weak var` can store `weak let` and be checked `Sendable`. A type that must not be `Sendable` is marked `~Sendable` instead of left implicit. Do not add `@unchecked Sendable` for either case.
+
+### Discarded throwing tasks (SE-0520)
+
+Creating a `Task` whose body throws, then ignoring the handle, is a warning. Store the task and handle the error, or catch inside the task. This project treats that warning as an error.

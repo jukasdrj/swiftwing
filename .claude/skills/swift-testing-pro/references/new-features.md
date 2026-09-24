@@ -225,7 +225,7 @@ When it comes to writing a test, make sure the default name matches the value we
 
 That test will fail when it runs because the character name is different, and Swift Testing will surface the attachments as part of the test results.
 
-Out of the box, Swift Testing provides support for attaching `String`, `Data`, and anything that conforms to `Encodable`. Unless the user has Swift 6.3 available, it does *not* support attaching images.
+Out of the box, Swift Testing attaches `String`, `Data`, and anything that conforms to `Encodable`. Swift 6.4 also attaches values that conform to `Transferable`, including images (ST-0023).
 
 **Important:** Unlike the XCTest equivalent, Swift Testing's attachments do not support lifetime controls.
 
@@ -316,3 +316,19 @@ You should move that over to code that runs the expectation and error evaluation
     #expect(error == .disallowedTime)
 }
 ```
+
+## Swift 6.4
+
+This project compiles as Swift 6.4. Source: [Swift 6.4 released](https://www.swift.org/blog/swift-6.4-released/), 15 September 2026.
+
+### XCTest interop (ST-0021)
+
+A Swift Testing test may call `XCTAssert`, and an XCTest method may call `#expect`, while a single case is moving across. UI tests in `swiftwingUITests` stay on XCTest. Do not move that target to Swift Testing.
+
+### Failed-expectation display (ST-0022)
+
+Conform a value to `CustomTestReflectable` when the default description hides the field that explains a failure.
+
+### Transferable attachments (ST-0023)
+
+Record an image or other `Transferable` value with `Attachment.record` on Apple platforms. The older note that images require a future toolchain does not apply on Swift 6.4.

@@ -285,6 +285,19 @@ public enum EnrichmentStatus: String, Sendable {
     // No SwiftData migration required — enrichmentStatus is stored as String in the Book model.
 }
 
+extension EnrichmentStatus {
+    /// Manual lookup is offered when enrichment did not leave a record the user can trust.
+    /// `.error` stays out until a payload shows it is recoverable.
+    var offersManualLookup: Bool {
+        switch self {
+        case .notFound, .circuitOpen, .reviewNeeded:
+            true
+        case .pending, .success, .error:
+            false
+        }
+    }
+}
+
 extension EnrichmentStatus: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()

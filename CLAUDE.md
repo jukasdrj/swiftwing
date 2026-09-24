@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**SwiftWing** is a native iOS 26 book spine scanner app that uses camera + AI (Talaria backend) to automatically identify and catalog books. Built with SwiftUI, SwiftData, Swift 6.2 concurrency, and AVFoundation.
+**SwiftWing** is a native iOS 27 book spine scanner app that uses camera + AI (Talaria backend) to automatically identify and catalog books. Built with SwiftUI, SwiftData, Swift 6.4 concurrency, and AVFoundation.
 
 **Bundle ID:** `com.ooheynerds.swiftwing`
-**Min Deployment:** iOS 26.0 (current-gen devices only)
+**Min Deployment:** iOS 27.0 (current-gen devices only)
 **Architecture:** MVVM + Actor-based services (vertical slice epics)
 
 **Epic Status:** Epics 1-5 complete. Epic 6 (App Store Launch) in progress.
@@ -20,13 +20,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' \
   build 2>&1 | xcsift
 
 # Clean build
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' \
   clean build 2>&1 | xcsift
 ```
 
@@ -63,7 +63,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 
 ```
 swiftwing/
-├── App/                  # SwiftwingApp.swift, RootView, LaunchScreen
+├── App/                  # SwiftwingApp.swift, RootView
 ├── Features/
 │   ├── Camera/           # Camera capture, preview, overlays (18 files)
 │   ├── Library/          # Book library grid, search, filtering (9 files)
@@ -81,7 +81,7 @@ swiftwing/
 └── Assets.xcassets/
 ```
 
-### Concurrency (Swift 6.2)
+### Concurrency (Swift 6.4)
 
 - `TalariaService` (actor) — network + HTTP status polling
 - `CameraManager` (actor) — AVCaptureSession
@@ -171,7 +171,7 @@ Talaria runs **Cloudflare Workflows + HTTP polling** (SSE, firehose, and cleanup
 - `error` — Enrichment failed
 - Unknown values default to `pending` (backward-compatible)
 
-**Enrichment recovery:** `not_found` and `circuit_open` are no longer dead ends in the review queue. `ReviewCardView` shows a "Look up manually" button for those two states only; it opens `ManualLookupSheet`, which calls `GET /v3/books/search` and grafts the result onto the pending item via `ReviewQueueManager.applyRecoveredMetadata`. That sets `recoveredMetadata` (the original AI result stays on `metadata` for provenance) and flips status to `success`, so the button disappears on its own. **Read and persist `PendingBookResult.resolvedMetadata`, not `.metadata`** — `resolvedISBN` is the duplicate-detection key, and dedup must see a recovered ISBN.
+**Enrichment recovery:** `not_found`, `circuit_open`, and `review_needed` open manual lookup in the review queue. `ReviewCardView` shows a "Look up manually" button for those three; `.error` does not. It opens `ManualLookupSheet`, which calls `GET /v3/books/search` and grafts the result onto the pending item via `ReviewQueueManager.applyRecoveredMetadata`. That sets `recoveredMetadata` (the original AI result stays on `metadata` for provenance) and flips status to `success`, so the button disappears on its own. **Read and persist `PendingBookResult.resolvedMetadata`, not `.metadata`** — `resolvedISBN` is the duplicate-detection key, and dedup must see a recovered ISBN. A refused save leaves the card on screen.
 
 **Contract Validation & Testing:**
 - Use `TalariaContractFixtures.swift` for CI-safe testing (no live API dependency)
@@ -277,7 +277,7 @@ do {
 - **Never call xcodebuild without xcsift** — output is unparseable without it
 - **Never use `@Environment(\.modelContainer)`** — use `\.modelContext` instead
 - **Never mix DispatchQueue with async/await** — deadlock risk; use `@MainActor`
-- **Never ignore Swift 6.2 concurrency warnings** — all warnings are errors in this project
+- **Never ignore Swift 6.4 concurrency warnings** — all warnings are errors in this project
 - **Build before reviews** — never run code review on code that hasn't built cleanly
 
 ## Testing
@@ -287,7 +287,7 @@ do {
 ```bash
 xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' \
   -only-testing:swiftwingUITests \
   -parallel-testing-enabled NO \
   2>&1 | xcsift
@@ -297,29 +297,26 @@ See `docs/testing/TESTING-CHECKLIST.md` for regression checklist.
 
 ## Skills & Tools
 
-**Available Skills:** See `skills/available.json` for machine-readable catalog.
+Skills live in `.claude/skills/<name>/SKILL.md`. Grok and OpenCode both load that layout. Flat markdown files in `.claude/skills/` are not skills.
 
 | Skill | Purpose | Trigger |
 |-------|---------|---------|
-| `swiftui-pro` | SwiftUI best practices, modern APIs | SwiftUI view changes |
-| `swiftdata-pro` | SwiftData patterns, queries | Model/data changes |
-| `swift-testing-pro` | Modern Swift Testing | Test file changes |
-| `swift-concurrency-pro` | Concurrency correctness | Actor/async changes |
-| `new-feature-slice` | Vertical slice development | New feature/epic |
-| `run-contract-tests` | OpenAPI contract validation | API changes |
+| `swiftui-pro` | SwiftUI review against current APIs | SwiftUI view changes |
+| `swiftdata-pro` | SwiftData patterns and queries | Model or data changes |
+| `swift-testing-pro` | Swift Testing, including Swift 6.4 XCTest interop | Test file changes |
+| `swift-concurrency-pro` | Swift 6.4 concurrency review | Actor or async changes |
+| `new-feature-slice` | Scaffold a View, ViewModel, and Swift Testing suite | New feature slice |
+| `run-contract-tests` | Talaria contract adherence tests only | OpenAPI or Talaria decoding |
 
-**Slash Commands:**
-- `/build-sim` — build for the simulator
-- `/epic-status` — current epic status
+**Commands** (`.claude/commands/`, loaded by Grok; stock OpenCode does not read this directory):
+
+- `/build-sim` — simulator build, iPhone 18 Pro Max unless another name is given
 - `/update-api` — refresh the committed OpenAPI spec
-- `/gogo` — quick commit + push (skill, `.claude/skills/gogo.md`)
 
-**PAL MCP Tools:**
-- `mcp__pal__debug` — systematic debugging
-- `mcp__pal__thinkdeep` — multi-stage reasoning
-- `mcp__pal__codereview` — architecture review
-- `mcp__pal__analyze` — code analysis
-- `mcp__pal__secaudit` — security audit
+**Agents** (`.claude/agents/`, loaded by Grok; stock OpenCode reads `.opencode/agents/`):
+
+- `swift-concurrency-reviewer`
+- `talaria-contract-reviewer`
 
 ## Key Documentation
 
@@ -330,10 +327,10 @@ See `docs/testing/TESTING-CHECKLIST.md` for regression checklist.
 | `PRD.md` | Full product requirements |
 | `docs/` | Architecture, testing docs |
 | `.claude/rules/` | Build workflow, Swift conventions, planning policy |
-| `.claude/skills/` | Specialized AI skills (SwiftUI, SwiftData, concurrency) |
-| `skills/available.json` | Machine-readable skill manifest |
+| `.claude/skills/` | Skills both Grok and OpenCode load (`<name>/SKILL.md`) |
+| `.claude/agents/` | Grok project agents |
 | `.archive/` | Completed epic summaries, historical planning |
 
 ---
 
-**Last Updated:** 2026-08-02
+**Last Updated:** 2026-09-24

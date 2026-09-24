@@ -1,6 +1,7 @@
 import XCTest
 
 /// Tests for cross-tab navigation and tab bar behavior
+@MainActor
 final class NavigationUITests: SwiftwingUITestCase {
 
     func testTabSwitching() throws {

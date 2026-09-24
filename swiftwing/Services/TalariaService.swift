@@ -72,6 +72,9 @@ actor TalariaService {
     /// Base URL for Talaria API (production)
     private let baseURL = "https://api.oooefam.net"
 
+    /// Shipping client identity. The session header and the contract test both read this.
+    nonisolated static let userAgent = "SwiftWing/1.0 iOS/27.0"
+
     // MARK: - Initialization
 
     /// Initialize TalariaService
@@ -88,7 +91,7 @@ actor TalariaService {
             let configuration = URLSessionConfiguration.default
             configuration.timeoutIntervalForRequest = 30.0
             configuration.httpAdditionalHeaders = [
-                "User-Agent": "SwiftWing/1.0 iOS/26.0"
+                "User-Agent": Self.userAgent
             ]
             self.urlSession = URLSession(configuration: configuration)
         }

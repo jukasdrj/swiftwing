@@ -1,6 +1,7 @@
 import XCTest
 
 /// Tests for the Library tab — empty state, seeding, search, sort, filter, detail sheet, selection mode
+@MainActor
 final class LibraryUITests: SwiftwingUITestCase {
 
     func testEmptyState() throws {

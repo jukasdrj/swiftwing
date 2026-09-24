@@ -15,6 +15,10 @@ import XCTest
 /// - No live API dependency (CI-safe)
 final class TalariaContractAdherenceTests: XCTestCase {
     
+    func test_userAgentNamesShippingOS() {
+        XCTAssertEqual(TalariaService.userAgent, "SwiftWing/1.0 iOS/27.0")
+    }
+
     // MARK: - UploadResponse Tests
     
     func test_decodeUploadResponse_withStandardSchema() throws {

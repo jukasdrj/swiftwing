@@ -106,6 +106,20 @@ struct DataSyncActorTests {
     }
 
     @Test
+    func saveSkipsUnknownISBNTitleAuthorDuplicate() throws {
+        let context = try makeContext()
+        context.insert(Book(title: "Dune", author: "Frank Herbert", isbn: "UNKNOWN-existing"))
+        try context.save()
+
+        let duplicate = makePendingBook(title: "Dune", author: "Frank Herbert", isbn: nil)
+        let saved = try DataSyncActor.shared.save(book: duplicate, in: context)
+
+        #expect(saved == false)
+        let books = try context.fetch(FetchDescriptor<Book>())
+        #expect(books.count == 1)
+    }
+
+    @Test
     func saveUsesFallbackISBNWhenMetadataISBNMissing() throws {
         let context = try makeContext()
         let pending = makePendingBook(

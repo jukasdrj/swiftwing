@@ -2,13 +2,21 @@ import XCTest
 
 /// Base class for all SwiftWing UI tests
 /// Provides common setup, launch configurations, and helper methods
+@MainActor
 class SwiftwingUITestCase: XCTestCase {
-    var app: XCUIApplication!
+    // XCTest's setUpWithError() override is nonisolated, and XCUIApplication is
+    // main-actor isolated. The property is touched only from setUp and from
+    // @MainActor test methods, both of which run on the main thread.
+    nonisolated(unsafe) var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        app = XCUIApplication()
-        app.launchArguments = ["UI_TESTING"]
+        let application = MainActor.assumeIsolated { () -> XCUIApplication in
+            let application = XCUIApplication()
+            application.launchArguments = ["UI_TESTING"]
+            return application
+        }
+        app = application
     }
 
     /// Launch app with a pre-seeded library of 25 books

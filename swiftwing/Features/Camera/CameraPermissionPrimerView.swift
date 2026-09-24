@@ -71,6 +71,7 @@ struct CameraPermissionPrimerView: View {
                 if granted {
                     isPermissionGranted = true
                 } else {
+                    isPermissionGranted = false
                     showPermissionDeniedAlert = true
                 }
             }

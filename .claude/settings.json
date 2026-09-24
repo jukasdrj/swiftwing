@@ -14,7 +14,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '📱 SwiftWing iOS 26 | Epic-based development'",
+            "command": "echo '📱 SwiftWing iOS 27 | Swift 6.4'",
             "timeout": 3000,
             "description": "Session startup reminder"
           }
@@ -23,11 +23,11 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|write",
         "hooks": [
           {
             "type": "command",
-            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'talaria-openapi.yaml'; then echo 'WARNING: Editing committed API spec. Use ./Scripts/update-api-spec.sh instead.' >&2; fi",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/file-edit-guard.sh\" openapi",
             "timeout": 3000,
             "description": "Guard against accidental edits to committed OpenAPI spec"
           }
@@ -36,11 +36,11 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|write",
         "hooks": [
           {
             "type": "command",
-            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '\\.swift'; then echo '🔨 Swift file changed — run /build-sim to verify 0 errors, 0 warnings' >&2; fi",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/file-edit-guard.sh\" swift",
             "timeout": 3000,
             "description": "Remind to build-verify after Swift edits"
           }
@@ -57,14 +57,6 @@
       "Glob(*)",
       "Grep(*)",
       "Task(*)",
-      "Skill(gogo)",
-      "Skill(feature-dev)",
-      "mcp__pal__debug",
-      "mcp__pal__codereview",
-      "mcp__pal__analyze",
-      "mcp__pal__thinkdeep",
-      "mcp__pal__chat",
-      "mcp__pal__consensus",
       "WebFetch(*)",
       "WebSearch(*)"
     ]

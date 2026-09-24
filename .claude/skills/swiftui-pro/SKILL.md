@@ -26,9 +26,10 @@ If doing a partial review, load only the relevant reference files.
 
 ## Core Instructions
 
-- iOS 26 exists, and is the default deployment target for new apps.
-- Target Swift 6.2 or later, using modern Swift concurrency.
-- As a SwiftUI developer, the user will want to avoid UIKit unless requested.
+- This project deploys to iOS 27 and compiles as Swift 6.4. Do not lower the deployment target or suggest iOS 26 APIs as a baseline.
+- Swift 6.2 concurrency behavior still applies (default actor isolation, `nonisolated` async staying on the caller, `@concurrent`). Also apply Swift 6.4: `await` in `defer`, `withTaskCancellationShield` for cleanup that must finish after cancellation, `weak let` instead of `@unchecked Sendable` for an immutable weak reference, and `~Sendable` when a type must not be sendable. `@Observable` types have fine-grained observation tracking (SE-0506); do not add a manual publisher for changes observation already reports.
+- The app's look is Swiss Glass in `Theme.swift` (black base, `.ultraThinMaterial`, International Orange `#FF4F00`, 12pt corners). Do not restyle screens to stock Liquid Glass.
+- Avoid UIKit unless the user asks for it.
 - Do not introduce third-party frameworks without asking first.
 - Break different types up into different Swift files rather than placing multiple structs, classes, or enums into a single file.
 - Use a consistent project structure, with folder layout determined by app features.

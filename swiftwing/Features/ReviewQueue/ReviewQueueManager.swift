@@ -94,20 +94,23 @@ final class ReviewQueueManager {
     }
 
     /// Validate title and author are non-empty. Shows error overlay and returns false if invalid.
+    /// A `review_needed` row may have a null title or author. It still enters the queue so the user can edit it or look it up.
     private func validateBookMetadata(_ metadata: BookMetadata) -> Bool {
         let title = (metadata.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let author = (metadata.author ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !title.isEmpty else {
-            logger.error("Rejected book result: empty title")
-            Task { await showProcessingErrorOverlay("Book title is empty - unable to add to review queue") }
-            return false
-        }
+        if metadata.enrichmentStatus != .reviewNeeded {
+            guard !title.isEmpty else {
+                logger.error("Rejected book result: empty title")
+                Task { await showProcessingErrorOverlay("Book title is empty - unable to add to review queue") }
+                return false
+            }
 
-        guard !author.isEmpty else {
-            logger.error("Rejected book result: empty author")
-            Task { await showProcessingErrorOverlay("Book author is empty - unable to add to review queue") }
-            return false
+            guard !author.isEmpty else {
+                logger.error("Rejected book result: empty author")
+                Task { await showProcessingErrorOverlay("Book author is empty - unable to add to review queue") }
+                return false
+            }
         }
 
         // Warn on low confidence (but don't reject)
@@ -173,9 +176,15 @@ final class ReviewQueueManager {
     func approveBook(_ pendingBook: PendingBookResult, modelContext: ModelContext) {
         let isbn = pendingBook.resolvedISBN
 
-        // Duplicate detection at approve time
+        // Duplicate detection at approve time. An UNKNOWN- ISBN matches title and author,
+        // the same pair DataSyncActor.save uses.
         do {
-            if let duplicate = try DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
+            if let duplicate = try DuplicateDetection.findDuplicate(
+                isbn: isbn,
+                title: pendingBook.resolvedTitle,
+                author: pendingBook.resolvedAuthor,
+                in: modelContext
+            ) {
                 pendingBookBeingApproved = pendingBook
                 pendingBookMetadata = pendingBook.resolvedMetadata
                 pendingRawJSON = pendingBook.rawJSON
@@ -191,7 +200,7 @@ final class ReviewQueueManager {
         }
 
         // Use resolved values (prefers user edits over recovery over AI results)
-        addBookToLibrary(
+        let saved = addBookToLibrary(
             title: pendingBook.resolvedTitle,
             author: pendingBook.resolvedAuthor,
             metadata: pendingBook.resolvedMetadata,
@@ -199,6 +208,10 @@ final class ReviewQueueManager {
             preScannedISBN: pendingBook.preScannedISBN,
             modelContext: modelContext
         )
+        guard saved else {
+            logger.info("Approve left the card in the queue; save wrote nothing for \(pendingBook.resolvedTitle)")
+            return
+        }
 
         let photoURL = pendingBook.originalPhotoURL
         withAnimation(.swissSpring) {
@@ -229,18 +242,26 @@ final class ReviewQueueManager {
 
     func approveAllBooks(modelContext: ModelContext) {
         let count = pendingReviewBooks.count
-        let photoURLs = Set(pendingReviewBooks.compactMap { $0.originalPhotoURL })
+        var removedIds = Set<UUID>()
+        var photoURLs: [URL] = []
         for book in pendingReviewBooks {
-            addBookToLibraryIfNotDuplicate(pendingBook: book, modelContext: modelContext)
+            if addBookToLibraryIfNotDuplicate(pendingBook: book, modelContext: modelContext) {
+                removedIds.insert(book.id)
+                if let url = book.originalPhotoURL {
+                    photoURLs.append(url)
+                }
+            }
         }
 
         withAnimation(.swissSpring) {
-            pendingReviewBooks.removeAll()
+            pendingReviewBooks.removeAll { removedIds.contains($0.id) }
         }
 
         for url in photoURLs { cleanupPhoto(url) }
 
-        UserDefaults.standard.set(false, forKey: "show_review_needed")
+        if pendingReviewBooks.isEmpty {
+            UserDefaults.standard.set(false, forKey: "show_review_needed")
+        }
         logger.info("All \(count) books approved and added to library")
     }
 
@@ -249,12 +270,17 @@ final class ReviewQueueManager {
         let count = highConfidence.count
         guard count > 0 else { return }
 
-        let photoURLs = Set(highConfidence.compactMap { $0.originalPhotoURL })
+        var approvedIds = Set<UUID>()
+        var photoURLs: [URL] = []
         for book in highConfidence {
-            addBookToLibraryIfNotDuplicate(pendingBook: book, modelContext: modelContext)
+            if addBookToLibraryIfNotDuplicate(pendingBook: book, modelContext: modelContext) {
+                approvedIds.insert(book.id)
+                if let url = book.originalPhotoURL {
+                    photoURLs.append(url)
+                }
+            }
         }
 
-        let approvedIds = Set(highConfidence.map { $0.id })
         withAnimation(.swissSpring) {
             pendingReviewBooks.removeAll { approvedIds.contains($0.id) }
         }
@@ -268,13 +294,14 @@ final class ReviewQueueManager {
         logger.info("\(count) high-confidence books approved and added to library")
     }
 
-    func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, preScannedISBN: String? = nil, modelContext: ModelContext) {
+    @discardableResult
+    func addBookToLibrary(title: String? = nil, author: String? = nil, metadata: BookMetadata, rawJSON: String?, preScannedISBN: String? = nil, modelContext: ModelContext) -> Bool {
         let resolvedTitle = (title ?? metadata.resolvedTitle).trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedAuthor = (author ?? metadata.resolvedAuthor).trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !resolvedTitle.isEmpty, !resolvedAuthor.isEmpty else {
             logger.error("Rejected addBookToLibrary: empty title or author")
-            return
+            return false
         }
 
         // Build a synthetic PendingBookResult so DataSyncActor can handle construction + persistence.
@@ -298,13 +325,18 @@ final class ReviewQueueManager {
         )
 
         do {
-            try DataSyncActor.shared.save(book: pendingBook, in: modelContext)
-            logger.info("Book added to library: \(resolvedTitle)")
-
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
+            let saved = try DataSyncActor.shared.save(book: pendingBook, in: modelContext)
+            if saved {
+                logger.info("Book added to library: \(resolvedTitle)")
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+            } else {
+                logger.info("Save refused duplicate: \(resolvedTitle)")
+            }
+            return saved
         } catch {
             logger.error("Failed to save book: \(error)")
+            return false
         }
     }
 
@@ -316,11 +348,16 @@ final class ReviewQueueManager {
         modelContext: ModelContext
     ) -> Bool {
         let isbn = pendingBook.resolvedISBN
-        if let _ = try? DuplicateDetection.findDuplicate(isbn: isbn, in: modelContext) {
+        if (try? DuplicateDetection.findDuplicate(
+            isbn: isbn,
+            title: pendingBook.resolvedTitle,
+            author: pendingBook.resolvedAuthor,
+            in: modelContext
+        )) != nil {
             logger.info("Bulk approve: skipping duplicate '\(pendingBook.resolvedTitle)'")
             return false
         }
-        addBookToLibrary(
+        return addBookToLibrary(
             title: pendingBook.resolvedTitle,
             author: pendingBook.resolvedAuthor,
             metadata: pendingBook.resolvedMetadata,
@@ -328,7 +365,6 @@ final class ReviewQueueManager {
             preScannedISBN: pendingBook.preScannedISBN,
             modelContext: modelContext
         )
-        return true
     }
 
     // MARK: - Pending Book Edits
@@ -380,8 +416,9 @@ final class ReviewQueueManager {
     func addDuplicateAnyway(modelContext: ModelContext) {
         withAnimation(.swissSpring) {
             showDuplicateAlert = false
+            let saved: Bool
             if let metadata = pendingBookMetadata {
-                addBookToLibrary(
+                saved = addBookToLibrary(
                     title: pendingBookBeingApproved?.resolvedTitle,
                     author: pendingBookBeingApproved?.resolvedAuthor,
                     metadata: metadata,
@@ -389,9 +426,11 @@ final class ReviewQueueManager {
                     preScannedISBN: pendingPreScannedISBN,
                     modelContext: modelContext
                 )
+            } else {
+                saved = false
             }
-            // Remove from review queue if it was an approve-time duplicate
-            if let pending = pendingBookBeingApproved {
+            // A refused save leaves the card on screen.
+            if saved, let pending = pendingBookBeingApproved {
                 pendingReviewBooks.removeAll { $0.id == pending.id }
             }
             if pendingReviewBooks.isEmpty {

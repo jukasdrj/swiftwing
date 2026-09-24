@@ -12,7 +12,7 @@ Review Swift concurrency code for correctness, modern API usage, and adherence t
 Review process:
 
 1. Scan for known-dangerous patterns using `references/hotspots.md` to prioritize what to inspect.
-1. Check for recent Swift 6.2 concurrency behavior using `references/new-features.md`.
+1. Check Swift 6.2 and Swift 6.4 concurrency behavior using `references/new-features.md`.
 1. Validate actor usage for reentrancy and isolation correctness using `references/actors.md`.
 1. Ensure structured concurrency is preferred over unstructured where appropriate using `references/structured.md`.
 1. Check unstructured task usage for correctness using `references/unstructured.md`.
@@ -29,7 +29,10 @@ If doing a partial review, load only the relevant reference files.
 
 ## Core Instructions
 
-- Target Swift 6.2 or later with strict concurrency checking.
+- This project compiles as Swift 6.4 with strict concurrency. Warnings are errors. The deployment target is iOS 27.
+- `Task.detached` is only for CPU-bound work that must leave the actor (`ImagePreprocessor`). Do not use it to mutate actor state.
+- `TalariaService` polls scan jobs over HTTP. Do not suggest SSE, firehose, or cleanup endpoints.
+- On Swift 6.4, prefer `weak let` over `@unchecked Sendable` when a weak reference was the only blocker, mark audited non-sendable types `~Sendable`, handle or store a throwing `Task` instead of discarding it, and `await` async cleanup inside `defer`. Use `withTaskCancellationShield` only so required cleanup finishes after cancellation.
 - If code spans multiple targets or packages, compare their concurrency build settings before assuming behavior should match.
 - Prefer structured concurrency (task groups) over unstructured (`Task {}`).
 - Prefer Swift concurrency over Grand Central Dispatch for new code. GCD is still acceptable in low-level code, framework interop, or performance-critical synchronous work where queues and locks are the right tool – don't flag these as errors.
@@ -111,7 +114,7 @@ End of example.
 ## References
 
 - `references/hotspots.md` - Grep targets for code review: known-dangerous patterns and what to check for each.
-- `references/new-features.md` - Swift 6.2 changes that alter review advice: default actor isolation, isolated conformances, caller-actor async behavior, `@concurrent`, `Task.immediate`, task naming, and priority escalation.
+- `references/new-features.md` - Swift 6.2 changes (default actor isolation, isolated conformances, caller-actor async, `@concurrent`, `Task.immediate`) and Swift 6.4 changes (async `defer`, cancellation shields, `weak let`, `~Sendable`, discarded throwing tasks).
 - `references/actors.md` - Actor reentrancy, shared-state annotations, global actor inference, and isolation patterns.
 - `references/structured.md` - Task groups over loops, discarding task groups, concurrency limits.
 - `references/unstructured.md` - Task vs Task.detached, when Task {} is a code smell.

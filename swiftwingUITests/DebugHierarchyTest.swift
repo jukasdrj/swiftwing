@@ -2,6 +2,7 @@ import XCTest
 
 /// Diagnostic test for debugging accessibility hierarchy issues
 /// Enable individual tests as needed — not part of regular test suite
+@MainActor
 final class DebugHierarchyTest: XCTestCase {
 
     override func setUpWithError() throws {

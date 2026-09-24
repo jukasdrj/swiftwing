@@ -3,6 +3,7 @@ import XCTest
 /// Integration tests that verify the full Swiftwing ↔ Talaria pipeline
 /// Uses INJECT_TEST_IMAGE to bypass camera hardware and send a real image to the Talaria API
 /// Requires network access to https://api.oooefam.net
+@MainActor
 final class IntegrationUITests: SwiftwingUITestCase {
     private func hasRunnableLiveFixture() -> Bool {
         let path = "/Users/juju/dev_repos/swiftwing/test_book_stack.jpg"

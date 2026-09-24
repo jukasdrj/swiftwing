@@ -1,9 +1,9 @@
 # SwiftWing: AI Agent Reference & Architecture
 
-**Last Updated:** 2026-07-17
+**Last Updated:** 2026-09-24
 **Status:** Epics 1-5 Complete — Epic 6 (App Store Launch) In Progress
 **Branch:** `main`
-**Build:** ✅ SUCCESS (0 errors, 0 warnings) | **iOS 26.0+ | Swift 6.2**
+**Build:** ✅ SUCCESS (0 errors, 0 warnings) | **iOS 27.0+ | Swift 6.4**
 
 ---
 
@@ -19,13 +19,13 @@
 
 ## Project Overview
 
-**SwiftWing** is a native iOS 26 book spine scanner application that uses AVFoundation camera capture and Talaria AI backend to automatically identify and catalog books. Built with SwiftUI, SwiftData, Swift 6.2 structured concurrency, and actor-based services.
+**SwiftWing** is a native iOS 27 book spine scanner application that uses AVFoundation camera capture and Talaria AI backend to automatically identify and catalog books. Built with SwiftUI, SwiftData, Swift 6.4 structured concurrency, and actor-based services.
 
 **Core Identity:**
-- **Platform:** iOS 26.0+ only (current-gen Apple devices)
+- **Platform:** iOS 27.0+ only (current-gen Apple devices)
 - **Architecture:** MVVM with Actor-based isolated services
 - **Design:** Swiss Glass hybrid (60% utility + 40% liquid glass)
-- **Language:** Swift 6.2 with strict concurrency enabled
+- **Language:** Swift 6.4 with strict concurrency enabled
 - **Data:** SwiftData with actor-coordinated writes
 
 **Bundle ID:** `com.ooheynerds.swiftwing`
@@ -41,7 +41,6 @@ swiftwing/
 │   ├── SwiftwingApp.swift              # Entry point & model container setup
 │   ├── RootView.swift                  # Navigation root
 │   ├── ContentView.swift                # Main content coordinator
-│   ├── LaunchScreenView.swift           # Launch screen UI
 │   └── OnboardingView.swift             # 3-slide onboarding flow
 │
 ├── 🎥 CAMERA & VISION
@@ -130,19 +129,20 @@ swiftwing/
 
 ### 🤖 AI Skills & Agent Tools
 
-This repository includes specialized AI skills for Swift/iOS development. See `skills/available.json` for the machine-readable catalog.
+Skills are directories: `.claude/skills/<name>/SKILL.md`. Grok and OpenCode both load that path. Flat markdown files next to those directories are not skills.
 
 | Skill | Purpose | Trigger |
 |-------|---------|---------|
-| `swiftui-pro` | SwiftUI best practices, modern APIs | SwiftUI view changes |
-| `swiftdata-pro` | SwiftData patterns, queries | Model/data changes |
-| `swift-testing-pro` | Modern Swift Testing | Test file changes |
-| `swift-concurrency-pro` | Concurrency correctness | Actor/async changes |
-| `new-feature-slice` | Vertical slice development | New feature/epic |
-| `run-contract-tests` | OpenAPI contract validation | API changes |
+| `swiftui-pro` | SwiftUI review against current APIs | SwiftUI view changes |
+| `swiftdata-pro` | SwiftData patterns and queries | Model or data changes |
+| `swift-testing-pro` | Swift Testing, including Swift 6.4 XCTest interop | Test file changes |
+| `swift-concurrency-pro` | Swift 6.4 concurrency review | Actor or async changes |
+| `new-feature-slice` | Scaffold a View, ViewModel, and Swift Testing suite | New feature slice |
+| `run-contract-tests` | Talaria contract adherence tests only | OpenAPI or Talaria decoding |
 
-**Location:** `.claude/skills/`  
-**Manifest:** `skills/available.json` (machine-readable catalog)
+**Commands** (Grok loads `.claude/commands/`): `/build-sim`, `/update-api`.
+
+**Agents** (Grok loads `.claude/agents/`): `swift-concurrency-reviewer`, `talaria-contract-reviewer`. Stock OpenCode does not read that directory.
 
 Complex multi-step planning is a **policy**, not a skill slash-command: see
 `.claude/rules/planning-mandatory.md`.
@@ -183,7 +183,7 @@ Complex multi-step planning is a **policy**, not a skill slash-command: see
 
 1. **Read CLAUDE.md completely** - It contains:
    - Building & running commands (xcodebuild + xcsift pattern)
-   - Swift 6.2 concurrency rules (actors, @MainActor, structured concurrency)
+   - Swift 6.4 concurrency rules (actors, @MainActor, structured concurrency)
    - Concurrency pitfalls to avoid (DispatchQueue, Task.detached)
    - Architecture patterns (MVVM, vertical slices)
    - OpenAPI spec management (committed, deterministic builds)
@@ -222,7 +222,7 @@ With planning:
 
 **Real example from this project:** Build failure required 8+ circular attempts without planning, 20 minutes WITH planning. Planning saved hours.
 
-### 🟢 Swift 6.2 Concurrency Rules
+### 🟢 Swift 6.4 Concurrency Rules
 
 **STRICT ENFORCEMENT - Compiler treats warnings as errors**
 
@@ -422,7 +422,7 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 - CameraView: 250 lines (refactored from 1,098)
 - CameraViewModel: ~550 lines (business logic extracted)
 - All child views extracted (ProcessingQueue, RateLimit, Offline, Duplicate)
-- Swift 6.2 strict concurrency: Compliant
+- Swift 6.4 strict concurrency: Compliant
 
 ### Next Steps
 1. Simulator testing for regression verification
@@ -467,8 +467,8 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 
 ### Runtime Requirements
 
-- **Platform:** iOS 26.0+ (current-gen devices only)
-- **Swift:** 6.2 with strict concurrency enabled
+- **Platform:** iOS 27.0+ (current-gen devices only)
+- **Swift:** 6.4 with strict concurrency enabled
 - **Frameworks:**
   - SwiftUI (declarative UI)
   - SwiftData (local storage)
@@ -477,7 +477,7 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 
 ### Build Tools
 
-- **Xcode:** 16.0+ (with Swift 6.2 compiler)
+- **Xcode:** 27.0+ (with Swift 6.4 compiler)
 - **xcsift:** Required for build output parsing
 - **ralph-tui:** Epic task tracking
 
@@ -520,7 +520,7 @@ Epic 4 (AI) → Epic 5 (Refactor) → Epic 6 (Visual Intelligence - Abandoned)
 # Build for simulator
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' \
   build 2>&1 | xcsift
 
 # Expected output: {"summary": {"errors": 0, "warnings": 0}}
@@ -551,29 +551,26 @@ xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
 
 ---
 
-## Specialist Agent Roles
+## Specialist Agents
 
-When using Task agents for parallel work, assign these roles:
+Grok loads these from `.claude/agents/`:
 
-| Role | Best For | Model |
-|------|----------|-------|
-| **Explorer** | Codebase mapping, file location | haiku |
-| **Architect** | Design decisions, architecture review | opus |
-| **Executor** | Implementation, code changes | sonnet |
-| **Code Reviewer** | Quality, standards, patterns | opus |
-| **Vision** | UI/UX review, design analysis | sonnet |
-| **Scientist** | Data analysis, performance profiling | sonnet |
-| **Security** | Security review, vulnerability scanning | opus |
+| Agent | Use for |
+|-------|---------|
+| `swift-concurrency-reviewer` | Actor isolation, `Task.detached`, Swift 6.4 concurrency |
+| `talaria-contract-reviewer` | Talaria 3.9.0 decoding and HTTP polling |
+
+For codebase search, use the built-in read-only explore agent. Do not request a Claude model name (`haiku`, `sonnet`, `opus`) when spawning work.
 
 ---
 
 ## Known Limitations & Workarounds
 
-### iOS 26 Specifics
+### iOS 27 Specifics
 
-- ❌ iOS < 26.0 not supported (app requires current generation)
+- ❌ iOS < 27.0 not supported (app requires current generation)
 - ✅ SwiftUI native controls (no UIKit bridge needed)
-- ✅ Swift 6.2 concurrency (full native support)
+- ✅ Swift 6.4 concurrency (full native support)
 
 ### Swiftdata Quirks
 
@@ -659,16 +656,17 @@ APP_STORE_PRIVACY.md           ← App Store manifest
 ```
 .claude/
 ├── README.md                  ← Claude Code setup
-├── VALIDATION-CHECKLIST.md    ← Build verification
 ├── rules/
 │   ├── swift-conventions.md   ← Actor patterns, concurrency
 │   ├── build-workflow.md      ← xcodebuild + xcsift
 │   ├── planning-mandatory.md  ← Planning policy and workflow
 │   └── swiftdata-patterns.md  ← Data layer patterns
 ├── hooks/
-│   ├── enforce-planning.sh    ← Complexity detection
-│   └── (other automation)
-└── (other configuration)
+│   ├── file-edit-guard.sh     ← OpenAPI edit guard and Swift build reminder
+│   └── README.md
+├── skills/                    ← `<name>/SKILL.md` (Grok and OpenCode)
+├── commands/                  ← `/build-sim`, `/update-api` (Grok)
+└── agents/                    ← concurrency and Talaria reviewers (Grok)
 ```
 
 ### Source Code
@@ -698,8 +696,7 @@ docs/                           ← API docs, guides
 
 ## Last Updated
 
-**2026-07-17**
-By: Claude Code (AI Agent Orchestration)
+**2026-09-24**
 
 ---
 

@@ -2,7 +2,7 @@
 
 SCHEME=swiftwing
 WORKSPACE=swiftwing.xcodeproj
-DESTINATION="platform=iOS Simulator,name=iPhone 17 Pro Max"
+DESTINATION="platform=iOS Simulator,name=iPhone 18 Pro Max"
 SDK=iphonesimulator
 
 help:

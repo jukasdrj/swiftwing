@@ -1,4 +1,4 @@
-# SwiftData Patterns (iOS 26 / Swift 6.2)
+# SwiftData Patterns (iOS 27 / Swift 6.4)
 
 ## Environment Access Patterns
 

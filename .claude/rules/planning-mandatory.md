@@ -24,7 +24,7 @@ Create planning files (see below) before starting any task that involves >4 tool
 Create these files (use a descriptive prefix, e.g. `camera_fix_`):
 
 1. **`{task}_task_plan.md`** — goal, phases with status, decision log, error attempts table
-2. **`{task}_findings.md`** — root cause, expert advice from PAL tools, solution approaches
+2. **`{task}_findings.md`** — root cause and the fix that addresses it
 3. **`{task}_progress.md`** (optional) — session log, test results, errors with resolutions
 
 Planning files go in the project root. Archive or delete them when the task is complete.
@@ -43,27 +43,13 @@ Log every failed attempt — prevents repeating the same fix:
 
 ## Workflow
 
-1. Invoke `/planning-with-files` — creates planning files
-2. Run PAL tools for expert diagnosis, document findings
-3. Execute plan phase by phase; log errors as you go
-4. Mark phases complete only when verified
-5. Build verify: `xcodebuild ... | xcsift` → 0 errors, 0 warnings
-6. Delete or archive planning files after task completes
-
-## PAL Tool Selection
-
-| Situation | Tool |
-|-----------|------|
-| Build failure / data race | `mcp__pal__debug` |
-| Architecture decision | `mcp__pal__thinkdeep` |
-| Code quality review | `mcp__pal__codereview` |
-| Multi-model consensus | `mcp__pal__consensus` |
-| Code analysis | `mcp__pal__analyze` |
-
-## Hook Enforcement
-
-`.claude/hooks/enforce-planning.sh` scores task complexity on every prompt. Score ≥ 5 triggers a mandatory planning reminder. Override with `skip-planning` in prompt (for genuinely trivial tasks only).
+1. Create the planning files listed above. There is no slash command that creates them.
+2. Diagnose from the code and from `xcodebuild ... | xcsift`. Write the cause in the findings file.
+3. Execute plan phase by phase; log errors as you go.
+4. Mark phases complete only when verified.
+5. Build verify: `xcodebuild ... | xcsift` → 0 errors, 0 warnings.
+6. Delete or archive planning files after the task completes.
 
 ## If Going in Circles
 
-Stop. Invoke `/planning-with-files`. Document what has been tried. Use `mcp__pal__debug` or `mcp__pal__thinkdeep` with full context. Never repeat the same fix twice without logging it first.
+Stop. Write down what has already been tried in the findings file, then change approach. Never repeat the same fix twice without logging it first.

@@ -22,9 +22,10 @@ If doing partial work, load only the relevant reference files.
 
 ## Core Instructions
 
-- Target Swift 6.2 or later, using modern Swift concurrency.
-- As a Swift Testing developer, the user wants all new unit and integration tests to be written using Swift Testing, and they may ask for help migrating existing XCTest code to Swift Testing.
-- Swift Testing does *not* support UI tests – XCTest must be used there.
+- This project compiles as Swift 6.4. New unit and integration tests use Swift Testing. UI tests stay on XCTest (`swiftwingUITests`).
+- Swift 6.4 can mix `XCTAssert` inside a Swift Testing test and `#expect` inside an XCTest when migrating a single case (ST-0021). Do not convert a UI test target to Swift Testing.
+- Attachments may conform to `Transferable` (ST-0023), including images. `CustomTestReflectable` customizes values shown on a failed expectation (ST-0022).
+- Run simulator tests with `-parallel-testing-enabled NO` and destination iPhone 18 Pro Max, piped through `xcsift`.
 - Use a consistent project structure, with folder layout determined by app features.
 
 Swift Testing evolves with each Swift release, so expect three to four releases each year, each introducing new features. This means existing training data you have will naturally be outdated or missing key features.

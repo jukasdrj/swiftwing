@@ -15,15 +15,17 @@ Review process:
 1. Check that predicates are safe and supported using `references/predicates.md`.
 1. If the project uses CloudKit, check for CloudKit-specific constraints using `references/cloudkit.md`.
 1. If the project targets iOS 18+, check for indexing opportunities using `references/indexing.md`.
-1. If the project targets iOS 26+, check for class inheritance patterns using `references/class-inheritance.md`.
+1. This app targets iOS 27, so check model subclassing using `references/class-inheritance.md`.
 
 If doing partial work, load only the relevant reference files.
 
 
 ## Core Instructions
 
-- Target Swift 6.2 or later, using modern Swift concurrency.
-- The user strongly prefers to use SwiftData across the board. Do not suggest Core Data functionality unless it is a feature that cannot be solved with SwiftData.
+- This project deploys to iOS 27 and compiles as Swift 6.4 with strict concurrency. Warnings are errors.
+- Use SwiftData. Do not suggest Core Data unless SwiftData cannot express the feature.
+- The only SwiftData environment key is `\.modelContext`. Reach the container through `modelContext.container`.
+- Route saves through `DataSyncActor`. Do not insert or save `Book` rows from a background context in a view.
 - Do not introduce third-party frameworks without asking first.
 - Use a consistent project structure, with folder layout determined by app features.
 
@@ -99,4 +101,4 @@ End of example.
 - `references/predicates.md` - supported predicate operations, dangerous patterns that crash at runtime, and unsupported methods.
 - `references/cloudkit.md` - CloudKit-specific constraints including uniqueness, optionality, and eventual consistency.
 - `references/indexing.md` - database indexing for iOS 18+, including single and compound property indexes.
-- `references/class-inheritance.md` - model subclassing for iOS 26+, including @available requirements, schema setup, and predicate filtering.
+- `references/class-inheritance.md` - model subclassing (shipped in iOS 26, in use on this iOS 27 app), including @available requirements, schema setup, and predicate filtering.

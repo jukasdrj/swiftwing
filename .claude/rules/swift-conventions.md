@@ -1,11 +1,11 @@
-# Swift 6.2 & iOS 26 Conventions
+# Swift 6.4 & iOS 27 Conventions
 
 ## Language & Platform
 
-### Swift 6.2 Requirements
+### Swift 6.4 Requirements
 - **Strict Concurrency**: Enabled (data race prevention)
 - **Complete Concurrency Checking**: All warnings treated as errors
-- **Target**: iOS 26.0+ only (latest devices)
+- **Target**: iOS 27.0+ only (latest devices)
 - **Build Requirements**: 0 errors, 0 warnings (non-negotiable)
 
 ### Actor-Based Architecture
@@ -206,7 +206,7 @@ do {
 ```bash
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' \
   build 2>&1 | xcsift
 ```
 
@@ -294,7 +294,7 @@ func preprocess(_ image: UIImage) async throws -> Data {
 }
 ```
 
-❌ **Don't ignore Swift 6.2 concurrency warnings**:
+❌ **Don't ignore Swift 6.4 concurrency warnings**:
 - All warnings → errors in this project
 - Data race warnings are critical bugs
 - Fix immediately, never suppress

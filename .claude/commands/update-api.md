@@ -1,29 +1,14 @@
 ---
-argument-hint: [--force]
-model: haiku
-allowed-tools:
-  - Bash
+description: Refresh the committed Talaria OpenAPI spec from the live API. Pass --force to skip the confirmation prompt.
+argument-hint: "[--force]"
 ---
 
-# Update Talaria API Spec
-
-Update OpenAPI spec from Talaria API{{#if $1}} with force flag{{/if}}
+Update `swiftwing/OpenAPI/talaria-openapi.yaml` from the repo root.
 
 ```bash
-cd /Users/juju/dev_repos/swiftwing
-./Scripts/update-api-spec.sh{{#if $1}} {{$1}}{{/if}}
+./Scripts/update-api-spec.sh
 ```
 
-**Spec Management**:
-- ✅ Spec **committed** to repo (not fetched during build)
-- ✅ SHA256 checksum verification
-- ✅ Offline-capable builds
-- ✅ Manual updates only
+Pass `--force` when the user asked to skip the confirmation prompt.
 
-**Force Update** (`--force`):
-- Skips the interactive confirmation prompt
-- Overwrites existing spec
-- Use when Talaria API has breaking changes
-
-**Location**: `swiftwing/OpenAPI/talaria-openapi.yaml`
-**Source**: https://api.oooefam.net/v3/openapi.json
+Show `git diff -- swiftwing/OpenAPI/` afterward. Do not commit unless the user asks.

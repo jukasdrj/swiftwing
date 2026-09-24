@@ -1,48 +1,30 @@
-# Claude Code Configuration for SwiftWing
+# Agent configuration for SwiftWing
 
-This directory contains rules and settings for Claude Code to follow when working on this project.
+Rules, skills, commands, agents, and hooks for Grok and Claude Code. OpenCode loads `.claude/skills/<name>/SKILL.md` and `AGENTS.md`. It does not load `.claude/commands/`, `.claude/agents/`, or the hooks in `settings.json`.
 
-## Directory Structure
+## Layout
 
 ```
 .claude/
-├── README.md                          # This file
-├── settings.json                      # Claude Code settings
-├── rules/
-│   ├── build-workflow.md             # MANDATORY xcodebuild + xcsift usage
-│   ├── planning-mandatory.md         # MANDATORY planning-with-files for >4 tools
-│   └── swiftdata-patterns.md         # SwiftData environment key patterns
-├── skills/                            # Custom skills for Swift/iOS
-│   ├── swiftui-pro/SKILL.md          # SwiftUI best practices
-│   ├── swiftdata-pro/SKILL.md         # SwiftData patterns
-│   ├── swift-testing-pro/SKILL.md     # Modern Swift Testing
-│   ├── swift-concurrency-pro/SKILL.md # Concurrency correctness
-│   ├── new-feature-slice.md           # Vertical slice development
-│   └── run-contract-tests.md          # OpenAPI contract validation
-└── agents/                            # Autonomous agents
-    ├── talaria-contract-reviewer.md   # API contract validation
-    └── swift-concurrency-reviewer.md  # Concurrency code review
+├── settings.json           # Hooks and permissions
+├── rules/                  # Build, planning, Swift, SwiftData
+├── skills/<name>/SKILL.md  # Loaded by Grok and OpenCode
+├── commands/               # /build-sim, /update-api (Grok)
+├── agents/                 # Concurrency and Talaria reviewers (Grok)
+└── hooks/                  # file-edit-guard.sh
+```
 
-## Related Documentation
+## Skills
 
-- **Project AGENTS.md** — Agent-optimized architecture + skills catalog
-- **Project CLAUDE.md** — Main guidance for Claude Code
-- **Skills Manifest** — `skills/available.json` (machine-readable catalog)
-- **PRD.md** — Product requirements
-- Planning files (`*_task_plan.md`, `*_findings.md`) — Created per task
+- `swiftui-pro`, `swiftdata-pro`, `swift-testing-pro`, `swift-concurrency-pro` — review and write against iOS 27 and Swift 6.4
+- `new-feature-slice` — scaffold a feature slice
+- `run-contract-tests` — Talaria contract tests only
 
-## Quick Start for Claude
+A skill must be a directory containing `SKILL.md`. A loose `.md` file in `skills/` is ignored.
 
-**When starting ANY complex task:**
-1. ✅ Read CLAUDE.md for project context
-2. ✅ Read relevant rules from `.claude/rules/`
-3. ✅ Invoke `/planning-with-files` if >4 tools needed
-4. ✅ Use `xcodebuild ... | xcsift` for builds
-5. ✅ Follow SwiftData patterns from `swiftdata-patterns.md`
-6. ✅ Document everything in planning files
+## When starting work
 
-**Never:**
-- ❌ Skip planning for complex tasks
-- ❌ Call xcodebuild without xcsift
-- ❌ Use non-existent environment keys
-- ❌ Go in circles without documented attempts
+1. Read `CLAUDE.md` and `AGENTS.md`.
+2. Read the rule that matches the change (build, Swift, SwiftData, or planning).
+3. For a task that touches more than three files or a build failure, follow `rules/planning-mandatory.md`.
+4. Build with `xcodebuild ... | xcsift` for iPhone 18 Pro Max. Warnings fail the build.

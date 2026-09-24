@@ -1,30 +1,17 @@
 ---
-argument-hint: [device]
-model: haiku
-allowed-tools:
-  - Bash
+description: Build SwiftWing for the iOS Simulator. Pass a simulator name to override iPhone 18 Pro Max.
+argument-hint: "[simulator name]"
 ---
 
-# Build for Simulator
+Build the `swiftwing` scheme for the iOS Simulator. The destination is iPhone 18 Pro Max unless the user named another simulator.
 
-Build SwiftWing for iOS Simulator: **{{$1 | default: "iPhone 17 Pro Max"}}**
-
-**CRITICAL**: Always pipe through xcsift for readable output!
+Pipe `xcodebuild` through `xcsift`. A warning is a failure.
 
 ```bash
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name={{$1 | default: "iPhone 17 Pro Max"}}' \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' \
   build 2>&1 | xcsift
 ```
 
-**Available Devices**:
-- iPhone 17 Pro Max (default)
-- iPhone 17 Pro
-- iPhone 17
-- iPad Pro (14-inch)
-
-**Build Requirements**:
-- ✅ 0 errors (mandatory)
-- ✅ 0 warnings (goal)
-- ✅ Clean build in < 30s
+Report the summary. Stop when errors or warnings are not zero.

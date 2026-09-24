@@ -1,6 +1,6 @@
 # SwiftWing - Start Here
 
-**SwiftWing** is a native iOS 26 book spine scanner app. Point your camera at a bookshelf, tap the shutter, and AI identifies and catalogs your books in real time.
+**SwiftWing** is a native iOS 27 book spine scanner app. Point your camera at a bookshelf, tap the shutter, and AI identifies and catalogs your books in real time.
 
 ---
 
@@ -35,7 +35,7 @@ open swiftwing.xcodeproj
 ```bash
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' \
   build 2>&1 | xcsift
 ```
 
@@ -43,7 +43,7 @@ Expected: `errors: 0, warnings: 0`
 
 ### 3. Run on simulator
 
-Press Cmd+R in Xcode. Use the iPhone 17 Pro Max simulator.
+Press Cmd+R in Xcode. Use the iPhone 18 Pro Max simulator.
 
 ---
 
@@ -67,7 +67,7 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 | `swiftwing/Services/DataSyncActor.swift` | All SwiftData writes (@MainActor class) |
 | `swiftwing/Models/Book.swift` | SwiftData model |
 
-**Concurrency:** Swift 6.2 strict concurrency. Actors for all mutable shared state. No DispatchQueue with async/await.
+**Concurrency:** Swift 6.4 strict concurrency. Actors for all mutable shared state. No DispatchQueue with async/await.
 
 **Persistence:** SwiftData with `@Attribute(.unique)` on ISBN to prevent duplicates.
 
@@ -75,8 +75,8 @@ SwiftUI Views → @Observable ViewModels → Actor Services → SwiftData
 
 ## Tech Stack
 
-- **Language:** Swift 6.2
-- **UI:** SwiftUI (iOS 26.0+ only)
+- **Language:** Swift 6.4
+- **UI:** SwiftUI (iOS 27.0+ only)
 - **Persistence:** SwiftData
 - **Camera:** AVFoundation
 - **Networking:** URLSession + HTTP status polling
@@ -132,14 +132,14 @@ SSE, firehose, and cleanup endpoints are removed. See `CLAUDE.md` for the full i
 
 ## Prerequisites
 
-- **Xcode:** 26+ (iOS 26 SDK)
+- **Xcode:** 27+ (iOS 27 SDK)
 - **macOS:** Sequoia 15+
 - **Swift:** 6.2
-- **Simulator:** iPhone 17 Pro Max
+- **Simulator:** iPhone 18 Pro Max
 - **CLI tool:** `xcsift` (required for all builds)
 
 ---
 
 **Bundle ID:** `com.ooheynerds.swiftwing`
-**Min Deployment:** iOS 26.0
+**Min Deployment:** iOS 27.0
 **Last Updated:** 2026-07-17

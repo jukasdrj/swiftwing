@@ -7,7 +7,7 @@
 ### ✅ CORRECT Pattern
 ```bash
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' build 2>&1 | xcsift
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' build 2>&1 | xcsift
 ```
 
 ### ❌ FORBIDDEN Patterns
@@ -28,7 +28,7 @@ xcsift -project swiftwing.xcodeproj
 - Parses xcodebuild's verbose output into structured JSON
 - Extracts errors, warnings, line numbers, file paths
 - Makes build failures machine-readable
-- Essential for automated diagnosis with PAL tools
+- Makes build failures readable without scrolling the raw log
 
 **Example Output:**
 ```json
@@ -71,7 +71,7 @@ Build success criteria:
 **Validation Command:**
 ```bash
 xcodebuild -project swiftwing.xcodeproj -scheme swiftwing -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' build 2>&1 | xcsift
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro Max' build 2>&1 | xcsift
 
 # Check output: errors: 0, warnings: 0
 # If warnings > 0: STOP and fix all warnings before proceeding
@@ -93,9 +93,9 @@ Build First → Review Second → Fix → Build Again
 ## When User Reports Build Failures
 
 **Immediate Actions:**
-1. Use `/planning-with-files` (mandatory for build issues)
+1. Follow `.claude/rules/planning-mandatory.md` for a build failure
 2. Run `xcodebuild ... | xcsift` to get structured errors
-3. Use PAL thinkdeep/debug to diagnose systematically
+3. Diagnose from that summary and the code it names
 4. Document findings in `*_findings.md`
 5. Fix root causes, not symptoms
 6. Verify build succeeds before declaring done

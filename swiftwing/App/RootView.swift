@@ -3,6 +3,7 @@ import SwiftData
 import SwiftUI
 
 struct RootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var cameraPermissionStatus: CameraPermissionStatus = .notDetermined
     @State private var showOnboarding = false
@@ -33,18 +34,12 @@ struct RootView: View {
                 switch cameraPermissionStatus {
                 case .notDetermined:
                     CameraPermissionPrimerView(
-                        isPermissionGranted: Binding(
-                            get: { cameraPermissionStatus == .authorized },
-                            set: { if $0 { cameraPermissionStatus = .authorized } }
-                        ),
+                        isPermissionGranted: cameraPermissionBinding,
                         wasPreviouslyDenied: false
                     )
                 case .denied:
                     CameraPermissionPrimerView(
-                        isPermissionGranted: Binding(
-                            get: { cameraPermissionStatus == .authorized },
-                            set: { if $0 { cameraPermissionStatus = .authorized } }
-                        ),
+                        isPermissionGranted: cameraPermissionBinding,
                         wasPreviouslyDenied: true
                     )
                 case .authorized:
@@ -64,6 +59,23 @@ struct RootView: View {
                 checkCameraPermission()
             }
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            // A grant or denial made in Settings is visible only after the scene is active again.
+            if newPhase == .active {
+                checkCameraPermission()
+            }
+        }
+    }
+
+    /// Continue writes true. A system denial writes false, which has to stick as `.denied`
+    /// or the primer offers Continue again and iOS will not show the prompt a second time.
+    private var cameraPermissionBinding: Binding<Bool> {
+        Binding(
+            get: { cameraPermissionStatus == .authorized },
+            set: { granted in
+                cameraPermissionStatus = granted ? .authorized : .denied
+            }
+        )
     }
 
     private func checkCameraPermission() {

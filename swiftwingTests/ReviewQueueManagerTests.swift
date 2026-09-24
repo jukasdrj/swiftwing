@@ -69,6 +69,30 @@ struct ReviewQueueManagerTests {
         #expect(manager.pendingReviewBooks.isEmpty)
     }
 
+    @Test func handleBookResult_reviewNeededNilAuthor_staysInQueue() throws {
+        let manager = makeManager()
+        manager.autoApproveSettings.isEnabled = false
+        let context = try makeContext()
+        let metadata = BookMetadata(
+            title: "Ambiguous Spine",
+            author: nil,
+            confidence: 0.4,
+            enrichmentStatus: .reviewNeeded
+        )
+
+        manager.handleBookResult(metadata: metadata, rawJSON: nil, modelContext: context)
+
+        #expect(manager.pendingReviewBooks.count == 1)
+        #expect(manager.pendingReviewBooks.first?.metadata.enrichmentStatus == .reviewNeeded)
+    }
+
+    @Test func reviewNeededOffersManualLookup() {
+        #expect(EnrichmentStatus.reviewNeeded.offersManualLookup)
+        #expect(EnrichmentStatus.notFound.offersManualLookup)
+        #expect(EnrichmentStatus.circuitOpen.offersManualLookup)
+        #expect(!EnrichmentStatus.error.offersManualLookup)
+    }
+
     @Test func handleBookResult_whitespaceOnlyTitle_rejectsBook() throws {
         let manager = makeManager()
         let context = try makeContext()
@@ -234,6 +258,26 @@ struct ReviewQueueManagerTests {
 
         // Both validation errors should suppress the book
         #expect(manager.pendingReviewBooks.isEmpty)
+    }
+
+    @Test func approveBook_unknownISBNTitleAuthorDuplicate_leavesCardAndSkipsInsert() throws {
+        let manager = makeManager()
+        manager.autoApproveSettings.isEnabled = false
+        let context = try makeContext()
+        context.insert(Book(title: "Dune", author: "Frank Herbert", isbn: "UNKNOWN-already-saved"))
+        try context.save()
+
+        let metadata = BookMetadata(title: "Dune", author: "Frank Herbert", isbn: nil)
+        manager.handleBookResult(metadata: metadata, rawJSON: nil, modelContext: context)
+        let pending = try #require(manager.pendingReviewBooks.first)
+        #expect(pending.resolvedISBN.hasPrefix("UNKNOWN-"))
+
+        manager.approveBook(pending, modelContext: context)
+
+        #expect(manager.showDuplicateAlert)
+        #expect(manager.pendingReviewBooks.count == 1)
+        let saved = try context.fetch(FetchDescriptor<Book>())
+        #expect(saved.count == 1)
     }
 
     @Test func approveBook_duplicateDetectionFailure_proceedsWithoutAlert() throws {

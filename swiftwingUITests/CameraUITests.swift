@@ -2,6 +2,7 @@ import XCTest
 
 /// Tests for the Camera tab
 /// Note: Camera hardware is not available in Simulator, so tests verify UI elements exist
+@MainActor
 final class CameraUITests: SwiftwingUITestCase {
 
     func testCameraTabSwitch() throws {

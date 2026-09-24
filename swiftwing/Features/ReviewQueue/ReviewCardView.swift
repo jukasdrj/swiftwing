@@ -37,10 +37,7 @@ struct ReviewCardView: View {
     /// the only way forward. Once a lookup succeeds the status becomes `.success`
     /// and the button disappears on its own.
     private var needsRecovery: Bool {
-        switch book.resolvedMetadata.enrichmentStatus {
-        case .notFound, .circuitOpen: return true
-        default: return false
-        }
+        book.resolvedMetadata.enrichmentStatus?.offersManualLookup == true
     }
 
     var body: some View {
