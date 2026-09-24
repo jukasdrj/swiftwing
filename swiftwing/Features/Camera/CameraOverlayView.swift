@@ -243,6 +243,27 @@ struct CameraOverlayView: View {
                         .transition(.opacity)
                 }
 
+                Picker(
+                    "Scan engine",
+                    selection: Binding(
+                        get: { viewModel.scanModeSettings.mode },
+                        set: { viewModel.scanModeSettings.mode = $0 }
+                    )
+                ) {
+                    ForEach(ScanMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .font(.caption.bold())
+                .foregroundStyle(.white)
+                .tint(.white)
+                .accessibilityLabel("Scan engine")
+                .accessibilityIdentifier("scan_mode_picker")
+                .padding(.top, 60)
+                .padding(.trailing, 8)
+
                 Text(String(format: "%.1fx", viewModel.cameraManager.currentZoomFactor))
                     .font(.jetBrainsMono)
                     .foregroundStyle(.white)

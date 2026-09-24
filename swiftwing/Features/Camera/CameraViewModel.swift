@@ -82,8 +82,14 @@ final class CameraViewModel {
 
     // MARK: - US-409: Offline Queue State
     var networkMonitor: NetworkMonitor = NetworkMonitor()
-    let offlineQueueManager: OfflineQueueManager = OfflineQueueManager()
+    let offlineQueueManager: OfflineQueueManager
     private var isUploadingOfflineScans = false
+
+    // MARK: - Scan engine
+    let scanModeSettings: ScanModeSettings
+    let spineExtractor: any BookSpineExtracting
+    /// How long a finished on-device row stays in the processing queue.
+    var queueRemovalDelay: TimeInterval = 5
 
     // MARK: - Capture Throttle
     private var activeCaptureCount = 0
@@ -115,12 +121,21 @@ final class CameraViewModel {
     let talariaService: TalariaService
 
     // MARK: - Initialization
-    init(deviceId: String = DeviceIdentifier.current, talariaService: TalariaService? = nil) {
+    init(
+        deviceId: String = DeviceIdentifier.current,
+        talariaService: TalariaService? = nil,
+        scanModeSettings: ScanModeSettings = ScanModeSettings(),
+        spineExtractor: any BookSpineExtracting = OnDeviceScanner(),
+        offlineQueueManager: OfflineQueueManager = OfflineQueueManager()
+    ) {
         self.deviceId = deviceId
         let service = talariaService ?? TalariaService(deviceId: deviceId)
         self.talariaService = service
         self.scanCoordinator = ScanJobCoordinator(talariaService: service)
         self.queueStateManager = QueueStateManager()
+        self.scanModeSettings = scanModeSettings
+        self.spineExtractor = spineExtractor
+        self.offlineQueueManager = offlineQueueManager
     }
 
     // MARK: - Camera Setup
@@ -255,6 +270,14 @@ final class CameraViewModel {
         do {
             e2eLogger.info("Processing image data (\(imageData.count) bytes)")
 
+            // On-device extraction does not upload, so it runs while offline too.
+            if scanModeSettings.mode == .onDevice {
+                let item = queueStateManager.addItem(imageData: imageData, preScannedISBN: nil)
+                queueItem = item
+                queueStateManager.updateItem(id: item.id, state: .analyzing, message: "Analyzing on-device...")
+                return await processOnDevice(item: item, imageData: imageData, modelContext: modelContext)
+            }
+
             // US-409: Check if offline - if so, queue for later upload
             e2eLogger.info("Network check: isConnected=\(self.networkMonitor.isConnected)")
             if !networkMonitor.isConnected {
@@ -340,6 +363,29 @@ final class CameraViewModel {
             } else {
                 await handleProcessingError(error: error, queueItem: queueItem, jobId: jobId, tempFileURL: tempFileURL)
             }
+            return false
+        }
+    }
+
+    /// Local title/author extraction. Same review sink as a Talaria result, no stream slot.
+    private func processOnDevice(item: ProcessingItem, imageData: Data, modelContext: ModelContext) async -> Bool {
+        let callbacks = buildScanCallbacks(
+            itemId: item.id,
+            item: item,
+            capturedISBN: nil,
+            modelContext: modelContext
+        )
+        do {
+            let outcome = try await spineExtractor.extract(imageData)
+            callbacks.onBookMetadataReceived(outcome.metadata)
+            callbacks.onBookResult(outcome.metadata, outcome.ocrText, nil, nil)
+            callbacks.onScanComplete(1, item.thumbnailData)
+            queueStateManager.updateItem(id: item.id, state: .done, message: nil)
+            await removeQueueItemAfterDelay(id: item.id, delay: queueRemovalDelay)
+            return true
+        } catch {
+            callbacks.onError(error.localizedDescription)
+            await removeQueueItemAfterDelay(id: item.id, delay: queueRemovalDelay)
             return false
         }
     }
