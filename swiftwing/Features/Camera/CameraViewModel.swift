@@ -101,8 +101,18 @@ final class CameraViewModel {
     // MARK: - US-409: Offline Queue State
 
     var networkMonitor: NetworkMonitor = .init()
-    let offlineQueueManager: OfflineQueueManager = .init()
+    let offlineQueueManager: OfflineQueueManager
     private var isUploadingOfflineScans = false
+
+    // MARK: - Scan engine
+
+    let scanModeSettings: ScanModeSettings
+    let spineExtractor: any BookSpineExtracting
+    /// How long a finished on-device row stays in the processing queue.
+    var queueRemovalDelay: TimeInterval = 5
+
+    /// Live viewfinder text. Updated from the video output, not the shutter path.
+    var liveTextObservations: [LiveTextObservation] = []
 
     // MARK: - Capture Throttle
 
@@ -143,12 +153,21 @@ final class CameraViewModel {
 
     // MARK: - Initialization
 
-    init(deviceId: String = DeviceIdentifier.current, talariaService: TalariaService? = nil) {
+    init(
+        deviceId: String = DeviceIdentifier.current,
+        talariaService: TalariaService? = nil,
+        scanModeSettings: ScanModeSettings = .init(),
+        spineExtractor: any BookSpineExtracting = OnDeviceScanner(),
+        offlineQueueManager: OfflineQueueManager = .init()
+    ) {
         self.deviceId = deviceId
         let service = talariaService ?? TalariaService(deviceId: deviceId)
         self.talariaService = service
         scanCoordinator = ScanJobCoordinator(talariaService: service)
         queueStateManager = QueueStateManager()
+        self.scanModeSettings = scanModeSettings
+        self.spineExtractor = spineExtractor
+        self.offlineQueueManager = offlineQueueManager
     }
 
     // MARK: - Camera Setup
@@ -174,6 +193,7 @@ final class CameraViewModel {
 
             // Start session on background thread (non-blocking)
             cameraManager.startSession()
+            startLiveText()
 
             // Cancel the deferred loading task — setup finished before it could fire
             loadingTask.cancel()
@@ -197,7 +217,17 @@ final class CameraViewModel {
     }
 
     func stopCamera() {
+        cameraManager.setLiveTextHandler(nil)
+        liveTextObservations = []
         cameraManager.stopSession()
+    }
+
+    private func startLiveText() {
+        cameraManager.setLiveTextHandler { [weak self] observations in
+            Task { @MainActor in
+                self?.liveTextObservations = observations
+            }
+        }
     }
 
     /// Configure rotation coordinator after preview layer is available
@@ -285,6 +315,14 @@ final class CameraViewModel {
 
         do {
             e2eLogger.info("Processing image data (\(imageData.count) bytes)")
+
+            // On-device extraction does not upload, so it runs while offline too.
+            if scanModeSettings.mode == .onDevice {
+                let item = queueStateManager.addItem(imageData: imageData, preScannedISBN: nil)
+                queueItem = item
+                queueStateManager.updateItem(id: item.id, state: .analyzing, message: "Analyzing on-device...")
+                return await processOnDevice(item: item, imageData: imageData, modelContext: modelContext)
+            }
 
             // US-409: Check if offline - if so, queue for later upload
             let isConnected = networkMonitor.isConnected
@@ -376,6 +414,29 @@ final class CameraViewModel {
             } else {
                 await handleProcessingError(error: error, queueItem: queueItem, jobId: jobId, tempFileURL: tempFileURL)
             }
+            return false
+        }
+    }
+
+    /// Local title/author extraction. Same review sink as a Talaria result, no stream slot.
+    private func processOnDevice(item: ProcessingItem, imageData: Data, modelContext: ModelContext) async -> Bool {
+        let callbacks = buildScanCallbacks(
+            itemId: item.id,
+            item: item,
+            capturedISBN: nil,
+            modelContext: modelContext
+        )
+        do {
+            let outcome = try await spineExtractor.extract(imageData)
+            callbacks.onBookMetadataReceived(outcome.metadata)
+            callbacks.onBookResult(outcome.metadata, outcome.ocrText, nil, nil)
+            callbacks.onScanComplete(1, item.thumbnailData)
+            queueStateManager.updateItem(id: item.id, state: .done, message: nil)
+            await removeQueueItemAfterDelay(id: item.id, delay: queueRemovalDelay)
+            return true
+        } catch {
+            callbacks.onError(error.localizedDescription)
+            await removeQueueItemAfterDelay(id: item.id, delay: queueRemovalDelay)
             return false
         }
     }

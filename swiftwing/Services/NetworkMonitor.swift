@@ -28,9 +28,17 @@ final class NetworkMonitor: Sendable {
 
     // MARK: - Initialization
 
-    init() {
-        // Start monitoring immediately upon init
-        startMonitoring()
+    /// - Parameter startsMonitoring: Tests pass false so a path update cannot
+    ///   overwrite `setConnected(_:)`.
+    init(startsMonitoring: Bool = true) {
+        if startsMonitoring {
+            startMonitoring()
+        }
+    }
+
+    /// Test seam. A running path monitor replaces this on the next update.
+    func setConnected(_ isConnected: Bool) {
+        self.isConnected = isConnected
     }
 
     private func startMonitoring() {

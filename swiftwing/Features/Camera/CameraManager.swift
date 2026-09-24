@@ -22,6 +22,7 @@ final class CameraManager {
     var resolution: CGSize = .zero
     private var photoOutput: AVCapturePhotoOutput?
     private var videoOutput: AVCaptureVideoDataOutput?
+    private let liveFrameBridge = LiveFrameBridge()
     private(set) var videoDevice: AVCaptureDevice? // Exposed for RotationCoordinator
     private var isConfigured = false
 
@@ -39,6 +40,34 @@ final class CameraManager {
 
     /// Session preset
     var sessionPreset: AVCaptureSession.Preset = .high
+
+    /// Aspect of the upright preview frame. Quarter-turn rotation swaps the buffer's sides.
+    var displayedFrameAspect: CGFloat {
+        guard resolution.width > 0, resolution.height > 0 else { return 0 }
+        let angle = videoOutput?.connection(with: .video)?.videoRotationAngle ?? 0
+        let quarterTurn = angle == 90 || angle == 270
+        return quarterTurn ? resolution.height / resolution.width : resolution.width / resolution.height
+    }
+
+    func setLiveTextHandler(_ handler: (@Sendable ([LiveTextObservation]) -> Void)?) {
+        liveFrameBridge.setHandler(handler)
+    }
+
+    /// Live OCR frames. Failure leaves photo capture working.
+    private func addLiveVideoOutput(to session: AVCaptureSession) {
+        let dataOutput = AVCaptureVideoDataOutput()
+        dataOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
+        ]
+        dataOutput.alwaysDiscardsLateVideoFrames = true
+        guard session.canAddOutput(dataOutput) else {
+            logger.error("Video data output unavailable; live text boxes are off")
+            return
+        }
+        session.addOutput(dataOutput)
+        videoOutput = dataOutput
+        dataOutput.setSampleBufferDelegate(liveFrameBridge, queue: liveFrameBridge.sampleQueue)
+    }
 
     /// Configures AVCaptureSession
     func setupSession() throws {
@@ -92,6 +121,8 @@ final class CameraManager {
         } else {
             throw CameraError.cannotAddOutput
         }
+
+        addLiveVideoOutput(to: session)
 
         session.commitConfiguration()
         captureSession = session
