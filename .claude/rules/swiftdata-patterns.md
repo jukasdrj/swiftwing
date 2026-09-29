@@ -1,3 +1,9 @@
+---
+paths:
+  - "**/Models/**/*.swift"
+  - "**/*Model*.swift"
+---
+
 # SwiftData Patterns (iOS 27 / Swift 6.4)
 
 ## Environment Access Patterns

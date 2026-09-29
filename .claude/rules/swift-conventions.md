@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.swift"
+---
+
 # Swift 6.4 & iOS 27 Conventions
 
 ## Language & Platform
