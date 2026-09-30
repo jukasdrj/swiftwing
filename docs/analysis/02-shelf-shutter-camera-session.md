@@ -56,3 +56,7 @@ Logged or dropped:
 ## Do not change yet
 
 Leave the session start, the 5-capture cap, and the simulator no-op controls as they are until a later pass decides to fix them.
+
+## Resolved
+
+2026-09-24. The photo-size row in section 2 (nearest 1024×768) moved with T14. See pass `03-`. The shutter-versus-`startRunning` risk in section 5 is still T13.

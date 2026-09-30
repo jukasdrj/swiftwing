@@ -21,13 +21,14 @@ Status values: `open`, `deferred`, `done`.
 | T11 | done | toolchain | ~~Historical docs still say iOS 26 / Swift 6.2, and AGENTS.md describes a flat tree.~~ Resolved 2026-09-24 in `01-launch-onboarding-permission.md`. |
 | T12 | done | toolchain | Test targets are Swift 6.4. UI test classes are `@MainActor`. `setUpWithError()` cannot be `@MainActor` (XCTest declares it nonisolated), so `app` is `nonisolated(unsafe)` and setup builds the `XCUIApplication` inside `MainActor.assumeIsolated` without capturing `self`. App `build` and `build-for-testing` are 0 errors / 0 warnings on iPhone 18 Pro Max. Test targets still set `SWIFT_APPROACHABLE_CONCURRENCY` and `SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY`; the app target sets neither. Leave those flags until a pass shows they change behavior. |
 | T13 | open | pass 2 | `startSession()` returns before `startRunning()` finishes, and the shutter is already enabled. An early tap fails inside the photo delegate. |
-| T14 | open | pass 3 | Shelf prep double-encodes JPEG at 0.85 and only rotates when height/width > 2. A shelf photo does not take that path. |
+| T14 | done | pass 3 | ~~Shelf prep double-encodes JPEG at 0.85 and aims the capture near 1024.~~ Resolved 2026-09-24 in `03-on-device-image-prep.md`. One upright JPEG, long edge about 1920, no contrast or denoise. The aspect check above 2.0 stays. |
 | T15 | done | pass 4 | ~~`User-Agent` is still `SwiftWing/1.0 iOS/26.0` after the iOS 27 retarget.~~ Resolved 2026-09-24 in `04-shelf-to-books.md`. |
 | T16 | done | pass 5 | ~~Shelf UI cannot point at a detected book. Lite omits `boundingBox`.~~ Resolved 2026-09-24 in `04-shelf-to-books.md` and `05-draw-detected-books.md`. Full boxes are 0...1. |
 | T17 | done | pass 6 | ~~`validateBookMetadata` drops a result with an empty title or author, so a `review_needed` row with null fields never reaches a card.~~ Resolved 2026-09-24 in `06-review-recovery-duplicates.md`. |
 | T18 | done | pass 6, pass 7 | ~~`addBookToLibrary` ignores `DataSyncActor.save`'s false. An `UNKNOWN-` ISBN skips the duplicate alert.~~ Resolved 2026-09-24 in `06-review-recovery-duplicates.md` and `07-save-into-catalog.md`. |
 | T19 | done | pass 8 | ~~Library "review needed" is `spineConfidence < 0.8` while the review queue keys off enrichment status.~~ Resolved 2026-09-24 in `08-library-browse.md`. The control is labeled low confidence. The predicate is unchanged. |
 | T20 | done | pass 9 | ~~Rate-limit retries sit where the one-hour temp sweep can delete them, and the stream-manager comment says it caps polls.~~ Resolved 2026-09-24 in `09-offline-queue-rate-limit.md`. |
+| T21 | done | talaria review | Talaria local review (17 files) shipped as `14f2181` on origin/talaria, Worker `34642848-907f-45b3-955e-0c2503c57c04`. A bad percent-escape in a scan path threw before Hono; the log now keeps the captured segment. Hono's `executionCtx` getter throws without an execution context, so the await fallback never ran; the getter is caught and the tracking write is awaited only then. `tests/tsconfig.json` types are `@cloudflare/vitest-plugin/types`. The served spec now includes `enrichmentStatus` and failed-job `retryable`, which SwiftWing already decoded, and states the photo Gemini reads. Committed client spec refreshed from `https://api.oooefam.net/v3/openapi.json`. |
 
 ## Decisions
 
@@ -40,3 +41,4 @@ Status values: `open`, `deferred`, `done`.
 | 2026-09-24 | Fixes follow `10-resolution-workflow.md`. A slice is done only when the test, the findings note, the ledger row, and any live doc sentence land together. |
 | 2026-09-24 | W7: the library control stays `spineConfidence < 0.8` and is renamed low confidence. It does not also include `review_needed` or `not_found`. |
 | 2026-09-24 | W3 (T13) and W5 (T14) were skipped on request. Those rows stay open. |
+| 2026-09-24 | T14 closed against the Talaria photo contract: upright JPEG or PNG, long edge about 1920, EXIF tag 1, no contrast, no denoise, no second encode. The height/width > 2 rotation stays. T21 records the shipped Talaria review. |

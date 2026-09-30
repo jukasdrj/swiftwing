@@ -28,6 +28,8 @@ struct RecognizedLine: Sendable, Equatable {
     var text: String
     /// Vision normalized rect, origin at the bottom left.
     var boundingBox: CGRect
+    /// Top-candidate confidence, 0...1.
+    var confidence: Float = 0
 }
 
 protocol BookSpineExtracting: Sendable {
@@ -119,27 +121,77 @@ enum OnDeviceMetadataAssembler {
 
 actor OnDeviceScanner: BookSpineExtracting {
     func extract(_ imageData: Data) async throws -> OnDeviceScanOutcome {
-        let image = try cgImage(from: imageData)
+        let started = CFAbsoluteTimeGetCurrent()
+        let decoded = try decodeScanImage(from: imageData)
+        let image = decoded.image
+        let pixelWidth = image.width
+        let pixelHeight = image.height
+        let byteCount = imageData.count
+        let exif = decoded.exifOrientation
+        let imageSummary = "On-device image \(pixelWidth)x\(pixelHeight) \(byteCount)B exif \(exif)"
+        logger.info("\(imageSummary, privacy: .public)")
+
+        let ocrStarted = CFAbsoluteTimeGetCurrent()
         let lines = try recognizeLines(in: image)
+        let ocrMs = milliseconds(since: ocrStarted)
+        let confidences = lines.map(\.confidence)
+        let meanConfidence = confidences.isEmpty ? 0 : confidences.reduce(0, +) / Float(confidences.count)
+        let minConfidence = confidences.min() ?? 0
+        let lineCount = lines.count
+        let meanText = String(format: "%.2f", meanConfidence)
+        let minText = String(format: "%.2f", minConfidence)
+        let ocrSummary = "On-device OCR \(ocrMs)ms lines \(lineCount) mean \(meanText) min \(minText)"
+        logger.info("\(ocrSummary, privacy: .public)")
+
+        let barcodeStarted = CFAbsoluteTimeGetCurrent()
         let isbn = barcodePayload(in: image)
+        let barcodeMs = milliseconds(since: barcodeStarted)
+        let foundBarcode = isbn != nil
+        logger.info(
+            "On-device barcode \(barcodeMs, privacy: .public)ms found \(foundBarcode, privacy: .public)"
+        )
+
         let texts = lines.map(\.text)
         let guessed = SpineHeuristic.titleAndAuthor(from: texts)
+        let modelStarted = CFAbsoluteTimeGetCurrent()
         let extraction = await disambiguate(lines: texts, image: image)
-        return OnDeviceMetadataAssembler.assemble(
+        let modelMs = milliseconds(since: modelStarted)
+        let source = extraction == nil ? "heuristic" : "model"
+        logger.info(
+            "On-device model \(modelMs, privacy: .public)ms source \(source, privacy: .public)"
+        )
+
+        let outcome = OnDeviceMetadataAssembler.assemble(
             title: guessed.title,
             author: guessed.author,
             isbn: isbn,
             ocrLines: texts,
             extraction: extraction
         )
+        let totalMs = milliseconds(since: started)
+        let title = outcome.metadata.title ?? ""
+        let author = outcome.metadata.author ?? ""
+        let status = String(describing: outcome.metadata.enrichmentStatus)
+        let heuristicTitle = guessed.title ?? ""
+        let heuristicAuthor = guessed.author ?? ""
+        let resultSummary = "On-device result \(totalMs)ms status \(status) title \(title) author \(author)"
+        logger.info("\(resultSummary, privacy: .public)")
+        logger.info(
+            "On-device heuristic title \(heuristicTitle, privacy: .public) author \(heuristicAuthor, privacy: .public)"
+        )
+        return outcome
+    }
+
+    private func milliseconds(since start: CFAbsoluteTime) -> Int {
+        Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
     }
 
     func recognizeText(in imageData: Data) throws -> [RecognizedLine] {
-        try recognizeLines(in: cgImage(from: imageData))
+        try recognizeLines(in: decodeScanImage(from: imageData).image)
     }
 
     func detectBarcode(in imageData: Data) -> String? {
-        guard let image = try? cgImage(from: imageData) else { return nil }
+        guard let image = try? decodeScanImage(from: imageData).image else { return nil }
         return barcodePayload(in: image)
     }
 
@@ -151,10 +203,14 @@ actor OnDeviceScanner: BookSpineExtracting {
         try handler.perform([request])
         let observations = request.results ?? []
         return observations.compactMap { observation in
-            guard let text = observation.topCandidates(1).first?.string else { return nil }
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            let trimmed = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return nil }
-            return RecognizedLine(text: trimmed, boundingBox: observation.boundingBox)
+            return RecognizedLine(
+                text: trimmed,
+                boundingBox: observation.boundingBox,
+                confidence: candidate.confidence
+            )
         }
     }
 
@@ -165,7 +221,8 @@ actor OnDeviceScanner: BookSpineExtracting {
         do {
             try handler.perform([request])
         } catch {
-            logger.error("Barcode detection failed: \(error.localizedDescription)")
+            let message = error.localizedDescription
+            logger.error("Barcode detection failed: \(message, privacy: .public)")
             return nil
         }
         return request.results?.compactMap(\.payloadStringValue).first
@@ -173,7 +230,12 @@ actor OnDeviceScanner: BookSpineExtracting {
 
     /// Foundation Models only when Apple Intelligence is available. Any failure keeps the OCR heuristic.
     private func disambiguate(lines: [String], image: CGImage) async -> BookExtraction? {
-        guard case .available = SystemLanguageModel.default.availability else {
+        let availability = SystemLanguageModel.default.availability
+        guard case .available = availability else {
+            if case let .unavailable(reason) = availability {
+                let reasonText = String(describing: reason)
+                logger.info("On-device model unavailable: \(reasonText, privacy: .public)")
+            }
             return nil
         }
         let transcript = lines.joined(separator: "\n")
@@ -192,21 +254,66 @@ actor OnDeviceScanner: BookSpineExtracting {
                 Attachment(image)
             }
             let content = response.content
-            guard !content.title.isEmpty, !content.author.isEmpty else { return nil }
+            let modelTitle = content.title
+            let modelAuthor = content.author
+            guard !modelTitle.isEmpty, !modelAuthor.isEmpty else {
+                logger.info("On-device model returned an empty title or author; using the OCR heuristic")
+                return nil
+            }
+            logger.info(
+                "On-device model title \(modelTitle, privacy: .public) author \(modelAuthor, privacy: .public)"
+            )
             return content
         } catch {
-            logger.error("On-device model failed: \(error.localizedDescription)")
+            let message = error.localizedDescription
+            logger.error("On-device model failed: \(message, privacy: .public)")
             return nil
         }
     }
 
-    private func cgImage(from imageData: Data) throws -> CGImage {
-        guard
-            let source = CGImageSourceCreateWithData(imageData as CFData, nil),
-            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else {
+    /// Upright pixels. Vision and the on-device model both assume the buffer is already rotated.
+    func decodeScanImage(from imageData: Data) throws -> (image: CGImage, exifOrientation: Int) {
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil) else {
             throw OnDeviceScanError.unreadableImage
         }
-        return image
+        let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let orientation = Self.exifOrientation(props)
+        let width = Self.propertyCGFloat(props, key: kCGImagePropertyPixelWidth)
+        let height = Self.propertyCGFloat(props, key: kCGImagePropertyPixelHeight)
+        let longest = Int(max(width, height).rounded(.up))
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(longest, 1),
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            throw OnDeviceScanError.unreadableImage
+        }
+        return (image, orientation)
+    }
+
+    private static func exifOrientation(_ props: [CFString: Any]?) -> Int {
+        guard let raw = props?[kCGImagePropertyOrientation] else { return 1 }
+        if let number = raw as? NSNumber {
+            return number.intValue
+        }
+        if let number = raw as? Int {
+            return number
+        }
+        return 1
+    }
+
+    private static func propertyCGFloat(_ props: [CFString: Any]?, key: CFString) -> CGFloat {
+        guard let raw = props?[key] else { return 0 }
+        if let number = raw as? CGFloat {
+            return number
+        }
+        if let number = raw as? NSNumber {
+            return CGFloat(number.doubleValue)
+        }
+        if let number = raw as? Int {
+            return CGFloat(number)
+        }
+        return 0
     }
 }

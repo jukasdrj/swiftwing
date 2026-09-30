@@ -13,13 +13,19 @@ import UniformTypeIdentifiers
 
 private let logger = Logger(subsystem: "com.ooheynerds.swiftwing", category: "image-preprocessor")
 
-/// Actor-isolated image preprocessing pipeline for book spine recognition
-/// Applies contrast enhancement, brightness adjustment, denoising, and rotation correction
-/// Runs OFF MainActor to avoid blocking UI during CIFilter processing
+/// Prepares one shelf photo for Talaria. Gemini receives those bytes unchanged.
 ///
-/// Performance target: < 500ms for 1920px max dimension images
-/// Memory: Uses CIContext with RGBA8 working format for GPU optimization
+/// Upright pixels, EXIF tag 1, long edge at most 1920. A dark or bright frame
+/// gets one brightness nudge. A very narrow crop is turned once. Contrast and
+/// noise reduction stay off: they rewrite spine color and small type.
+/// The JPEG is encoded once, and an already-upright JPEG or PNG inside the
+/// long-edge cap is uploaded as captured.
+///
+/// Performance target: < 500ms for 1920px max dimension images.
+/// CPU-bound Core Image work runs off the actor executor.
 actor ImagePreprocessor {
+    /// Longest edge Talaria asks clients to send. Gemini's default image budget holds about this much.
+    static let uploadLongEdge: CGFloat = 1920
     /// Shared CIContext for filter rendering (reused across calls)
     private let ciContext: CIContext
 
@@ -29,6 +35,8 @@ actor ImagePreprocessor {
         let wasRotated: Bool
         let brightnessAdjustment: Float
         let processingTimeMs: Int
+        /// False when the capture bytes were already an upright JPEG or PNG inside the long-edge cap.
+        let didReencode: Bool
     }
 
     init() {
@@ -47,62 +55,107 @@ actor ImagePreprocessor {
         // Capture context before entering the detached task (CIContext is thread-safe)
         let context = ciContext
 
-        let (outputData, wasRotated, brightnessAdj) = await Task.detached(priority: .userInitiated) {
+        let prepared = await Task.detached(priority: .userInitiated) {
             guard let source = CIImage(data: imageData) else {
-                return (imageData, false, Float(0))
+                return (imageData, false, Float(0), false)
             }
             // Upright pixels before the bookshelf check, so that check sees the photo
             // the user shot, not the sensor buffer.
-            var ciImage = ImagePreprocessor.uprightPixels(source)
+            let exif = ImagePreprocessor.exifOrientation(of: source)
+            var ciImage = exif == 1 ? source : source.oriented(forExifOrientation: exif)
 
-            // Step 1: Rotation detection and correction
             let wasRotated = ImagePreprocessor.detectAndCorrectRotation(&ciImage)
-
-            // Step 2: Contrast enhancement (1.5x)
-            ImagePreprocessor.applyContrastEnhancement(&ciImage, factor: 1.5)
-
-            // Step 3: Adaptive brightness adjustment
             let brightnessAdj = ImagePreprocessor.applyAdaptiveBrightness(&ciImage, context: context)
+            let didScale = ImagePreprocessor.scaleToLongEdge(&ciImage, maxDimension: ImagePreprocessor.uploadLongEdge)
 
-            // Step 4: Noise reduction
-            ImagePreprocessor.applyNoiseReduction(&ciImage)
+            let unchanged = exif == 1 && !wasRotated && brightnessAdj == 0 && !didScale
+            if unchanged, ImagePreprocessor.isJPEGOrPNG(imageData) {
+                return (imageData, false, brightnessAdj, false)
+            }
 
-            // Render to Data (JPEG, 0.85 quality)
             let outputData = ImagePreprocessor.renderToJPEG(ciImage, context: context, quality: 0.85) ?? imageData
-
-            return (outputData, wasRotated, brightnessAdj)
+            return (outputData, wasRotated, brightnessAdj, outputData != imageData)
         }.value
+        let (outputData, wasRotated, brightnessAdj, didReencode) = prepared
 
         let duration = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+        let outputBytes = outputData.count
+        let inputSize = Self.pixelSize(of: imageData)
+        let outputSize = Self.pixelSize(of: outputData)
+        let brightnessText = String(format: "%.3f", brightnessAdj)
+        let sizeSummary = "\(inputSize.width)x\(inputSize.height) -> \(outputSize.width)x\(outputSize.height)"
+        logger.info("Upload prep \(sizeSummary, privacy: .public) \(outputBytes, privacy: .public)B")
+        let flagSummary = "reencoded \(didReencode) rotated \(wasRotated) brightness \(brightnessText)"
+        logger.info("Upload prep \(flagSummary, privacy: .public)")
 
         return PreprocessingResult(
             processedData: outputData,
             wasRotated: wasRotated,
             brightnessAdjustment: brightnessAdj,
-            processingTimeMs: duration
+            processingTimeMs: duration,
+            didReencode: didReencode
         )
     }
 
     // MARK: - Private Filter Methods (nonisolated static — safe to call from detached tasks)
 
-    /// Apply the EXIF orientation to the pixels. Tag 1 is left alone.
-    /// The JPEG writer then stores those pixels with an upright tag, so the
-    /// upload thumbnail pass does not rotate them a second time.
-    private static func uprightPixels(_ image: CIImage) -> CIImage {
+    /// Missing tag is treated as upright. Tag 1 is already upright.
+    private static func exifOrientation(of image: CIImage) -> Int32 {
         let raw = image.properties[kCGImagePropertyOrientation as String]
-        let exif: Int32? = if let number = raw as? NSNumber {
-            number.int32Value
-        } else if let number = raw as? Int {
-            Int32(number)
-        } else {
-            nil
+        if let number = raw as? NSNumber {
+            return number.int32Value
         }
-        guard let exif, exif != 1 else { return image }
-        return image.oriented(forExifOrientation: exif)
+        if let number = raw as? Int {
+            return Int32(number)
+        }
+        return 1
     }
 
-    /// Detect vertical bookshelf orientation and rotate 90° CCW if needed
-    /// Returns true if rotation was applied
+    private static func isJPEGOrPNG(_ data: Data) -> Bool {
+        guard data.count >= 8 else { return false }
+        let bytes = [UInt8](data.prefix(8))
+        if bytes[0] == 0xFF, bytes[1] == 0xD8, bytes[2] == 0xFF {
+            return true
+        }
+        return bytes == [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+    }
+
+    private static func pixelSize(of data: Data) -> (width: Int, height: Int) {
+        guard
+            let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        else {
+            return (0, 0)
+        }
+        func dimension(_ key: CFString) -> Int {
+            if let number = props[key] as? Int {
+                return number
+            }
+            if let number = props[key] as? NSNumber {
+                return number.intValue
+            }
+            return 0
+        }
+        return (dimension(kCGImagePropertyPixelWidth), dimension(kCGImagePropertyPixelHeight))
+    }
+
+    /// A missing orientation tag is upright. Any other tag still needs a bake.
+    private static func orientationIsUpright(_ props: [CFString: Any]) -> Bool {
+        let raw = props[kCGImagePropertyOrientation]
+        if raw == nil {
+            return true
+        }
+        if let number = raw as? NSNumber {
+            return number.intValue == 1
+        }
+        if let number = raw as? Int {
+            return number == 1
+        }
+        return false
+    }
+
+    /// Quarter-turn clockwise when the upright frame is taller than twice its width.
+    /// Returns true if rotation was applied. A normal shelf does not take this path.
     private static func detectAndCorrectRotation(_ image: inout CIImage) -> Bool {
         let aspectRatio = image.extent.height / image.extent.width
 
@@ -122,22 +175,15 @@ actor ImagePreprocessor {
         return true
     }
 
-    /// Apply contrast enhancement using CIColorControls filter
-    private static func applyContrastEnhancement(_ image: inout CIImage, factor: Float) {
-        guard let filter = CIFilter(name: "CIColorControls") else {
-            logger.error("CIColorControls filter unavailable")
-            return
-        }
-
-        filter.setValue(image, forKey: kCIInputImageKey)
-        filter.setValue(factor, forKey: kCIInputContrastKey)
-
-        guard let outputImage = filter.outputImage else {
-            logger.error("Contrast filter failed to produce output")
-            return
-        }
-
-        image = outputImage
+    /// Shrink so the longest edge is `maxDimension`. A smaller photo is left alone.
+    private static func scaleToLongEdge(_ image: inout CIImage, maxDimension: CGFloat) -> Bool {
+        let extent = image.extent
+        guard !extent.isInfinite, !extent.isNull, !extent.isEmpty else { return false }
+        let longest = max(extent.width, extent.height)
+        guard longest > maxDimension else { return false }
+        let scale = maxDimension / longest
+        image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        return true
     }
 
     /// Apply adaptive brightness adjustment based on image luminance
@@ -223,25 +269,6 @@ actor ImagePreprocessor {
         return 0.299 * r + 0.587 * g + 0.114 * b
     }
 
-    /// Apply light noise reduction while preserving text detail
-    private static func applyNoiseReduction(_ image: inout CIImage) {
-        guard let filter = CIFilter(name: "CINoiseReduction") else {
-            logger.error("CINoiseReduction filter unavailable")
-            return
-        }
-
-        filter.setValue(image, forKey: kCIInputImageKey)
-        filter.setValue(0.02, forKey: "inputNoiseLevel")
-        filter.setValue(0.4, forKey: "inputSharpness")
-
-        guard let outputImage = filter.outputImage else {
-            logger.error("Noise reduction failed to produce output")
-            return
-        }
-
-        image = outputImage
-    }
-
     // MARK: - Resize and Compress (ImageIO)
 
     /// Resize and compress image data using ImageIO for memory efficiency.
@@ -253,7 +280,7 @@ actor ImagePreprocessor {
     /// - Throws: ImageProcessingError if the image cannot be read or encoded
     func resizeAndCompress(
         _ imageData: Data,
-        maxDimension: CGFloat = 1920,
+        maxDimension: CGFloat = ImagePreprocessor.uploadLongEdge,
         compressionQuality: Double = 0.85
     ) throws -> Data {
         // Create CGImageSource from raw data (zero-copy read)
@@ -265,8 +292,13 @@ actor ImagePreprocessor {
             throw ImageProcessingError.invalidImageData
         }
 
-        // Compute thumbnail size preserving aspect ratio
+        // An upright JPEG or PNG already inside the cap is the upload body.
+        // Re-encoding it here was the second JPEG pass.
         let longestEdge = max(pixelWidth, pixelHeight)
+        if longestEdge <= maxDimension, Self.isJPEGOrPNG(imageData), Self.orientationIsUpright(props) {
+            return imageData
+        }
+
         let thumbnailMaxPixels = if longestEdge <= maxDimension {
             // No resize needed — still re-encode to normalise orientation/format
             Int(longestEdge)
@@ -308,11 +340,9 @@ actor ImagePreprocessor {
         return outputData as Data
     }
 
-    /// Full pipeline: preprocess (enhance) then resize/compress and write to a temp file.
-    /// Replaces the former `CameraViewModel.processImage` static method.
-    /// The caller (CameraViewModel) is responsible for calling `preprocess()` first.
-    /// Calling `preprocess()` here would apply contrast/brightness/noise reduction twice.
-    /// - Parameter imageData: Already-preprocessed image data (output of `preprocess()`)
+    /// Writes the JPEG from `preprocess`. Does not filter again.
+    /// An upright JPEG or PNG already inside the long-edge cap is copied through.
+    /// - Parameter imageData: Output of `preprocess()`
     /// - Returns: URL of a temp JPEG file (auto-cleaned after 30 minutes)
     /// - Throws: ImageProcessingError on failure
     func processImageForUpload(_ imageData: Data) async throws -> URL {

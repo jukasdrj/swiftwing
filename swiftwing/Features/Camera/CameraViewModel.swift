@@ -426,8 +426,16 @@ final class CameraViewModel {
             capturedISBN: nil,
             modelContext: modelContext
         )
+        let started = CFAbsoluteTimeGetCurrent()
         do {
             let outcome = try await spineExtractor.extract(imageData)
+            let elapsedMs = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
+            let title = outcome.metadata.title ?? ""
+            let author = outcome.metadata.author ?? ""
+            let status = String(describing: outcome.metadata.enrichmentStatus)
+            let lineCount = outcome.ocrText?.split(separator: "\n").count ?? 0
+            let summary = "On-device path \(elapsedMs)ms status \(status) lines \(lineCount) title \(title) author \(author)"
+            e2eLogger.info("\(summary, privacy: .public)")
             callbacks.onBookMetadataReceived(outcome.metadata)
             callbacks.onBookResult(outcome.metadata, outcome.ocrText, nil, nil)
             callbacks.onScanComplete(1, item.thumbnailData)
@@ -435,6 +443,9 @@ final class CameraViewModel {
             await removeQueueItemAfterDelay(id: item.id, delay: queueRemovalDelay)
             return true
         } catch {
+            let elapsedMs = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
+            let message = error.localizedDescription
+            e2eLogger.error("On-device path failed in \(elapsedMs, privacy: .public)ms: \(message, privacy: .public)")
             callbacks.onError(error.localizedDescription)
             await removeQueueItemAfterDelay(id: item.id, delay: queueRemovalDelay)
             return false
@@ -496,10 +507,15 @@ final class CameraViewModel {
     /// Preprocess raw image data and compress it for upload.
     /// Returns the processed image data and temp file URL.
     private func preprocessAndPrepareUpload(itemId _: UUID, item: ProcessingItem, imageData: Data, startTime: CFAbsoluteTime) async throws -> (Data, URL) {
-        // Step 1: Preprocess image (contrast, brightness, denoising, rotation)
+        // Upright pixels, brightness outside the mid band, and the 1920 long-edge cap. One JPEG.
         queueStateManager.updateItem(id: item.id, state: .preprocessing, message: "Preprocessing...")
         let preprocessResult = await imagePreprocessor.preprocess(imageData)
-        e2eLogger.debug("Preprocessing: \(preprocessResult.processingTimeMs)ms, rotated: \(preprocessResult.wasRotated), brightness adj: \(preprocessResult.brightnessAdjustment)")
+        let prepMs = preprocessResult.processingTimeMs
+        let prepRotated = preprocessResult.wasRotated
+        let prepBrightness = preprocessResult.brightnessAdjustment
+        let prepReencoded = preprocessResult.didReencode
+        let prepSummary = "Preprocessing \(prepMs)ms rotated \(prepRotated) brightness \(prepBrightness) reencoded \(prepReencoded)"
+        e2eLogger.info("\(prepSummary, privacy: .public)")
 
         // Step 2: Process (resize + compress) the preprocessed image
         let fileURL = try await imagePreprocessor.processImageForUpload(preprocessResult.processedData)

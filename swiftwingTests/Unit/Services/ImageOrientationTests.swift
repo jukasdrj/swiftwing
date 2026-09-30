@@ -15,7 +15,7 @@ struct ImageOrientationTests {
         #expect(pixels.width == 60)
         #expect(pixels.height == 80)
         let orientation = exifOrientation(of: uploaded)
-        #expect(orientation == nil || orientation == 1)
+        #expect(orientation == 1)
     }
 
     @Test func uprightCaptureKeepsItsPixelSize() async throws {
@@ -28,7 +28,61 @@ struct ImageOrientationTests {
         #expect(pixels.height == 60)
     }
 
-    private func jpeg(width: Int, height: Int, orientation: Int) throws -> Data {
+    @Test func uprightJPEGInsideTheCapIsNotEncodedAgain() async throws {
+        let original = try jpeg(width: 80, height: 60, orientation: 1, red: 0.5, green: 0.5, blue: 0.5)
+        let prepared = await ImagePreprocessor().preprocess(original)
+
+        #expect(prepared.didReencode == false)
+        #expect(prepared.wasRotated == false)
+        #expect(prepared.brightnessAdjustment == 0)
+        #expect(prepared.processedData == original)
+
+        let uploaded = try await ImagePreprocessor().resizeAndCompress(prepared.processedData)
+        #expect(uploaded == original)
+    }
+
+    @Test func wideJPEGIsScaledOnceToTheUploadEdge() async throws {
+        let original = try jpeg(width: 2400, height: 1200, orientation: 1, red: 0.5, green: 0.5, blue: 0.5)
+        let prepared = await ImagePreprocessor().preprocess(original)
+        let uploaded = try await ImagePreprocessor().resizeAndCompress(prepared.processedData)
+
+        #expect(prepared.didReencode)
+        #expect(uploaded == prepared.processedData)
+        let pixels = try pixelSize(of: uploaded)
+        #expect(pixels.width == 1920)
+        #expect(pixels.height == 960)
+    }
+
+    @Test func narrowCropStillTurnsOnce() async throws {
+        let original = try jpeg(width: 40, height: 100, orientation: 1, red: 0.5, green: 0.5, blue: 0.5)
+        let prepared = await ImagePreprocessor().preprocess(original)
+
+        #expect(prepared.wasRotated)
+        #expect(prepared.didReencode)
+        let uploaded = try await ImagePreprocessor().resizeAndCompress(prepared.processedData)
+        #expect(uploaded == prepared.processedData)
+        let pixels = try pixelSize(of: uploaded)
+        #expect(pixels.width == 100)
+        #expect(pixels.height == 40)
+    }
+
+    @Test func onDeviceDecodeBakesSidewaysExif() async throws {
+        let sideways = try jpeg(width: 80, height: 60, orientation: 6)
+        let decoded = try await OnDeviceScanner().decodeScanImage(from: sideways)
+
+        #expect(decoded.exifOrientation == 6)
+        #expect(decoded.image.width == 60)
+        #expect(decoded.image.height == 80)
+    }
+
+    private func jpeg(
+        width: Int,
+        height: Int,
+        orientation: Int,
+        red: CGFloat = 0.8,
+        green: CGFloat = 0.2,
+        blue: CGFloat = 0.1
+    ) throws -> Data {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
             data: nil,
@@ -42,7 +96,7 @@ struct ImageOrientationTests {
             Issue.record("Could not create bitmap")
             return Data()
         }
-        context.setFillColor(CGColor(red: 0.8, green: 0.2, blue: 0.1, alpha: 1))
+        context.setFillColor(CGColor(red: red, green: green, blue: blue, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         let image = try #require(context.makeImage())
         let data = NSMutableData()

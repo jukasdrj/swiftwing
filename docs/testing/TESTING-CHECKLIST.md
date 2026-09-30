@@ -35,6 +35,14 @@ Physical device. The temp photo is deleted on approve, on reject, and after 30 m
 - [ ] Open the review card and tap the magnifying glass
 - [ ] The rectangle sits on the book
 
+### Shelf photo sent to Talaria
+
+Physical device. `Upload prep` logs input pixels, output pixels, and bytes, then `reencoded`, rotation, and brightness. The output size is what Gemini receives. `Photo cap` is only the capture cap, so a phone whose only still is 12MP logs `4032x3024` there and the scaled size on `Upload prep`.
+
+- [ ] `Upload prep` shows an output long edge of about 1920
+- [ ] A shot that is already an upright JPEG inside that cap logs `reencoded false`
+- [ ] Titles from that photo are not cut off the way the 1024 capture was
+
 ## Epic 4 Feature Verification
 
 This checklist ensures all Epic 4 (Talaria Integration) features remain functional after code changes.

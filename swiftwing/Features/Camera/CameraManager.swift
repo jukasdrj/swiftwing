@@ -109,14 +109,15 @@ final class CameraManager {
             output.isFastCapturePrioritizationEnabled = output.isFastCapturePrioritizationSupported
             output.maxPhotoQualityPrioritization = .balanced
 
-            // Optimized for Gemini Vision (1024x768 approx)
-            let targetDimensions = CMVideoDimensions(width: 1024, height: 768)
-            if let closestDimension = camera.activeFormat.supportedMaxPhotoDimensions
-                .min(by: {
-                    abs($0.width - targetDimensions.width) < abs($1.width - targetDimensions.width)
-                })
-            {
+            // Gemini's default image budget holds about a 1920 long edge. 1024 cuts titles off.
+            // 12MP is downsampled and the boxes get worse, so pick the supported size nearest 1920.
+            let supported = camera.activeFormat.supportedMaxPhotoDimensions
+            if let closestDimension = Self.preferredPhotoDimensions(supported: supported) {
                 output.maxPhotoDimensions = closestDimension
+                let chosenWidth = closestDimension.width
+                let chosenHeight = closestDimension.height
+                let targetLongEdge = Self.geminiUploadLongEdge
+                logger.info("Photo cap \(chosenWidth)x\(chosenHeight) target \(targetLongEdge)")
             }
         } else {
             throw CameraError.cannotAddOutput
@@ -217,11 +218,35 @@ final class CameraManager {
         rotationObservers.append(captureObserver)
     }
 
+    /// Supported still size whose longest edge is nearest 1920. A tie prefers the smaller frame.
+    nonisolated static let geminiUploadLongEdge: Int32 = 1920
+
+    nonisolated static func preferredPhotoDimensions(
+        supported: [CMVideoDimensions],
+        targetLongEdge: Int32 = CameraManager.geminiUploadLongEdge
+    ) -> CMVideoDimensions? {
+        supported.min { lhs, rhs in
+            let lhsLong = max(lhs.width, lhs.height)
+            let rhsLong = max(rhs.width, rhs.height)
+            let lhsDistance = abs(lhsLong - targetLongEdge)
+            let rhsDistance = abs(rhsLong - targetLongEdge)
+            if lhsDistance != rhsDistance {
+                return lhsDistance < rhsDistance
+            }
+            return lhsLong < rhsLong
+        }
+    }
+
     func capturePhoto() async throws -> Data {
         guard let photoOutput else {
             throw CameraError.photoOutputNotConfigured
         }
-        let settings = AVCapturePhotoSettings()
+        // One camera JPEG. A later HEIC-to-JPEG transcode would be a second encode.
+        let settings = if photoOutput.availablePhotoCodecTypes.contains(.jpeg) {
+            AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
+        } else {
+            AVCapturePhotoSettings()
+        }
         settings.photoQualityPrioritization = .balanced
         settings.maxPhotoDimensions = photoOutput.maxPhotoDimensions
 

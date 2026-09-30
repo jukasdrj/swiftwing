@@ -58,3 +58,11 @@ The upload bytes are a second JPEG (quality 0.85) of a first JPEG (quality 0.85)
 ## Do not change yet
 
 Leave the filter order, the aspect threshold, and the temp-file lifetime until pass 4 and pass 9 have been read beside this note.
+
+## Resolved
+
+2026-09-24. Ledger T14. Talaria's served scan description is the contract: one upright JPEG or PNG under 10MB, long edge about 1920, EXIF tag 1, no contrast, no denoise, no second JPEG. The worker does not resize or filter.
+
+`CameraManager.preferredPhotoDimensions` picks the supported still whose longest edge is nearest 1920, and a tie keeps the smaller frame. Capture requests a JPEG codec so a HEIC transcode is not a second encode. `ImagePreprocessor.preprocess` bakes orientation, keeps the aspect check above 2.0 (a shelf still does not take it), applies brightness only outside 100...180, scales to 1920 in that same render, and returns the original bytes when nothing changed. `resizeAndCompress` returns those bytes unchanged.
+
+Tests: `uprightJPEGInsideTheCapIsNotEncodedAgain`, `wideJPEGIsScaledOnceToTheUploadEdge`, `narrowCropStillTurnsOnce`, and `onDeviceDecodeBakesSidewaysExif` in `ImageOrientationTests`, and `CameraPhotoDimensionTests`. `Upload prep` logs input and output pixels. A device shelf photo still has to show that output long edge near 1920. That check is in `docs/testing/TESTING-CHECKLIST.md`. On-device OCR bakes the same EXIF tag before Vision, and logs it beside the upright pixel size.

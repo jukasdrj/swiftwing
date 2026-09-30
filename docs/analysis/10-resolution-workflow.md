@@ -66,6 +66,8 @@ Do stop the second JPEG pass when the capture is already within the upload edge 
 
 Test: `ImagePreprocessor` tests do not exist yet. Add one that a JPEG whose long edge is under 1920 is not expanded, and one that records whether a second encode ran. Use a generated bitmap in the test, not `test_book_stack.jpg` (that file is HTML).
 
+The served Talaria spec later widened this slice: long edge about 1920, no contrast, no denoise, one JPEG. That is what T14 closed. The aspect check above 2.0 still stays.
+
 Docs: pass `03-`.
 
 ### W6 — Bounding boxes (T8 follow-through, T16)

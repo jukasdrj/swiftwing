@@ -31,9 +31,26 @@ paths:
       tags:
       - Scans
       summary: Scan bookshelf photos
-      description: 'Upload exactly one photo for AI-powered book detection with Gemini Vision. Returns
-        immediately with jobId for progress tracking via status polling. Max size: 10MB. Multi-photo batches
-        are not supported.'
+      description: 'Upload exactly one photo. Talaria stores those bytes and sends them unchanged to Gemini.
+        It does not resize, rotate, filter, or re-encode.
+
+
+        Accepted file: one JPEG or PNG, checked by magic bytes, under 10MB. Field name is photos[].
+
+
+        For a readable shelf and boxes that land on the photo you see:
+
+        - Upright pixels, aspect ratio unchanged. Bake the displayed orientation into the image and set
+        the EXIF orientation tag to 1. Gemini does not reliably apply EXIF rotation, and this worker never
+        rotates, so a stale tag shifts every box off the spine.
+
+        - Long edge about 1920 pixels. This request does not set a media resolution, so Gemini uses its
+        default high image budget (1120 tokens), which keeps about that size. A long edge near 1024 cuts
+        titles off. A full 12MP frame (about 4032×3024) is downsampled by the model and the boxes get
+        worse.
+
+        - Do not contrast-stretch, denoise, or JPEG-encode a second time. The model uses spine color and
+        small type, and it scores dark and blur itself.'
       operationId: createScanJob
       parameters:
       - name: X-Device-ID
@@ -59,7 +76,9 @@ paths:
                     format: binary
                   minItems: 1
                   maxItems: 1
-                  description: Array containing exactly one photo file
+                  description: Exactly one upright JPEG or PNG under 10MB. Long edge about 1920px. Orientation
+                    baked into the pixels (EXIF tag 1). No contrast, denoise, or second JPEG encode. Talaria
+                    forwards these bytes to Gemini unchanged.
       responses:
         '202':
           description: Scan job accepted
@@ -117,8 +136,8 @@ paths:
       tags:
       - Scans
       summary: Cancel scan job
-      description: Cancel in-progress scan job and cleanup R2 storage. Deletes all uploaded photos for
-        this job.
+      description: Deletes the temporary scan photo from R2, then terminates the workflow. Returns 200
+        when the instance is already finished. Stored results stay readable until they expire.
       operationId: cancelScanJob
       parameters:
       - name: jobId
@@ -129,19 +148,13 @@ paths:
           format: uuid
       responses:
         '200':
-          description: Job canceled (includes R2 cleanup status)
+          description: Job canceled and the scan photo deleted
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobStatusResponse'
         '404':
           description: Job not found
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Job already completed or failed
           content:
             application/problem+json:
               schema:
@@ -376,6 +389,9 @@ components:
         processingTime:
           type: integer
           description: Request processing time in milliseconds
+        truncated:
+          type: boolean
+          description: True when Gemini returned a partial shelf
     JobInitResponse:
       type: object
       required:
@@ -469,7 +485,13 @@ components:
                   type: string
                 message:
                   type: string
+                retryable:
+                  type: boolean
+                  description: Failed workflow instances are terminal
               description: Error details if job failed
+            truncated:
+              type: boolean
+              description: True when the completed scan is a partial shelf
         metadata:
           $ref: '#/components/schemas/ResponseMetadata'
     JobResultsResponse:
@@ -507,7 +529,6 @@ components:
       type: object
       required:
       - title
-      - confidence
       properties:
         isbn:
           type: string
@@ -522,7 +543,7 @@ components:
           type: number
           minimum: 0
           maximum: 1
-          description: AI confidence score (0.0 to 1.0)
+          description: Detection confidence (0-1). Omitted when the model did not return a score.
         boundingBox:
           type: object
           description: Normalized bounding box for detected book spine (0.0-1.0 relative to image dimensions).
@@ -573,8 +594,6 @@ components:
           items:
             type: string
           description: All author names (hoisted from enrichment)
-        enrichment:
-          $ref: '#/components/schemas/BookEnrichment'
         enrichmentStatus:
           type: string
           enum:
@@ -583,8 +602,9 @@ components:
           - error
           - circuit_open
           - review_needed
-          description: Top-level enrichment status from the results mapper. Runtime always includes this
-            field for iOS clients.
+          description: Top-level enrichment status. The results mapper always includes this field.
+        enrichment:
+          $ref: '#/components/schemas/BookEnrichment'
     BookEnrichment:
       type: object
       properties:
@@ -826,7 +846,7 @@ components:
               - withinTarget
               - complianceRate
               - scansOverBudget
-              - avgIsbndbCallsPerScan
+              - avgGoogleBooksCallsPerScan
               - avgGeminiCallsPerScan
               - alertLevel
               properties:
@@ -846,7 +866,7 @@ components:
                   maximum: 1
                 scansOverBudget:
                   type: integer
-                avgIsbndbCallsPerScan:
+                avgGoogleBooksCallsPerScan:
                   type: number
                 avgGeminiCallsPerScan:
                   type: number
