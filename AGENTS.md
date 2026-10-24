@@ -28,4 +28,5 @@ The same `xcodebuild … 2>&1 | xcsift` lines are in the `Makefile`.
 - Enrichment recovery persists `PendingBookResult.resolvedMetadata`, not `.metadata`.
 - Do not invent Talaria response fields. Spec: `swiftwing/OpenAPI/talaria-openapi.yaml`. Contract tests: `swiftwingTests/Unit/Services/TalariaContractAdherenceTests.swift`.
 - Skills, loaded when the task matches: `swift-concurrency-pro`, `swiftdata-pro`, `swiftui-pro`, `swift-testing-pro`, `new-feature-slice`, `run-contract-tests`. They live in `.claude/skills/<name>/SKILL.md`. `.agents/skills` points there.
-- Path-scoped Swift and SwiftData rules: `.claude/rules/`. Large-task planning stays in `.claude/rules/planning-mandatory.md`.
+- Open `.claude/rules/swift-conventions.md` or `.claude/rules/swiftdata-patterns.md` when editing Swift or SwiftData. Grok does not inject `.claude/rules/`.
+- Multi-step work uses plan mode. Do not add `task_plan.md`, `findings.md`, or `progress.md`.
