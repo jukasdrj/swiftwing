@@ -111,8 +111,9 @@ final class CameraViewModel {
     /// How long a finished on-device row stays in the processing queue.
     var queueRemovalDelay: TimeInterval = 5
 
-    /// Live viewfinder text. Updated from the video output, not the shutter path.
-    var liveTextObservations: [LiveTextObservation] = []
+    /// One outline per spine in the viewfinder, including tracks coasting through a missed frame.
+    /// Updated from the video output, not the shutter path.
+    var liveSpineOutlines: [SpineTrack] = []
 
     // MARK: - Capture Throttle
 
@@ -218,14 +219,20 @@ final class CameraViewModel {
 
     func stopCamera() {
         cameraManager.setLiveTextHandler(nil)
-        liveTextObservations = []
+        liveSpineOutlines = []
         cameraManager.stopSession()
     }
 
     private func startLiveText() {
         cameraManager.setLiveTextHandler { [weak self] observations in
+            let columns = SpineColumnGrouper.columns(from: observations.map(\.visionBottomLeft))
             Task { @MainActor in
-                self?.liveTextObservations = observations
+                guard let self else { return }
+                // Coasting tracks stay in this array so a one-frame OCR miss does not blink the outline.
+                self.liveSpineOutlines = SpineTracker.step(
+                    tracks: self.liveSpineOutlines,
+                    observed: columns
+                )
             }
         }
     }
