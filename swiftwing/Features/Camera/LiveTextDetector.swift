@@ -126,11 +126,19 @@ enum SpineColumnGrouper {
         let sorted = lines.sorted { $0.midX < $1.midX }
         var groups: [[CGRect]] = []
         for box in sorted {
-            if let index = groups.indices.last, overlaps(box, union(groups[index])) {
-                groups[index].append(box)
-            } else {
+            // A line can overlap an earlier column and not the latest one.
+            // Join every column it overlaps, or one spine becomes two.
+            let hits = groups.indices.filter { overlaps(box, union(groups[$0])) }
+            if hits.isEmpty {
                 groups.append([box])
+                continue
             }
+            var merged = hits.flatMap { groups[$0] }
+            merged.append(box)
+            for index in hits.reversed() {
+                groups.remove(at: index)
+            }
+            groups.append(merged)
         }
 
         let columns = groups.flatMap { splitVertically($0) }
@@ -212,18 +220,44 @@ enum SpineTracker {
     static let dropAfter = 3
 
     static func step(tracks: [SpineTrack], observed: [CGRect]) -> [SpineTrack] {
-        var remaining = observed.sorted { $0.midX < $1.midX }
-        var next: [SpineTrack] = []
-        for track in tracks.sorted(by: { $0.rect.midX < $1.rect.midX }) {
-            let matchIndex = remaining.indices.min { lhs, rhs in
-                abs(remaining[lhs].midX - track.rect.midX) < abs(remaining[rhs].midX - track.rect.midX)
+        // Assign the closest pair first. Walking tracks left to right lets the
+        // left track take an observation that sits closer to its neighbor.
+        let ordered = tracks.sorted { $0.rect.midX < $1.rect.midX }
+        var pairs: [(track: Int, observation: Int, distance: CGFloat)] = []
+        for (trackIndex, track) in ordered.enumerated() {
+            for (observationIndex, rect) in observed.enumerated() {
+                let distance = abs(rect.midX - track.rect.midX)
+                if distance <= matchDistance {
+                    pairs.append((trackIndex, observationIndex, distance))
+                }
             }
-            if let matchIndex, abs(remaining[matchIndex].midX - track.rect.midX) <= matchDistance {
-                let observedRect = remaining.remove(at: matchIndex)
+        }
+        pairs.sort { lhs, rhs in
+            if lhs.distance != rhs.distance { return lhs.distance < rhs.distance }
+            if lhs.track != rhs.track { return lhs.track < rhs.track }
+            return lhs.observation < rhs.observation
+        }
+
+        var matchedObservation = Array(repeating: -1, count: ordered.count)
+        var usedTracks = Set<Int>()
+        var usedObservations = Set<Int>()
+        for pair in pairs {
+            if usedTracks.contains(pair.track) || usedObservations.contains(pair.observation) {
+                continue
+            }
+            matchedObservation[pair.track] = pair.observation
+            usedTracks.insert(pair.track)
+            usedObservations.insert(pair.observation)
+        }
+
+        var next: [SpineTrack] = []
+        for (trackIndex, track) in ordered.enumerated() {
+            let observationIndex = matchedObservation[trackIndex]
+            if observationIndex >= 0 {
                 next.append(
                     SpineTrack(
                         id: track.id,
-                        rect: lerp(track.rect, observedRect, alpha),
+                        rect: lerp(track.rect, observed[observationIndex], alpha),
                         missed: 0,
                         matchedThisFrame: true
                     )
@@ -242,7 +276,7 @@ enum SpineTracker {
                 }
             }
         }
-        for rect in remaining {
+        for (observationIndex, rect) in observed.enumerated() where !usedObservations.contains(observationIndex) {
             next.append(
                 SpineTrack(id: UUID(), rect: rect, missed: 0, matchedThisFrame: false)
             )

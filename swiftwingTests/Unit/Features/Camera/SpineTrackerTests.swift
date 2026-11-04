@@ -46,6 +46,38 @@ struct SpineTrackerTests {
         #expect(tracks.isEmpty)
     }
 
+    @Test func theCloserTrackKeepsASharedObservation() {
+        let left = UUID()
+        let right = UUID()
+        let next = SpineTracker.step(
+            tracks: [
+                SpineTrack(
+                    id: left,
+                    rect: CGRect(x: 0.10, y: 0.20, width: 0.08, height: 0.50),
+                    missed: 0,
+                    matchedThisFrame: true
+                ),
+                SpineTrack(
+                    id: right,
+                    rect: CGRect(x: 0.16, y: 0.20, width: 0.08, height: 0.50),
+                    missed: 0,
+                    matchedThisFrame: true
+                ),
+            ],
+            observed: [
+                CGRect(x: 0.18, y: 0.20, width: 0.08, height: 0.50),
+                CGRect(x: 0.30, y: 0.20, width: 0.08, height: 0.50),
+            ]
+        )
+        let rightTrack = next.first { $0.id == right }
+        let leftTrack = next.first { $0.id == left }
+        #expect(rightTrack?.matchedThisFrame == true)
+        #expect(leftTrack?.matchedThisFrame == false)
+        // 0.16 + (0.18 - 0.16) * 0.45
+        #expect(abs((rightTrack?.rect.minX ?? -1) - 0.169) < 0.000_1)
+        #expect(next.contains { $0.id != left && $0.id != right && abs($0.rect.minX - 0.30) < 0.000_1 })
+    }
+
     @Test func aNewColumnArrivesUnmatched() {
         let next = SpineTracker.step(
             tracks: [],

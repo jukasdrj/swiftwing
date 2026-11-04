@@ -119,7 +119,7 @@ struct SpineColumnGrouperTests {
 
 - [x] **Step 2: Run the test to verify it fails**
 
-Run from `/Users/juju/dev_repos/swiftwing`:
+Run from the repo root:
 
 ```bash
 xcodebuild test -project swiftwing.xcodeproj -scheme swiftwing \

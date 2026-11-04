@@ -72,6 +72,19 @@ struct SpineColumnGrouperTests {
         #expect(abs(columns[0].minX - 0.30) < 0.000_1)
     }
 
+    @Test func aLineOverlappingTwoColumnsJoinsBoth() {
+        // Midpoints sort the wide line last. It overlaps the first column and
+        // the second. Joining only the latest column leaves the first spine split off.
+        let columns = SpineColumnGrouper.columns(from: [
+            CGRect(x: 0.375, y: 0.20, width: 0.068, height: 0.40),
+            CGRect(x: 0.413, y: 0.20, width: 0.156, height: 0.40),
+            CGRect(x: 0.394, y: 0.20, width: 0.277, height: 0.40),
+        ])
+        #expect(columns.count == 1)
+        #expect(abs(columns[0].minX - 0.375) < 0.000_1)
+        #expect(abs(columns[0].maxX - 0.671) < 0.000_1)
+    }
+
     @Test func aShortFragmentIsDropped() {
         let columns = SpineColumnGrouper.columns(from: [
             CGRect(x: 0.30, y: 0.40, width: 0.05, height: 0.04),
