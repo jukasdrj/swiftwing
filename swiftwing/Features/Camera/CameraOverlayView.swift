@@ -30,20 +30,23 @@ struct CameraOverlayView: View {
         viewModel.reviewQueueManager.scanCompleteBanner != nil
     }
 
-    /// Live OCR boxes over the aspect-filled preview. They do not receive taps.
+    /// One hairline outline per spine over the aspect-filled preview. They do not receive taps.
     private var liveTextOverlay: some View {
         GeometryReader { geo in
             let frameAspect = viewModel.cameraManager.displayedFrameAspect
             let viewAspect = geo.size.height > 0 ? geo.size.width / geo.size.height : 0
             if frameAspect > 0, viewAspect > 0 {
-                ForEach(viewModel.liveTextObservations) { observation in
+                ForEach(viewModel.liveSpineOutlines) { outline in
                     let rect = LiveTextGeometry.overlayRect(
-                        visionBottomLeft: observation.visionBottomLeft,
+                        visionBottomLeft: outline.rect,
                         frameAspect: frameAspect,
                         viewAspect: viewAspect
                     )
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(Color.internationalOrange, lineWidth: 2)
+                        .stroke(
+                            Color.internationalOrange.opacity(outline.displayOpacity),
+                            lineWidth: 1.5
+                        )
                         .frame(
                             width: rect.width * geo.size.width,
                             height: rect.height * geo.size.height
