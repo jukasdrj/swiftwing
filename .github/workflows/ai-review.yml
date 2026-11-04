@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   ai-review:
-    uses: jukasdrj/ai-review/.github/workflows/review.yml@ec8a93d528068dd2fea27b3aa2a1c417806401da # v1.0.0
+    uses: jukasdrj/ai-review/.github/workflows/review.yml@3ffdab7e612f4892df63cfde038d352932712d95 # v1.1.0
     permissions:
       contents: read
       pull-requests: write
