@@ -134,7 +134,7 @@ SSE, firehose, and cleanup endpoints are removed. See `CLAUDE.md` for the full i
 
 - **Xcode:** 27+ (iOS 27 SDK)
 - **macOS:** Sequoia 15+
-- **Swift:** 6.2
+- **Swift:** 6.4 (Xcode 27.2 ships Swift 6.4.2)
 - **Simulator:** iPhone 18 Pro Max
 - **CLI tool:** `xcsift` (required for all builds)
 

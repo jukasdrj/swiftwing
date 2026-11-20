@@ -16,7 +16,7 @@ struct RootView: View {
     }
 
     private var isUITesting: Bool {
-        ProcessInfo.processInfo.arguments.contains("UI_TESTING")
+        ProcessInfo.processInfo.arguments.contains(TestLaunch.uiTesting)
     }
 
     var body: some View {
@@ -105,7 +105,16 @@ enum AppTab: Int, Hashable {
 struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = CameraViewModel()
-    @State private var selectedTab: AppTab = ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") ? .camera : .library
+    @State private var selectedTab: AppTab = Self.initialTab
+
+    private static var initialTab: AppTab {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains(TestLaunch.injectTestImage) ? .camera : .library
+    }
+    #if DEBUG
+    @State private var showTestBench = false
+    @State private var showOnboardingPreview = false
+    #endif
     /// Cached book count refreshed via fetchCount — avoids loading full Book objects into memory.
     @State private var bookCount: Int = 0
 
@@ -139,6 +148,32 @@ struct MainTabView: View {
                 viewModel.requestedTab = nil
             }
         }
+        #if DEBUG
+        .overlay(alignment: .bottomLeading) {
+            Button("Test bench") {
+                showTestBench = true
+            }
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: Capsule())
+            .padding(.leading, 12)
+            .padding(.bottom, 8)
+            .accessibilityIdentifier("test_bench_open")
+        }
+        .sheet(isPresented: $showTestBench) {
+            ShelfTestBenchView(
+                viewModel: viewModel,
+                selectedTab: $selectedTab,
+                showOnboardingPreview: $showOnboardingPreview
+            )
+        }
+        .fullScreenCover(isPresented: $showOnboardingPreview) {
+            OnboardingView {
+                showOnboardingPreview = false
+            }
+        }
+        #endif
     }
 }
 

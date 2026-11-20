@@ -93,15 +93,15 @@ struct SwiftwingApp: App {
     private func configureForUITesting() {
         let arguments = ProcessInfo.processInfo.arguments
 
-        if arguments.contains("FORCE_ONBOARDING") {
+        if arguments.contains(TestLaunch.forceOnboarding) {
             UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
         }
 
-        if arguments.contains("FORCE_CAMERA_GUIDANCE") {
+        if arguments.contains(TestLaunch.forceCameraGuidance) {
             UserDefaults.standard.set(false, forKey: "hasSeenCameraGuidance")
         }
 
-        guard arguments.contains("UI_TESTING") else { return }
+        guard arguments.contains(TestLaunch.uiTesting) else { return }
 
         // Skip onboarding for test determinism
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
@@ -115,7 +115,7 @@ struct SwiftwingApp: App {
 
         let context = sharedModelContainer.mainContext
 
-        if arguments.contains("CLEAR_DATA") {
+        if arguments.contains(TestLaunch.clearData) {
             // Delete all books for clean-slate testing
             do {
                 try context.delete(model: Book.self)
@@ -127,7 +127,7 @@ struct SwiftwingApp: App {
         }
 
         #if DEBUG
-        if arguments.contains("SEED_LIBRARY") {
+        if arguments.contains(TestLaunch.seedLibrary) {
             // Clear first to ensure deterministic seed count
             do {
                 try context.delete(model: Book.self)

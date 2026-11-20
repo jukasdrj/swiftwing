@@ -109,73 +109,33 @@ struct CameraView: View {
                 showGuidance = true
             }
         }
+        .onChange(of: hasSeenCameraGuidance) { _, seen in
+            if !seen {
+                showGuidance = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showCameraGuidance)) { _ in
+            showGuidance = true
+        }
         .task {
             viewModel.modelContext = modelContext
             await viewModel.setupCamera()
             await viewModel.checkAndUploadQueuedScans()
 
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("INJECT_TEST_IMAGE") {
-                // Write debug log to file for integration test diagnosis
-                let logFile = URL(fileURLWithPath: "/tmp/swiftwing-integration-test.log")
-                func debugLog(_ msg: String) {
-                    let timestamp = ISO8601DateFormatter().string(from: Date())
-                    let line = "[\(timestamp)] \(msg)\n"
-                    if let data = line.data(using: .utf8) {
-                        if FileManager.default.fileExists(atPath: logFile.path) {
-                            if let handle = try? FileHandle(forWritingTo: logFile) {
-                                handle.seekToEndOfFile()
-                                handle.write(data)
-                                handle.closeFile()
-                            }
-                        } else {
-                            try? data.write(to: logFile)
-                        }
+            if ProcessInfo.processInfo.arguments.contains(TestLaunch.injectTestImage) {
+                // Unstructured task: awaiting inside .task is cancelled when camera state
+                // updates re-render the view. Same pattern as captureImage().
+                let model = viewModel
+                let context = modelContext
+                Task {
+                    guard let imageData = await ShelfFixtureLoader.dataForLaunchInjection() else {
+                        e2eLogger.error("INJECT_TEST_IMAGE: no image")
+                        return
                     }
-                    e2eLogger.info("🧪 \(msg)")
-                }
-
-                debugLog("INJECT_TEST_IMAGE: Starting test image injection")
-                debugLog("INJECT_TEST_IMAGE: modelContext available = true")
-
-                let imageData: Data?
-                if let bundleUrl = Bundle.main.url(forResource: "test_book_stack", withExtension: "jpg") {
-                    debugLog("INJECT_TEST_IMAGE: Found image in bundle at \(bundleUrl.path)")
-                    imageData = try? Data(contentsOf: bundleUrl)
-                } else {
-                    debugLog("INJECT_TEST_IMAGE: Bundle lookup failed, trying filesystem")
-                    let paths = [
-                        "/Users/juju/dev_repos/swiftwing/test_book_stack.jpg",
-                        ProcessInfo.processInfo.environment["TEST_IMAGE_PATH"],
-                    ].compactMap(\.self)
-                    imageData = paths.compactMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }.first
-                }
-
-                if let imageData {
-                    debugLog("INJECT_TEST_IMAGE: Loaded \(imageData.count) bytes")
-                    debugLog("INJECT_TEST_IMAGE: Launching scan (fire-and-forget)...")
-                    let itemId = UUID()
-                    // CRITICAL: Use fire-and-forget Task, NOT await.
-                    // Awaiting inside .task{} causes cancellation when @Observable state
-                    // changes trigger view re-render (SwiftUI cancels .task on identity change).
-                    // This matches the normal captureImage() pattern at line 232.
-                    let scanTask = Task {
-                        await viewModel.processCaptureWithImageData(
-                            itemId: itemId,
-                            imageData: imageData,
-                            modelContext: modelContext
-                        )
-                        debugLog("INJECT_TEST_IMAGE: processCaptureWithImageData completed")
-                        debugLog("INJECT_TEST_IMAGE: pendingReviewBooks.count = \(viewModel.reviewQueueManager.pendingReviewBooks.count)")
-                        debugLog("INJECT_TEST_IMAGE: processingQueue.count = \(viewModel.queueStateManager.processingQueue.count)")
-                        for (i, book) in viewModel.reviewQueueManager.pendingReviewBooks.enumerated() {
-                            debugLog("INJECT_TEST_IMAGE: pendingBook[\(i)] = '\(book.metadata.resolvedTitle)' by '\(book.metadata.resolvedAuthor)'")
-                        }
-                    }
-                    Task { await viewModel.scanCoordinator.trackJob(id: itemId, task: scanTask) }
-                    debugLog("INJECT_TEST_IMAGE: Scan task launched successfully")
-                } else {
-                    debugLog("INJECT_TEST_IMAGE: ERROR - Could not load test image from any path")
+                    let byteCount = imageData.count
+                    e2eLogger.info("INJECT_TEST_IMAGE: loaded \(byteCount, privacy: .public) bytes")
+                    ShelfScanInjection.start(jpeg: imageData, viewModel: model, modelContext: context)
                 }
             }
             #endif

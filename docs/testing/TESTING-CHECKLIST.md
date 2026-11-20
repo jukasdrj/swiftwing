@@ -1,5 +1,7 @@
 # SwiftWing Testing Checklist
 
+Device MCP setup, the debug Test bench, and the 15 shelf photos are in [device-mcp.md](device-mcp.md).
+
 ## Device-Only Verification (outstanding)
 
 These paths cannot be verified by the automated suite or in the Simulator. Everything
